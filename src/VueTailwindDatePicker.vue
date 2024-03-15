@@ -1485,7 +1485,7 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                     class="hidden h-full absolute inset-0 sm:flex justify-center items-center">
                     <div class="h-full border-r border-black/[.1] dark:border-vtd-secondary-700/[1]" />
                   </div>
-                  <div class="relative" :class="{
+                  <div class="relative overflow-hidden" :class="{
                     'mb-3 sm:mb-0 sm:mr-2 w-full md:w-1/2 lg:w-80':
                       asRange() && !props.asSingle,
                     'w-full': !asRange() && props.asSingle,
@@ -1561,7 +1561,7 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
             class="hidden h-full absolute inset-0 sm:flex justify-center items-center">
             <div class="h-full border-r border-black/[.1] dark:border-vtd-secondary-700/[1]" />
           </div>
-          <div class="relative w-full lg:w-80" :class="{
+          <div class="relative w-full lg:w-80 overflow-hidden" :class="{
             'mb-3 sm:mb-0 sm:mr-2 md:w-1/2': asRange() && !props.asSingle,
           }">
             <VtdHeader :panel="panel.previous" :calendar="calendar.previous" />
