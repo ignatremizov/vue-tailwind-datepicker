@@ -27,6 +27,7 @@ const singleDateValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
 
 const currentLocale = ref('en')
 const locales = ['en', 'es', 'de']
+const isDark = ref(false)
 
 function disableWeekendDates(date: Date) {
   const day = dayjs(date).day()
@@ -43,14 +44,23 @@ function onSelectSomething(e: Dayjs) {
 </script>
 
 <template>
-  <div class="p-10 bg-sky-50 min-h-screen">
+  <div :class="[isDark ? 'dark bg-slate-950' : 'bg-sky-50', 'min-h-screen px-10 pt-10 pb-[28rem]']">
     <label class="block">
-      <span class="text-sm text-slate-700">Choose one locale</span>
-      <select v-model="currentLocale" name="language" class="mb-6 mt-2 block rounded border border-slate-300 bg-white px-3 py-1.5">
+      <span class="text-sm text-slate-700 dark:text-slate-200">Choose one locale</span>
+      <select
+        v-model="currentLocale"
+        name="language"
+        class="mb-3 mt-2 block rounded border border-slate-300 bg-white px-3 py-1.5 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+      >
         <option v-for="locale in locales" :key="locale" :value="locale">
           {{ locale }}
         </option>
       </select>
+    </label>
+
+    <label class="mb-6 inline-flex cursor-pointer items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+      <input v-model="isDark" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-900">
+      <span>Dark Theme</span>
     </label>
 
     <div class="grid gap-4">

@@ -130,3 +130,4 @@ As a library consumer, I can enable or configure native-like selector behavior w
 - [RESOLVED 2026-02-12] Selector-mode header uses a combined month+year toggle button and hides side month arrows in selector mode.
 - [RESOLVED 2026-02-12] Selector focus tinting is configurable and can be disabled for custom visual systems.
 - [RESOLVED 2026-02-12] Selector mode supports two year wheel sync variants: `boundary` (default) and `fractional` (experimental/continuous).
+- [RESOLVED 2026-02-12] Selector wheel month/year visual styling is exposed via CSS variables (including typography, hover/selected states, and year-canvas tuning hooks).

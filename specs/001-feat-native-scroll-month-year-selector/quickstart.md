@@ -80,7 +80,7 @@ Record each manual run to make success criteria auditable.
 | 2026-02-11 | Codex | T021 single-panel range sync (`use-range` + `as-single`) | fail (non-picker favicon 404 only) | pass | Selector transitions stayed scoped to single displayed context; no second-panel state was introduced |
 | 2026-02-11 | Codex | T029 disabled-date constraints (`disableDate` weekend function) | fail (non-picker favicon 404 only) | pass | Weekend cells remained disabled after selector-mode month change and return to calendar |
 | 2026-02-11 | Codex | T029 invalid/empty model seeds (`''`, `not-a-date ~ not-a-date`) | fail (non-picker favicon 404 only) | pass | Popovers opened without runtime exceptions; both scenarios anchored to stable calendar months (Feb/Mar 2026) |
-| 2026-02-11 | Codex | T029 far-year offsets + small-screen 375x812 | fail (non-picker favicon 404 only) | pass with caveat | Year list remained virtually unbounded (visible through 2137 after jumping to 2077); mobile viewport stayed operable, but selected year vs header year showed offset drift in observed runs (`2035 -> 2037`, `2077 -> 2079`) requiring follow-up |
+| 2026-02-12 | Codex | T029 far-year offsets + small-screen 375x812 + selector sync modes | fail (non-picker favicon 404 only) | pass | Year list remained virtually unbounded under boundary/fractional modes; mobile viewport stayed operable; prior year/header drift issue was resolved |
 
 Checklist per run:
 1. Open browser devtools console and confirm no errors during calendar -> selector -> calendar transitions.

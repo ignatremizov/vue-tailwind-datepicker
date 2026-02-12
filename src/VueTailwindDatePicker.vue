@@ -777,6 +777,9 @@ function onSelectorYearUpdate(panelName: SelectionPanel, year: number) {
   const context = resolveSelectionContext(panelName)
   selectionContext.value = context
   if (resolveContextDate(context).year() === year) {
+    syncSelectorState(context, { syncAnchor: false })
+    if (shouldReanchorSelectorYearWindow(selectorState.selectedYear))
+      anchorSelectorYearWindow(selectorState.selectedYear)
     closeLegacyPanels()
     return
   }

@@ -361,11 +361,11 @@ onBeforeUnmount(() => {
             type="button"
             role="option"
             :aria-selected="props.selectedMonth === item.month && props.selectedYear === item.year"
-            class="px-3 py-2 block w-full leading-6 rounded-md text-xs 2xl:text-sm tracking-wide font-medium transition-colors border shadow-[inset_0_0_0_1px_rgb(148_163_184/10%)] dark:shadow-[inset_0_0_0_1px_rgb(148_163_184/16%)] focus:outline-hidden uppercase"
+            class="vtd-month-selector-btn px-3 py-2 block w-full rounded-[8px] tracking-wide transition-colors border focus:outline-hidden uppercase"
             :class="[
               props.selectedMonth === item.month && props.selectedYear === item.year
-                ? 'bg-vtd-primary-50 text-vtd-primary-700 border-vtd-primary-300 dark:bg-vtd-primary-500/20 dark:text-vtd-primary-200 dark:border-vtd-primary-500/40'
-                : 'bg-white text-vtd-secondary-600 border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 dark:bg-vtd-secondary-800 dark:hover:bg-vtd-secondary-700 dark:text-vtd-secondary-300 dark:hover:text-vtd-secondary-100 dark:focus:bg-vtd-secondary-700',
+                ? 'vtd-month-selector-btn-selected'
+                : 'vtd-month-selector-btn-default bg-transparent border-transparent focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 dark:focus:bg-vtd-secondary-700 dark:focus:text-vtd-secondary-100',
             ]"
             @click="onMonthClick(item)"
             v-text="props.months[item.month]"
@@ -375,3 +375,47 @@ onBeforeUnmount(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.vtd-month-selector-btn {
+  appearance: none;
+  -moz-appearance: none;
+  background-image: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--vtd-selector-wheel-cell-height, 40px);
+  padding-top: 0;
+  padding-bottom: 0;
+  border-width: var(--vtd-selector-month-selected-border-width, 0.85px);
+  font-family: var(--vtd-selector-month-font-family, inherit);
+  font-size: var(--vtd-selector-month-font-size, 0.875rem);
+  font-weight: var(--vtd-selector-month-font-weight, 500);
+  line-height: var(--vtd-selector-month-line-height, 1.5rem);
+  box-shadow: var(--vtd-selector-month-cell-shadow, none);
+}
+
+.vtd-month-selector-btn::-moz-focus-inner {
+  border: 0;
+  padding: 0;
+}
+
+.vtd-month-selector-btn-selected {
+  border-width: var(--vtd-selector-month-selected-border-width, 0.85px);
+  background-color: var(--vtd-selector-month-selected-bg, rgb(14 165 233 / 13%)) !important;
+  border-color: var(--vtd-selector-month-selected-border, rgb(14 165 233 / 62%)) !important;
+  color: var(--vtd-selector-month-selected-text, rgb(56 189 248 / 100%)) !important;
+}
+
+.vtd-month-selector-btn-default {
+  color: var(--vtd-selector-month-text, var(--color-vtd-secondary-600)) !important;
+}
+
+.vtd-month-selector-btn[aria-selected='false']:hover,
+.vtd-month-selector-btn[aria-selected='false']:active {
+  border-width: var(--vtd-selector-month-hover-border-width, 0.85px);
+  background-color: var(--vtd-selector-month-hover-bg, rgb(30 41 59 / 92%)) !important;
+  border-color: var(--vtd-selector-month-hover-border, rgb(100 116 139 / 50%)) !important;
+  color: var(--vtd-selector-month-hover-text, rgb(226 232 240 / 96%)) !important;
+}
+</style>

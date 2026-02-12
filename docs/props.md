@@ -587,3 +587,70 @@ const options = ref({
   />
 </template>
 ```
+
+## Selector Mode
+
+Enable native-like month/year wheel selectors. Default is `false`.
+
+<DemoLayout>
+  <VueTailwindDatePicker
+    v-model="dateValue3"
+    as-single
+    :selector-mode="true"
+  />
+</DemoLayout>
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    :selector-mode="true"
+  />
+</template>
+```
+
+## Selector Year Scroll Mode
+
+Choose year-wheel sync behavior when selector mode is enabled.
+
+- `boundary` (default): year wheel moves discretely on year boundaries.
+- `fractional`: year wheel drifts continuously with month progress.
+
+<DemoLayout>
+  <VueTailwindDatePicker
+    v-model="dateValue4"
+    as-single
+    use-range
+    :selector-mode="true"
+    selector-year-scroll-mode="fractional"
+  />
+</DemoLayout>
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    use-range
+    :selector-mode="true"
+    selector-year-scroll-mode="boundary"
+  />
+</template>
+```
+
+## Selector Focus Tint
+
+Control whether the active selector column receives extra focus tint styling.
+Default is `true`.
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    :selector-mode="true"
+    :selector-focus-tint="false"
+  />
+</template>
+```

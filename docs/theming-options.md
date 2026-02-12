@@ -37,3 +37,45 @@ Light mode color system using custom color `vtd-primary`.
 ## Dark mode
 
 Dark mode color system using color palette `vtd-secondary`. Vue Tailwind Datepicker work it well with Tailwind CSS `dark` mode configuration.
+
+## Selector Wheel Tokens
+
+When `selector-mode` is enabled, month/year wheel visuals can be tuned via CSS variables on `.vtd-datepicker`.
+
+```css
+.vtd-datepicker {
+  --vtd-selector-wheel-cell-height: 40px;
+
+  --vtd-selector-month-font-family: inherit;
+  --vtd-selector-month-font-size: 0.875rem;
+  --vtd-selector-month-font-weight: 500;
+  --vtd-selector-month-line-height: 1.5rem;
+  --vtd-selector-month-text: rgb(163 163 163 / 100%);
+  --vtd-selector-month-hover-bg: rgb(14 165 233 / 10%);
+  --vtd-selector-month-hover-border: rgb(56 189 248 / 45%);
+  --vtd-selector-month-hover-border-width: 0.85px;
+  --vtd-selector-month-hover-text: rgb(14 116 144 / 100%);
+  --vtd-selector-month-selected-bg: rgb(14 165 233 / 13%);
+  --vtd-selector-month-selected-border: rgb(14 165 233 / 62%);
+  --vtd-selector-month-selected-border-width: 0.85px;
+  --vtd-selector-month-selected-text: rgb(56 189 248 / 100%);
+
+  --vtd-selector-year-font-family: inherit;
+  --vtd-selector-year-font-size: 0.875rem;
+  --vtd-selector-year-font-weight: 500;
+  --vtd-selector-year-text: rgb(163 163 163 / 100%);
+  --vtd-selector-year-hover-bg: rgb(14 165 233 / 10%);
+  --vtd-selector-year-hover-border: rgb(56 189 248 / 45%);
+  --vtd-selector-year-hover-border-width: 0.85px;
+  --vtd-selector-year-hover-text: rgb(14 116 144 / 100%);
+  --vtd-selector-year-selected-bg: rgb(14 165 233 / 13%);
+  --vtd-selector-year-selected-border: rgb(14 165 233 / 62%);
+  --vtd-selector-year-selected-border-width: 0.85px;
+  --vtd-selector-year-selected-text: rgb(56 189 248 / 100%);
+
+  /* Advanced year-canvas tuning */
+  --vtd-selector-year-canvas-border-width-scale: 0.5;
+  --vtd-selector-year-canvas-dpr: 4;
+  --vtd-selector-year-text-offset-y: 0px;
+}
+```

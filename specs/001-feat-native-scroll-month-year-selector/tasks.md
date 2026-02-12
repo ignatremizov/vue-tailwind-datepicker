@@ -104,6 +104,8 @@
 - [x] T033 [US2] Ensure selector item click recenters wheel/list with smooth motion in `src/components/Month.vue` and `src/components/Year.vue` [FR-015, FR-016]
 - [x] T034 [US2] Stabilize selector-mode container dimensions across view toggles in `src/VueTailwindDatePicker.vue` [FR-014]
 - [x] T035 [US4] Add configurable selector focus tint behavior in `src/VueTailwindDatePicker.vue` and demo usage in `src/App.vue` [FR-013]
+- [x] T036 [US4] Document `selectorYearScrollMode` and `selectorFocusTint` usage in `README.md` and `docs/props.md` [FR-013, FR-017]
+- [x] T037 [US4] Document selector wheel styling tokens (including year-canvas tuning variables) in `docs/theming-options.md` [FR-010]
 
 **Checkpoint**: API is backward compatible and documented.
 
@@ -118,6 +120,7 @@
 - [x] T027 [Shared] Execute quickstart verification checklist in `specs/001-feat-native-scroll-month-year-selector/quickstart.md` and record outcomes in PR notes [SC-001, SC-004]
 - [x] T028 [Shared] Verify and document SC-002 interaction-count criterion (<=2 direct interactions after selector open, excluding scroll distance) using `src/App.vue` scenarios [SC-002]
 - [x] T029 [Shared] Execute and document edge-case matrix checks (far-year offsets, small screens, disabled-date constraints, invalid/empty model, double-panel clicked-context) in `specs/001-feat-native-scroll-month-year-selector/quickstart.md` [FR-004, FR-006, FR-007, FR-010, FR-011, SC-004]
+- [x] T038 [Shared] Update quickstart QA evidence after selector sync fixes (`boundary` + `fractional`) in `specs/001-feat-native-scroll-month-year-selector/quickstart.md` [SC-004]
 
 ---
 

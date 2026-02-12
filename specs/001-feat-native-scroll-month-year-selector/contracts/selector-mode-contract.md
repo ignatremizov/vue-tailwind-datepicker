@@ -31,6 +31,19 @@ Public and internal behavior contract for native-like month/year selector mode.
   - `boundary`: year wheel moves discretely when year changes.
   - `fractional`: year wheel position drifts continuously with month progress (June-centered anchor) while selected year semantics remain discrete.
 
+### Selector Styling Surface
+
+- Month and year wheels expose CSS variable-based styling hooks on `.vtd-datepicker`.
+- Required customizable groups:
+  - typography (font family, size, weight)
+  - default/hover/selected text colors
+  - default/hover/selected background and border colors
+  - wheel cell sizing (`--vtd-selector-wheel-cell-height`)
+- Year wheel additionally exposes canvas tuning hooks:
+  - `--vtd-selector-year-canvas-border-width-scale`
+  - `--vtd-selector-year-canvas-dpr`
+  - `--vtd-selector-year-text-offset-y`
+
 ## Toggle Behavior Contract
 
 1. Enter selector mode
