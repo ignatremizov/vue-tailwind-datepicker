@@ -54,6 +54,41 @@ const formatter = ref({
 </template>
 ```
 
+## Native Scroll Selector Mode
+
+Enable native-like month/year scrolling with `selectorMode` (use `:selector-mode` in templates). Default is `false`.
+
+**Single date**
+
+```vue
+<script setup>
+import { ref } from "vue";
+
+const singleDate = ref("");
+</script>
+
+<template>
+  <vue-tailwind-datepicker v-model="singleDate" as-single :selector-mode="true" />
+</template>
+```
+
+**Range**
+
+```vue
+<script setup>
+import { ref } from "vue";
+
+const rangeDate = ref({
+  startDate: "",
+  endDate: "",
+});
+</script>
+
+<template>
+  <vue-tailwind-datepicker v-model="rangeDate" use-range :selector-mode="true" />
+</template>
+```
+
 ## Theming options
 
 **Light Mode**

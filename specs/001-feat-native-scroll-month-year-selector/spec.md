@@ -25,6 +25,7 @@ As a date picker user, I can click the header in calendar view and toggle into a
 1. **Given** the picker is open in calendar view, **When** the user clicks the month label in the header, **Then** the picker transitions to the selector view focused on month selection while showing year selection context.
 2. **Given** the picker is open in calendar view, **When** the user clicks the year label in the header, **Then** the picker transitions to the selector view focused on year selection while showing month selection context.
 3. **Given** selector view is open, **When** the user toggles back to calendar view from the header control, **Then** the picker returns to calendar view with the selected month/year applied.
+4. **Given** selector mode is enabled, **When** the header renders, **Then** month and year are shown as a single explicit toggle button and side month-navigation arrows are hidden.
 
 ---
 
@@ -97,6 +98,12 @@ As a library consumer, I can enable or configure native-like selector behavior w
 - **FR-010**: System MUST maintain visual consistency with current component styling system.
 - **FR-011**: System MUST support virtually unbounded year scrolling in selector mode.
 - **FR-012**: System MUST use a native-like toggle flow between calendar view and selector view rather than auto-closing on month/year selection.
+- **FR-013**: System MUST expose styling control to disable selector focus tinting between month/year columns while preserving functional focus behavior.
+- **FR-014**: System MUST keep selector-mode container dimensions visually stable (no width/height jitter) during calendar <-> selector toggles in the same mode/context.
+- **FR-015**: System MUST center clicked selector items in their wheel/list view using smooth motion where applicable.
+- **FR-016**: System MUST support wheel-like continuous month scrolling behavior that mimics native calendar selectors while keeping selected month/year semantics correct.
+- **FR-017**: System MUST expose a selector year-scroll mode option with `boundary` (clarity-first default) and `fractional` (continuous drift) variants.
+- **FR-018**: System MUST present selector-mode header control styling that clearly communicates clickability/toggle intent.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -120,3 +127,6 @@ As a library consumer, I can enable or configure native-like selector behavior w
 - [RESOLVED 2026-02-11] In single-panel range mode (`use-range` + `as-single`), selector edits the currently displayed month/year context only.
 - [RESOLVED 2026-02-11] Selector flow mimics native picker toggle behavior between calendar and selector views.
 - [RESOLVED 2026-02-11] Year selector should be virtually unbounded.
+- [RESOLVED 2026-02-12] Selector-mode header uses a combined month+year toggle button and hides side month arrows in selector mode.
+- [RESOLVED 2026-02-12] Selector focus tinting is configurable and can be disabled for custom visual systems.
+- [RESOLVED 2026-02-12] Selector mode supports two year wheel sync variants: `boundary` (default) and `fractional` (experimental/continuous).

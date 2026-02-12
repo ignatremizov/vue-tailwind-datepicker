@@ -7,6 +7,8 @@
 
 Add an opt-in selector mode for `vue-tailwind-datepicker` that toggles between calendar view and native-like month/year scrolling selectors. The implementation must preserve existing single/range behavior, support single-panel range (`use-range` + `as-single`) and double-panel range (per-panel selector context), and keep the existing default behavior unchanged unless explicitly enabled.
 
+Current UX scope also includes: explicit selector-header toggle affordance, configurable selector focus tinting, selector container size stability across view toggles, click-to-center selector behavior, and selectable year scroll sync variants (`boundary` and `fractional`).
+
 ## Technical Context
 
 **Language/Version**: TypeScript 5.9, Vue 3.5 SFCs  
@@ -75,6 +77,8 @@ See `research.md`.
    - Single-panel range: operate on displayed month/year only.
    - Double-panel range: operate on clicked panel only.
 5. Preserve model update behavior and auto-apply/manual apply semantics.
+6. Provide stable visual container geometry and clear selector-toggle affordance.
+7. Support both clarity-first and continuous year-wheel sync variants via prop.
 
 Detailed entities and transitions are in `data-model.md` and `contracts/selector-mode-contract.md`.
 
@@ -105,6 +109,7 @@ Detailed entities and transitions are in `data-model.md` and `contracts/selector
 
 - Far-year navigation: verify virtual year window behavior at large positive/negative offsets (maps to FR-011).
 - Small screens: verify selector mode layout and toggle behavior on mobile breakpoints (maps to FR-004, FR-010).
+- Visual stability: verify no width/height jitter when toggling calendar <-> selector for same mode/config (maps to FR-014).
 - Disabled dates/month constraints: verify month/year changes do not break disabled-date semantics (maps to FR-006, FR-007).
 - Invalid/empty model values: verify selector entry and fallback anchoring behavior remain stable (maps to FR-006).
 - Double-panel interaction boundaries: verify clicked-panel-only rule is preserved (maps to FR-006).

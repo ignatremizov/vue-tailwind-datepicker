@@ -41,11 +41,11 @@
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Add selector-view rendering branch in `src/VueTailwindDatePicker.vue` while preserving current calendar rendering [FR-001, FR-012]
-- [ ] T008 [P] [US1] Add month selector UI component implementation in `src/components/Month.vue` (or new selector component wired here) with scrollable interaction [FR-002, FR-004]
-- [ ] T009 [P] [US1] Add year selector UI component implementation in `src/components/Year.vue` (or new selector component wired here) with scrollable interaction [FR-002, FR-004]
-- [ ] T010 [US1] Wire Header interaction to selector focus (month/year) and selector-to-calendar toggle in `src/VueTailwindDatePicker.vue` [FR-001, FR-005, FR-012]
-- [ ] T011 [US1] Ensure default mode (`selectorMode=false`) path uses legacy month/year panels unchanged in `src/VueTailwindDatePicker.vue` [FR-008]
+- [x] T007 [US1] Add selector-view rendering branch in `src/VueTailwindDatePicker.vue` while preserving current calendar rendering [FR-001, FR-012]
+- [x] T008 [P] [US1] Add month selector UI component implementation in `src/components/Month.vue` (or new selector component wired here) with scrollable interaction [FR-002, FR-004]
+- [x] T009 [P] [US1] Add year selector UI component implementation in `src/components/Year.vue` (or new selector component wired here) with scrollable interaction [FR-002, FR-004]
+- [x] T010 [US1] Wire Header interaction to selector focus (month/year) and selector-to-calendar toggle in `src/VueTailwindDatePicker.vue` [FR-001, FR-005, FR-012]
+- [x] T011 [US1] Ensure default mode (`selectorMode=false`) path uses legacy month/year panels unchanged in `src/VueTailwindDatePicker.vue` [FR-008]
 
 **Checkpoint**: Selector mode flow is functional and legacy flow still works when disabled.
 
@@ -59,11 +59,11 @@
 
 ### Implementation for User Story 2
 
-- [ ] T012 [US2] Implement month selection handler in `src/VueTailwindDatePicker.vue` that updates active context without popover close [FR-003, FR-012]
-- [ ] T013 [US2] Implement year selection handler in `src/VueTailwindDatePicker.vue` that updates active context without popover close [FR-003, FR-012]
-- [ ] T014 [US2] Add virtually unbounded year window generation/anchoring logic in `src/VueTailwindDatePicker.vue` and/or `src/composables/date.ts` [FR-011]
-- [ ] T015 [US2] Add scroll-snap and item-state styling for selector lists in `src/index.css` (and any related component classes) [FR-004, FR-010]
-- [ ] T016 [US2] Validate selector update latency and avoid heavy per-scroll recomputation in `src/VueTailwindDatePicker.vue` [SC-004]
+- [x] T012 [US2] Implement month selection handler in `src/VueTailwindDatePicker.vue` that updates active context without popover close [FR-003, FR-012]
+- [x] T013 [US2] Implement year selection handler in `src/VueTailwindDatePicker.vue` that updates active context without popover close [FR-003, FR-012]
+- [x] T014 [US2] Add virtually unbounded year window generation/anchoring logic in `src/VueTailwindDatePicker.vue` and/or `src/composables/date.ts` [FR-011]
+- [x] T015 [US2] Add scroll-snap and item-state styling for selector lists in `src/index.css` (and any related component classes) [FR-004, FR-010]
+- [x] T016 [US2] Validate selector update latency and avoid heavy per-scroll recomputation in `src/VueTailwindDatePicker.vue` [SC-004]
 
 **Checkpoint**: Selector interactions are smooth and correctly drive month/year changes.
 
@@ -77,11 +77,11 @@
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] Implement `selectionContext` derivation for single mode and single-panel range (`use-range` + `as-single`) in `src/VueTailwindDatePicker.vue` [FR-006]
-- [ ] T018 [US3] Implement per-panel context routing for double-panel range (clicked header determines panel) in `src/VueTailwindDatePicker.vue` [FR-006]
-- [ ] T019 [US3] Verify autoApply/manual apply behavior remains unchanged after selector updates in `src/VueTailwindDatePicker.vue` [FR-007]
-- [ ] T020 [US3] Ensure keyboard entry/exit focus management for selector mode in `src/VueTailwindDatePicker.vue` and `src/components/Header.vue` [FR-009]
-- [ ] T021 [US3] Manual non-regression run for range panel sync edge cases using `src/App.vue` demo scenarios [SC-003, SC-004]
+- [x] T017 [US3] Implement `selectionContext` derivation for single mode and single-panel range (`use-range` + `as-single`) in `src/VueTailwindDatePicker.vue` [FR-006]
+- [x] T018 [US3] Implement per-panel context routing for double-panel range (clicked header determines panel) in `src/VueTailwindDatePicker.vue` [FR-006]
+- [x] T019 [US3] Verify autoApply/manual apply behavior remains unchanged after selector updates in `src/VueTailwindDatePicker.vue` [FR-007]
+- [x] T020 [US3] Ensure keyboard entry/exit focus management for selector mode in `src/VueTailwindDatePicker.vue` and `src/components/Header.vue` [FR-009]
+- [x] T021 [US3] Manual non-regression run for range panel sync edge cases using `src/App.vue` demo scenarios [SC-003, SC-004]
 
 **Checkpoint**: Existing model semantics and accessibility behavior are preserved.
 
@@ -95,9 +95,15 @@
 
 ### Implementation for User Story 4
 
-- [ ] T022 [US4] Document new `selectorMode` prop in `README.md` with examples for single and range usage [FR-008]
-- [ ] T023 [US4] Add opt-in selector mode example in `src/App.vue` for manual verification [FR-008, SC-001]
-- [ ] T024 [US4] Ensure emitted behavior and exposed API remain unchanged unless `selectorMode` is enabled in `src/VueTailwindDatePicker.vue` [FR-008]
+- [x] T022 [US4] Document new `selectorMode` prop in `README.md` with examples for single and range usage [FR-008]
+- [x] T023 [US4] Add opt-in selector mode example in `src/App.vue` for manual verification [FR-008, SC-001]
+- [x] T024 [US4] Ensure emitted behavior and exposed API remain unchanged unless `selectorMode` is enabled in `src/VueTailwindDatePicker.vue` [FR-008]
+- [x] T030 [US4] Add configurable selector year scroll mode (`boundary` default, `fractional` experimental) in `src/VueTailwindDatePicker.vue` and `src/components/Year.vue` [FR-008, FR-011]
+- [x] T031 [US4] Add both selector year-scroll variants in `src/App.vue` for side-by-side UX validation [SC-004]
+- [x] T032 [US1] Update selector-mode header to a single combined month+year toggle and hide side arrows in selector mode in `src/components/Header.vue` [FR-001, FR-018]
+- [x] T033 [US2] Ensure selector item click recenters wheel/list with smooth motion in `src/components/Month.vue` and `src/components/Year.vue` [FR-015, FR-016]
+- [x] T034 [US2] Stabilize selector-mode container dimensions across view toggles in `src/VueTailwindDatePicker.vue` [FR-014]
+- [x] T035 [US4] Add configurable selector focus tint behavior in `src/VueTailwindDatePicker.vue` and demo usage in `src/App.vue` [FR-013]
 
 **Checkpoint**: API is backward compatible and documented.
 
@@ -107,11 +113,11 @@
 
 **Purpose**: Final checks across all stories.
 
-- [ ] T025 [Shared] Run `npm run typecheck` and address failures [SC-003]
-- [ ] T026 [Shared] Run `npm run build` and address failures [SC-001, SC-003]
-- [ ] T027 [Shared] Execute quickstart verification checklist in `specs/001-feat-native-scroll-month-year-selector/quickstart.md` and record outcomes in PR notes [SC-001, SC-004]
-- [ ] T028 [Shared] Verify and document SC-002 interaction-count criterion (<=2 direct interactions after selector open, excluding scroll distance) using `src/App.vue` scenarios [SC-002]
-- [ ] T029 [Shared] Execute and document edge-case matrix checks (far-year offsets, small screens, disabled-date constraints, invalid/empty model, double-panel clicked-context) in `specs/001-feat-native-scroll-month-year-selector/quickstart.md` [FR-004, FR-006, FR-007, FR-010, FR-011, SC-004]
+- [x] T025 [Shared] Run `npm run typecheck` and address failures [SC-003]
+- [x] T026 [Shared] Run `npm run build` and address failures [SC-001, SC-003]
+- [x] T027 [Shared] Execute quickstart verification checklist in `specs/001-feat-native-scroll-month-year-selector/quickstart.md` and record outcomes in PR notes [SC-001, SC-004]
+- [x] T028 [Shared] Verify and document SC-002 interaction-count criterion (<=2 direct interactions after selector open, excluding scroll distance) using `src/App.vue` scenarios [SC-002]
+- [x] T029 [Shared] Execute and document edge-case matrix checks (far-year offsets, small screens, disabled-date constraints, invalid/empty model, double-panel clicked-context) in `specs/001-feat-native-scroll-month-year-selector/quickstart.md` [FR-004, FR-006, FR-007, FR-010, FR-011, SC-004]
 
 ---
 

@@ -40,3 +40,56 @@
     --color-vtd-secondary-950: var(--color-gray-950);
 }
 
+@layer components {
+    .vtd-datepicker [aria-label='Month selector'],
+    .vtd-datepicker [aria-label='Year selector'] {
+        overscroll-behavior-y: contain;
+        scrollbar-gutter: stable;
+    }
+
+    .vtd-datepicker [aria-label='Month selector'] {
+        scroll-snap-type: none;
+        scrollbar-width: none;
+    }
+
+    .vtd-datepicker [aria-label='Month selector']::-webkit-scrollbar {
+        display: none;
+    }
+
+    .vtd-datepicker [role='listbox'] button[aria-selected]:focus-visible {
+        outline: 0;
+        box-shadow: 0 0 0 2px var(--color-vtd-primary-300), 0 0 0 5px rgb(14 165 233 / 10%);
+    }
+
+    .dark .vtd-datepicker [role='listbox'] button[aria-selected]:focus-visible {
+        box-shadow: 0 0 0 2px var(--color-vtd-primary-500), 0 0 0 5px rgb(14 165 233 / 20%);
+    }
+
+    .vtd-datepicker [aria-label='Year selector'] button[aria-selected='true'] {
+        border-color: var(--color-vtd-primary-400);
+        box-shadow:
+            inset 0 0 0 1px rgb(56 189 248 / 40%),
+            0 8px 18px -16px rgb(14 165 233 / 65%);
+    }
+
+    .dark .vtd-datepicker [aria-label='Year selector'] button[aria-selected='true'] {
+        border-color: rgb(56 189 248 / 45%);
+        box-shadow:
+            inset 0 0 0 1px rgb(56 189 248 / 45%),
+            0 8px 18px -16px rgb(14 165 233 / 45%);
+    }
+
+    .vtd-datepicker .vtd-year-scrolling button {
+        transition: none !important;
+        box-shadow: none !important;
+    }
+
+    .vtd-datepicker .vtd-year-scrolling button[aria-selected='true'] {
+        border-color: var(--color-vtd-primary-400);
+    }
+
+    .dark .vtd-datepicker .vtd-year-scrolling button[aria-selected='true'] {
+        border-color: rgb(56 189 248 / 45%);
+    }
+
+}
