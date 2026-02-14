@@ -13,6 +13,9 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/unit/**/*.spec.ts'],
+    sequence: {
+      concurrent: false,
+    },
     clearMocks: true,
   },
 })

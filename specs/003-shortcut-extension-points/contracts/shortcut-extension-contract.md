@@ -111,7 +111,7 @@ type ShortcutRenderPayload = {
 ```ts
 type InvalidShortcutReason =
   | 'blocked-date'
-  | 'invalid-mode-output'
+  | 'mode-mismatch'
   | 'resolver-error'
   | 'invalid-result'
 
