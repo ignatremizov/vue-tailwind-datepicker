@@ -35,7 +35,19 @@ import VtdWeek from './components/Week.vue'
 import VtdMonth from './components/Month.vue'
 import useDate from './composables/date'
 import useDom from './composables/dom'
-import type { DatePickerDay } from './types'
+import {
+  formatModelDateWithDirectYear,
+  formatSignedYearToken,
+  parseModelDateWithDirectYear,
+  resolveDirectYearInputToken,
+} from './composables/directYearInput'
+import type {
+  DatePickerDay,
+  SelectionPanel,
+  SelectorFocus,
+  SelectorYearInputEventPayload,
+  YearNumberingMode,
+} from './types'
 import {
   atMouseOverKey,
   betweenRangeClassesKey,
@@ -73,6 +85,8 @@ export interface Props {
   selectorMode?: boolean
   selectorFocusTint?: boolean
   selectorYearScrollMode?: 'boundary' | 'fractional'
+  directYearInput?: boolean
+  yearNumberingMode?: YearNumberingMode
   closeOnRangeSelection?: boolean
   options?: {
     shortcuts: {
@@ -117,6 +131,8 @@ const props = withDefaults(defineProps<Props>(), {
   selectorMode: false,
   selectorFocusTint: true,
   selectorYearScrollMode: 'boundary',
+  directYearInput: false,
+  yearNumberingMode: 'historical',
   closeOnRangeSelection: true,
   options: () => ({
     shortcuts: {
@@ -451,15 +467,26 @@ const calendar = computed(() => {
 
 const displayDatepicker = ref(false)
 type PickerViewMode = 'calendar' | 'selector'
-type SelectorFocus = 'month' | 'year'
 type SelectionContext = 'single' | 'singleRangeDisplayed' | 'previousPanel' | 'nextPanel'
-type SelectionPanel = 'previous' | 'next'
 type SelectorMonthPayload = number | { month: number, year: number }
+type CommitBoundaryEvent = 'enterInPlace' | 'apply' | 'closeWithPersist' | 'escape' | 'cancel' | 'backdropDismiss' | 'blur'
 
 interface SelectorState {
   selectedMonth: number
   selectedYear: number
   anchorYear: number
+}
+
+interface SelectorYearInputSessionState {
+  rawText: string
+  parsedYear: number | null
+  isValidToken: boolean
+  lastValidYear: number
+}
+
+interface RangeNormalizationState {
+  hasTemporaryInversion: boolean
+  normalizationBoundaryPending: boolean
 }
 
 interface HeaderInteractionPayload {
@@ -469,6 +496,13 @@ interface HeaderInteractionPayload {
 
 interface TogglePickerViewOptions {
   restoreFocus?: boolean
+}
+
+interface CommitTypedYearOptions {
+  emitModelUpdate?: boolean
+  allowTemporaryInversion?: boolean
+  syncSelectorStateAfterCommit?: boolean
+  updateSession?: boolean
 }
 
 const SELECTOR_YEAR_WINDOW_SIZE = 401
@@ -482,6 +516,16 @@ const selectorState = reactive<SelectorState>({
   selectedMonth: datepicker.value.previous.month(),
   selectedYear: datepicker.value.previous.year(),
   anchorYear: datepicker.value.previous.year(),
+})
+const selectorYearInputSession = reactive<SelectorYearInputSessionState>({
+  rawText: formatSignedYearToken(datepicker.value.previous.year()),
+  parsedYear: datepicker.value.previous.year(),
+  isValidToken: true,
+  lastValidYear: datepicker.value.previous.year(),
+})
+const rangeNormalizationState = reactive<RangeNormalizationState>({
+  hasTemporaryInversion: false,
+  normalizationBoundaryPending: false,
 })
 
 function generateSelectorYears(anchorYear: number) {
@@ -518,6 +562,150 @@ function resolveContextDate(context: SelectionContext): Dayjs {
 
 function resolveContextPanel(context: SelectionContext): SelectionPanel {
   return context === 'nextPanel' ? 'next' : 'previous'
+}
+
+function parseModelDateCandidate(value: unknown) {
+  return parseModelDateWithDirectYear(value, props.formatter.date)
+}
+
+function resolveModelRangeDates() {
+  let startDate: Dayjs | null = null
+  let endDate: Dayjs | null = null
+
+  if (Array.isArray(props.modelValue)) {
+    const [start, end] = props.modelValue
+    startDate = parseModelDateCandidate(start)
+    endDate = parseModelDateCandidate(end)
+  }
+  else if (typeof props.modelValue === 'object') {
+    if (props.modelValue) {
+      const [start, end] = Object.values(props.modelValue)
+      startDate = parseModelDateCandidate(start)
+      endDate = parseModelDateCandidate(end)
+    }
+  }
+  else if (typeof props.modelValue === 'string' && props.modelValue.length > 0) {
+    const [start, end] = props.modelValue.split(props.separator)
+    startDate = parseModelDateCandidate(start)
+    endDate = parseModelDateCandidate(end)
+  }
+
+  return { startDate, endDate }
+}
+
+function emitRangeModelValue(startDate: Dayjs, endDate: Dayjs) {
+  const formattedStart = formatModelDateWithDirectYear(startDate, props.formatter.date)
+  const formattedEnd = formatModelDateWithDirectYear(endDate, props.formatter.date)
+
+  if (Array.isArray(props.modelValue)) {
+    emit('update:modelValue', [formattedStart, formattedEnd])
+    return
+  }
+
+  if (typeof props.modelValue === 'object') {
+    const payload: Record<string, string> = {}
+    const [startKey = 'startDate', endKey = 'endDate'] = Object.keys(props.modelValue ?? {})
+    payload[startKey] = formattedStart
+    payload[endKey] = formattedEnd
+    emit('update:modelValue', payload)
+    return
+  }
+
+  emit('update:modelValue', `${formattedStart}${props.separator}${formattedEnd}`)
+}
+
+function emitSingleModelValue(value: Dayjs) {
+  const formattedValue = formatModelDateWithDirectYear(value, props.formatter.date)
+
+  if (Array.isArray(props.modelValue)) {
+    emit('update:modelValue', [formattedValue])
+    return
+  }
+
+  if (typeof props.modelValue === 'object') {
+    const payload: Record<string, string> = {}
+    const [startKey = 'startDate'] = Object.keys(props.modelValue ?? {})
+    payload[startKey] = formattedValue
+    emit('update:modelValue', payload)
+    return
+  }
+
+  emit('update:modelValue', formattedValue)
+}
+
+function emitActiveContextModelValueForTypedYear(context: SelectionContext) {
+  if (!asRange()) {
+    emitSingleModelValue(resolveContextDate(context))
+    return
+  }
+
+  const isNextPanel = context === 'nextPanel'
+  const { startDate, endDate } = resolveModelRangeDates()
+  const nextStart = isNextPanel
+    ? (startDate ?? datepicker.value.previous)
+    : datepicker.value.previous
+  const nextEnd = isNextPanel
+    ? datepicker.value.next
+    : (endDate ?? datepicker.value.next)
+
+  emitRangeModelValue(nextStart, nextEnd)
+}
+
+function syncSelectorYearInputSession(context: SelectionContext = selectionContext.value) {
+  const contextYear = resolveContextDate(context).year()
+  selectorYearInputSession.rawText = formatSignedYearToken(contextYear)
+  selectorYearInputSession.parsedYear = contextYear
+  selectorYearInputSession.isValidToken = true
+  selectorYearInputSession.lastValidYear = contextYear
+}
+
+function trackTemporaryRangeInversion() {
+  if (!asRange()) {
+    rangeNormalizationState.hasTemporaryInversion = false
+    rangeNormalizationState.normalizationBoundaryPending = false
+    return
+  }
+
+  rangeNormalizationState.hasTemporaryInversion
+    = datepicker.value.previous.isAfter(datepicker.value.next, 'date')
+}
+
+function shouldNormalizeRangeAtCommitBoundary(boundary: CommitBoundaryEvent) {
+  if (!asRange())
+    return false
+  if (boundary !== 'apply' && boundary !== 'closeWithPersist')
+    return false
+  return rangeNormalizationState.hasTemporaryInversion
+}
+
+function normalizeRangeAtCommitBoundary(boundary: CommitBoundaryEvent) {
+  rangeNormalizationState.normalizationBoundaryPending
+    = shouldNormalizeRangeAtCommitBoundary(boundary)
+  if (!rangeNormalizationState.normalizationBoundaryPending)
+    return false
+
+  const previousDate = datepicker.value.previous
+  datepicker.value.previous = datepicker.value.next
+  datepicker.value.next = previousDate
+  syncDatepickerYears()
+  rangeNormalizationState.hasTemporaryInversion = false
+  rangeNormalizationState.normalizationBoundaryPending = false
+  return true
+}
+
+function normalizeRangeAtBoundaryAndPersist(boundary: CommitBoundaryEvent) {
+  const normalized = normalizeRangeAtCommitBoundary(boundary)
+  if (!normalized)
+    return false
+
+  emitRangeModelValue(datepicker.value.previous, datepicker.value.next)
+  if (!props.autoApply)
+    applyValue.value = [datepicker.value.previous, datepicker.value.next]
+
+  if (props.selectorMode && pickerViewMode.value === 'selector')
+    syncSelectorState(selectionContext.value, { syncAnchor: false })
+
+  return true
 }
 
 function getPickerQueryRoot() {
@@ -584,6 +772,13 @@ function focusSelectorModeTarget(
     }
   }
   else {
+    if (props.directYearInput) {
+      const yearInput = panelElement.querySelector<HTMLElement>('[data-vtd-selector-year-input]')
+      if (yearInput) {
+        yearInput.focus()
+        return true
+      }
+    }
     const yearSelector = panelElement.querySelector<HTMLElement>('[aria-label="Year selector"]')
     if (yearSelector) {
       yearSelector.focus()
@@ -647,6 +842,7 @@ function syncSelectorState(
   const contextDate = resolveContextDate(context)
   selectorState.selectedMonth = contextDate.month()
   selectorState.selectedYear = contextDate.year()
+  syncSelectorYearInputSession(context)
   if (syncAnchor)
     anchorSelectorYearWindow(contextDate.year())
 }
@@ -673,6 +869,54 @@ function syncSelectorRangeOrder(context: SelectionContext) {
   ) {
     datepicker.value.next = datepicker.value.previous.add(1, 'month')
   }
+}
+
+function commitTypedYearToActiveContext(
+  context: SelectionContext,
+  year: number,
+  options: CommitTypedYearOptions = {},
+) {
+  const {
+    emitModelUpdate = true,
+    allowTemporaryInversion = true,
+    syncSelectorStateAfterCommit = true,
+    updateSession = true,
+  } = options
+
+  if (context === 'nextPanel') {
+    datepicker.value.next = datepicker.value.next.year(year)
+    emit('selectRightYear', datepicker.value.next)
+  }
+  else {
+    datepicker.value.previous = datepicker.value.previous.year(year)
+    emit('selectYear', datepicker.value.previous)
+  }
+
+  if (!allowTemporaryInversion)
+    syncSelectorRangeOrder(context)
+
+  syncDatepickerYears()
+  trackTemporaryRangeInversion()
+
+  if (!props.autoApply) {
+    if (asRange())
+      applyValue.value = [datepicker.value.previous, datepicker.value.next]
+    else
+      applyValue.value = [resolveContextDate(context)]
+  }
+
+  if (updateSession) {
+    selectorYearInputSession.rawText = formatSignedYearToken(year)
+    selectorYearInputSession.parsedYear = year
+    selectorYearInputSession.isValidToken = true
+    selectorYearInputSession.lastValidYear = year
+  }
+
+  if (syncSelectorStateAfterCommit)
+    syncSelectorState(context, { syncAnchor: false })
+
+  if (emitModelUpdate)
+    emitActiveContextModelValueForTypedYear(context)
 }
 
 function applySelectorMonth(context: SelectionContext, month: number, year?: number) {
@@ -707,17 +951,11 @@ function resolveSelectorMonthDelta(currentMonth: number, targetMonth: number) {
 }
 
 function applySelectorYear(context: SelectionContext, year: number) {
-  if (context === 'nextPanel') {
-    datepicker.value.next = datepicker.value.next.year(year)
-    emit('selectRightYear', datepicker.value.next)
-  }
-  else {
-    datepicker.value.previous = datepicker.value.previous.year(year)
-    emit('selectYear', datepicker.value.previous)
-  }
-
-  syncSelectorRangeOrder(context)
-  syncDatepickerYears()
+  commitTypedYearToActiveContext(context, year, {
+    emitModelUpdate: false,
+    allowTemporaryInversion: false,
+    syncSelectorStateAfterCommit: false,
+  })
 }
 
 function closeLegacyPanels() {
@@ -885,10 +1123,87 @@ function onSelectorYearUpdate(panelName: SelectionPanel, year: number) {
   closeLegacyPanels()
 }
 
+function resetSelectorYearInputToLastValidYear() {
+  const lastValidYear = selectorYearInputSession.lastValidYear
+  selectorYearInputSession.rawText = formatSignedYearToken(lastValidYear)
+  selectorYearInputSession.parsedYear = lastValidYear
+  selectorYearInputSession.isValidToken = true
+}
+
+function commitValidSelectorYearInput(context: SelectionContext, year: number) {
+  const currentYear = resolveContextDate(context).year()
+  if (currentYear !== year) {
+    commitTypedYearToActiveContext(context, year, {
+      emitModelUpdate: true,
+      allowTemporaryInversion: true,
+      syncSelectorStateAfterCommit: true,
+      updateSession: false,
+    })
+  }
+  else {
+    syncSelectorState(context, { syncAnchor: false })
+  }
+
+  selectorYearInputSession.rawText = formatSignedYearToken(year)
+  selectorYearInputSession.parsedYear = year
+  selectorYearInputSession.isValidToken = true
+  selectorYearInputSession.lastValidYear = year
+
+  if (shouldReanchorSelectorYearWindow(selectorState.selectedYear))
+    anchorSelectorYearWindow(selectorState.selectedYear)
+  closeLegacyPanels()
+}
+
+function onSelectorYearInput(panelName: SelectionPanel, payload: SelectorYearInputEventPayload) {
+  if (!props.selectorMode || !props.directYearInput)
+    return
+
+  selectorFocus.value = 'year'
+  const context = resolveSelectionContext(panelName)
+  selectionContext.value = context
+  const token = resolveDirectYearInputToken(payload.rawText, props.yearNumberingMode)
+
+  selectorYearInputSession.rawText = payload.rawText
+  selectorYearInputSession.parsedYear = token.parsedYear
+  selectorYearInputSession.isValidToken = token.isValidToken
+
+  if (payload.trigger === 'input') {
+    if (token.parsedYear !== null)
+      commitValidSelectorYearInput(context, token.parsedYear)
+    return
+  }
+
+  if (payload.trigger === 'enter') {
+    if (token.parsedYear !== null)
+      commitValidSelectorYearInput(context, token.parsedYear)
+    else
+      resetSelectorYearInputToLastValidYear()
+    return
+  }
+
+  if (payload.trigger === 'escape') {
+    resetSelectorYearInputToLastValidYear()
+    return
+  }
+
+  if (payload.trigger === 'blur') {
+    if (token.parsedYear !== null)
+      commitValidSelectorYearInput(context, token.parsedYear)
+    else
+      resetSelectorYearInputToLastValidYear()
+  }
+}
+
 function resetPickerViewMode() {
   pickerViewMode.value = 'calendar'
   if (props.selectorMode)
     closeLegacyPanels()
+}
+
+function onPopoverButtonClick(open: boolean) {
+  if (open)
+    normalizeRangeAtBoundaryAndPersist('closeWithPersist')
+  resetPickerViewMode()
 }
 
 function isVisibleElement(element: HTMLElement) {
@@ -915,6 +1230,7 @@ function getSelectorFocusCycleTargets() {
     if (!panelElement)
       return
     pushTarget(panelElement.querySelector<HTMLElement>('[aria-label="Month selector"]'))
+    pushTarget(panelElement.querySelector<HTMLElement>('[data-vtd-selector-year-input]'))
     pushTarget(panelElement.querySelector<HTMLElement>('[aria-label="Year selector"]'))
   }
 
@@ -981,8 +1297,22 @@ function closePopoverFromPanel(close?: PopoverCloseFn) {
     triggerPopoverButtonClick()
 }
 
+function isEventTargetInsideSelectorYearInput(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement))
+    return false
+  return !!target.closest('[data-vtd-selector-year-input]')
+}
+
 function onPickerPanelKeydown(event: KeyboardEvent, close?: PopoverCloseFn) {
   if (event.key === 'Escape') {
+    if (
+      props.selectorMode
+      && pickerViewMode.value === 'selector'
+      && props.directYearInput
+      && isEventTargetInsideSelectorYearInput(event.target)
+    ) {
+      return
+    }
     event.preventDefault()
     event.stopPropagation()
     closePopoverFromPanel(close)
@@ -1009,8 +1339,9 @@ function onPickerPanelKeydown(event: KeyboardEvent, close?: PopoverCloseFn) {
       const panel = resolveContextPanel(selectionContext.value)
       const expectedHeader = target.id === `vtd-header-${panel}-month`
       const expectedMonth = selectorFocus.value === 'month' && target.getAttribute('aria-label') === 'Month selector'
+      const expectedYearInput = selectorFocus.value === 'year' && target.hasAttribute('data-vtd-selector-year-input')
       const expectedYear = selectorFocus.value === 'year' && target.getAttribute('aria-label') === 'Year selector'
-      return expectedHeader || expectedMonth || expectedYear
+      return expectedHeader || expectedMonth || expectedYearInput || expectedYear
     })
   }
   if (currentIndex < 0)
@@ -1319,6 +1650,9 @@ function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
 function applyDate(close?: (ref?: Ref | HTMLElement) => void) {
   if (applyValue.value.length < 1)
     return false
+
+  normalizeRangeAtBoundaryAndPersist('apply')
+
   let date
   if (asRange()) {
     const [s, e] = applyValue.value
@@ -1899,13 +2233,14 @@ watchEffect(() => {
       dayjs.locale(locale)
     }
 
-    let s, e
+    let s: Dayjs | null = null
+    let e: Dayjs | null = null
     if (asRange()) {
       if (Array.isArray(modelValueCloned)) {
         if (modelValueCloned.length > 0) {
           const [start, end] = modelValueCloned
-          s = dayjs(start, props.formatter.date, true)
-          e = dayjs(end, props.formatter.date, true)
+          s = parseModelDateCandidate(start)
+          e = parseModelDateCandidate(end)
         }
       }
       else if (typeof modelValueCloned === 'object') {
@@ -1932,31 +2267,42 @@ watchEffect(() => {
         }
         if (modelValueCloned) {
           const [start, end] = Object.values(modelValueCloned)
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
+          s = parseModelDateCandidate(start)
+          e = parseModelDateCandidate(end)
         }
       }
       else {
         if (modelValueCloned) {
           const [start, end] = modelValueCloned.split(props.separator)
-          s = dayjs(start, props.formatter.date, true)
-          e = dayjs(end, props.formatter.date, true)
+          s = parseModelDateCandidate(start)
+          e = parseModelDateCandidate(end)
         }
       }
 
       if (s && e) {
-        pickerValue.value = useToValueFromArray(
-          {
-            previous: s,
-            next: e,
-          },
-          props,
-        )
+        const formattedStart = formatModelDateWithDirectYear(s, props.formatter.date)
+        const formattedEnd = formatModelDateWithDirectYear(e, props.formatter.date)
+        pickerValue.value = `${formattedStart}${props.separator}${formattedEnd}`
+        const preserveTemporaryInversion
+          = props.selectorMode
+            && props.directYearInput
+            && !props.autoApply
+            && pickerViewMode.value === 'selector'
+            && rangeNormalizationState.hasTemporaryInversion
+
         if (e.isBefore(s, 'month')) {
-          datepicker.value.previous = e
-          datepicker.value.next = s
-          datepicker.value.year.previous = e.year()
-          datepicker.value.year.next = s.year()
+          if (preserveTemporaryInversion) {
+            datepicker.value.previous = s
+            datepicker.value.next = e
+            datepicker.value.year.previous = s.year()
+            datepicker.value.year.next = e.year()
+          }
+          else {
+            datepicker.value.previous = e
+            datepicker.value.next = s
+            datepicker.value.year.previous = e.year()
+            datepicker.value.year.next = s.year()
+          }
         }
         else if (e.isSame(s, 'month')) {
           datepicker.value.previous = s
@@ -1984,24 +2330,24 @@ watchEffect(() => {
       if (Array.isArray(modelValueCloned)) {
         if (modelValueCloned.length > 0) {
           const [start] = modelValueCloned
-          s = dayjs(start, props.formatter.date, true)
+          s = parseModelDateCandidate(start)
         }
       }
       else if (typeof modelValueCloned === 'object') {
         if (modelValueCloned) {
           const [start] = Object.values(modelValueCloned)
-          s = dayjs(start, props.formatter.date, true)
+          s = parseModelDateCandidate(start)
         }
       }
       else {
         if (modelValueCloned.length) {
           const [start] = modelValueCloned.split(props.separator)
-          s = dayjs(start, props.formatter.date, true)
+          s = parseModelDateCandidate(start)
         }
       }
 
       if (s && s.isValid()) {
-        pickerValue.value = useToValueFromString(s, props)
+        pickerValue.value = formatModelDateWithDirectYear(s, props.formatter.date)
         datepicker.value.previous = s
         datepicker.value.next = s.add(1, 'month')
         datepicker.value.year.previous = s.year()
@@ -2067,7 +2413,7 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
   <Popover v-if="!props.noInput" id="vtd" v-slot="{ open }: { open: boolean }" as="div" class="relative w-full">
     <PopoverOverlay v-if="props.overlay && !props.disabled" class="fixed inset-0 bg-black opacity-30" />
 
-    <PopoverButton ref="VtdPopoverButtonRef" as="label" class="relative block" @click="resetPickerViewMode">
+    <PopoverButton ref="VtdPopoverButtonRef" as="label" class="relative block" @click="onPopoverButtonClick(open)">
       <slot :value="pickerValue" :placeholder="givenPlaceholder" :clear="clearPicker">
         <input ref="VtdInputRef" v-bind="$attrs" v-model="pickerValue" type="text" class="relative block w-full"
           :disabled="props.disabled" :class="[
@@ -2160,8 +2506,11 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                             :class="getSelectorColumnClass('year')"
                           >
                             <VtdYear
+                              panel-name="previous"
                               :years="selectorYears"
                               selector-mode
+                              :direct-year-input="props.directYearInput"
+                              :year-input-text="selectorYearInputSession.rawText"
                               :selected-month="selectorState.selectedMonth"
                               :selected-year="selectorState.selectedYear"
                               :selector-focus="selectorFocus"
@@ -2170,6 +2519,7 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                               @request-focus-month="requestSelectorColumnFocus('previous', 'month')"
                               @update-year="(year) => onSelectorYearUpdate('previous', year)"
                               @scroll-year="(year) => onSelectorYearUpdate('previous', year)"
+                              @year-input="(payload) => onSelectorYearInput('previous', payload)"
                             />
                           </div>
                         </div>
@@ -2227,8 +2577,11 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                           >
                             <VtdYear
                               as-prev-or-next
+                              panel-name="next"
                               :years="selectorYears"
                               selector-mode
+                              :direct-year-input="props.directYearInput"
+                              :year-input-text="selectorYearInputSession.rawText"
                               :selected-month="selectorState.selectedMonth"
                               :selected-year="selectorState.selectedYear"
                               :selector-focus="selectorFocus"
@@ -2237,6 +2590,7 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                               @request-focus-month="requestSelectorColumnFocus('next', 'month')"
                               @update-year="(year) => onSelectorYearUpdate('next', year)"
                               @scroll-year="(year) => onSelectorYearUpdate('next', year)"
+                              @year-input="(payload) => onSelectorYearInput('next', payload)"
                             />
                           </div>
                         </div>
@@ -2337,8 +2691,11 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                     :class="getSelectorColumnClass('year')"
                   >
                     <VtdYear
+                      panel-name="previous"
                       :years="selectorYears"
                       selector-mode
+                      :direct-year-input="props.directYearInput"
+                      :year-input-text="selectorYearInputSession.rawText"
                       :selected-month="selectorState.selectedMonth"
                       :selected-year="selectorState.selectedYear"
                       :selector-focus="selectorFocus"
@@ -2347,6 +2704,7 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                       @request-focus-month="requestSelectorColumnFocus('previous', 'month')"
                       @update-year="(year) => onSelectorYearUpdate('previous', year)"
                       @scroll-year="(year) => onSelectorYearUpdate('previous', year)"
+                      @year-input="(payload) => onSelectorYearInput('previous', payload)"
                     />
                   </div>
                 </div>
@@ -2403,8 +2761,11 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                   >
                     <VtdYear
                       as-prev-or-next
+                      panel-name="next"
                       :years="selectorYears"
                       selector-mode
+                      :direct-year-input="props.directYearInput"
+                      :year-input-text="selectorYearInputSession.rawText"
                       :selected-month="selectorState.selectedMonth"
                       :selected-year="selectorState.selectedYear"
                       :selector-focus="selectorFocus"
@@ -2413,6 +2774,7 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                       @request-focus-month="requestSelectorColumnFocus('next', 'month')"
                       @update-year="(year) => onSelectorYearUpdate('next', year)"
                       @scroll-year="(year) => onSelectorYearUpdate('next', year)"
+                      @year-input="(payload) => onSelectorYearInput('next', payload)"
                     />
                   </div>
                 </div>

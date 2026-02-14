@@ -20,6 +20,11 @@ const selectorSingleRangeFractionalValue = ref({
   startDate: dayjs().subtract(10, 'day').format('YYYY-MM-DD HH:mm:ss'),
   endDate: dayjs().add(10, 'day').format('YYYY-MM-DD HH:mm:ss'),
 })
+const selectorDirectSingleValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
+const selectorDirectRangeValue = ref({
+  startDate: dayjs().subtract(2, 'year').format('YYYY-MM-DD HH:mm:ss'),
+  endDate: dayjs().add(2, 'year').format('YYYY-MM-DD HH:mm:ss'),
+})
 const selectorDisabledValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
 const selectorEmptyModelValue = ref('')
 const selectorInvalidModelValue = ref('not-a-date ~ not-a-date')
@@ -135,6 +140,37 @@ function onSelectSomething(e: Dayjs) {
           :selector-mode="true"
           :selector-focus-tint="false"
           selector-year-scroll-mode="fractional"
+          :i18n="currentLocale"
+        />
+      </div>
+
+      <div class="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+        <p class="mb-3 text-sm font-medium text-indigo-900">
+          Selector mode + direct year input (`historical`, single date)
+        </p>
+        <VueTailwindDatePicker
+          v-model="selectorDirectSingleValue"
+          as-single
+          :selector-mode="true"
+          :direct-year-input="true"
+          year-numbering-mode="historical"
+          :selector-focus-tint="false"
+          :i18n="currentLocale"
+        />
+      </div>
+
+      <div class="rounded-lg border border-fuchsia-200 bg-fuchsia-50 p-4">
+        <p class="mb-3 text-sm font-medium text-fuchsia-900">
+          Selector mode + direct year input (`astronomical`, range, apply mode)
+        </p>
+        <VueTailwindDatePicker
+          v-model="selectorDirectRangeValue"
+          use-range
+          :auto-apply="false"
+          :selector-mode="true"
+          :direct-year-input="true"
+          year-numbering-mode="astronomical"
+          :selector-focus-tint="false"
           :i18n="currentLocale"
         />
       </div>
