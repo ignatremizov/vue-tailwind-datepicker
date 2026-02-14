@@ -2,6 +2,7 @@
 import dayjs from 'dayjs'
 import { ref } from 'vue'
 import type { Dayjs } from 'dayjs'
+import type { InvalidShortcutEventPayload } from './types'
 import VueTailwindDatePicker from './VueTailwindDatePicker.vue'
 
 const dateValue = ref({
@@ -35,6 +36,10 @@ function monthRangeValue(offsetMonths = 0) {
 const weekendTintEnValue = ref(monthRangeValue(0))
 const weekendTintDeValue = ref(monthRangeValue(1))
 const weekendSelectorTintValue = ref(monthRangeValue(0))
+const shortcutDemoValue = ref(
+  `${dayjs().format('YYYY-MM-DD HH:mm:ss')} ~ ${dayjs().format('YYYY-MM-DD HH:mm:ss')}`,
+)
+const shortcutFailureLog = ref<string[]>([])
 
 const currentLocale = ref('en')
 const localeOptions = [
@@ -43,6 +48,31 @@ const localeOptions = [
   { code: 'de', flag: '🇩🇪' },
 ]
 const isDark = ref(false)
+
+const shortcutDemoShortcuts = [
+  {
+    id: 'next-3-business-days',
+    label: 'Next 3 business days',
+    meta: { hint: 'custom typed' },
+    resolver: ({ now }: { now: Date }) => {
+      const date = new Date(now)
+      let remaining = 3
+      while (remaining > 0) {
+        date.setDate(date.getDate() + 1)
+        const weekday = date.getDay()
+        if (weekday !== 0 && weekday !== 6)
+          remaining -= 1
+      }
+      return date
+    },
+  },
+  {
+    id: 'typed-range-invalid-single',
+    label: 'Trigger invalid result',
+    meta: { hint: 'invalid demo' },
+    resolver: () => null as unknown as Date,
+  },
+]
 
 function disableWeekendDates(date: Date) {
   const day = dayjs(date).day()
@@ -55,6 +85,13 @@ function onClickSomething(e: Dayjs) {
 
 function onSelectSomething(e: Dayjs) {
   console.log(e)
+}
+
+function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
+  shortcutFailureLog.value = [
+    `${payload.id}: ${payload.reason}`,
+    ...shortcutFailureLog.value,
+  ].slice(0, 3)
 }
 </script>
 
@@ -245,6 +282,34 @@ function onSelectSomething(e: Dayjs) {
             placeholder="Invalid range model"
           />
         </div>
+      </div>
+
+      <div class="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+        <p class="mb-3 text-sm font-medium text-indigo-900">
+          Custom shortcut + render extension (`activate()` flow)
+        </p>
+        <VueTailwindDatePicker
+          v-model="shortcutDemoValue"
+          as-single
+          use-range
+          :shortcuts="shortcutDemoShortcuts"
+          shortcut-preset="modern"
+          @invalid-shortcut="onInvalidShortcut"
+        >
+          <template #shortcut-item="{ id, label, meta, activate }">
+            <button
+              type="button"
+              class="vtd-shortcuts mb-1 w-full rounded border border-indigo-300 bg-white px-2 py-1.5 text-left text-sm text-indigo-900 hover:bg-indigo-100"
+              :data-shortcut-id="id"
+              @click="activate"
+            >
+              {{ label }} <span v-if="meta?.hint" class="text-xs text-indigo-600">({{ meta.hint }})</span>
+            </button>
+          </template>
+        </VueTailwindDatePicker>
+        <p class="mt-3 text-xs text-indigo-800">
+          Recent invalid-shortcut payloads: {{ shortcutFailureLog.join(' | ') || 'none' }}
+        </p>
       </div>
     </div>
   </div>

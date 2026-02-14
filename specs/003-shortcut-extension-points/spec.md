@@ -64,32 +64,40 @@ As a keyboard or assistive-tech user, I can discover and activate shortcuts reli
 
 1. **Given** picker is open, **When** user tabs into shortcuts, **Then** each shortcut is focusable and announced with label.
 2. **Given** shortcut is focused, **When** user presses Enter/Space, **Then** shortcut action is applied.
+3. **Given** consumer uses per-item render extension, **When** shortcut items are rendered, **Then** each activatable item still exposes exactly one focusable control with an accessible name.
+4. **Given** keyboard focus moves through shortcuts, **When** user tabs/shift-tabs through the list, **Then** focus order follows rendered shortcut order with no trap.
 
 ### Edge Cases
 
-- Business-day calculation across month boundaries.
-- Business-day calculation when "today" is Saturday/Sunday.
-- `Next month` rollover from dates that do not exist in the destination month.
-- Timezone boundaries around midnight when shortcut is applied.
+- Business-day calculation across month boundaries MUST continue counting Mon-Fri days into the next month (example: Jan 30 Thursday -> Feb 4 Tuesday for `3 business days`).
+- Business-day calculation when "today" is Saturday/Sunday MUST start counting from the next Monday.
+- `Next month` rollover from dates that do not exist in the destination month MUST clamp to the destination month's final calendar day.
+- Timezone boundaries around midnight MUST resolve from browser-local click-time `now`; render-time date snapshots MUST NOT be reused.
+
+## Assumptions and External Dependencies
+
+- Date arithmetic semantics (add/subtract days, month length, overflow behavior) depend on the date library implementation (currently dayjs-compatible Gregorian behavior).
+- Built-in shortcut determinism depends on browser-local time (`Date`/dayjs local timezone) at activation time, not server time.
+- Business-day semantics are fixed to Monday-Friday regardless of locale first-day-of-week configuration.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: System MUST provide built-in shortcut actions for Today, 3 business days, Next week, and Next month.
+- **FR-001**: System MUST provide two explicit built-in preset inventories: `legacy = {Today, Yesterday, Past 7 days, Past 30 days, This month, Last month}` and `modern = {Today, 3 business days, Next week, Next month}`.
 - **FR-002**: System MUST execute shortcut actions within the same picker panel (no secondary popup required).
 - **FR-003**: System MUST allow consumer-provided shortcut definitions and a per-item shortcut render slot/callback.
-- **FR-004**: System MUST use deterministic built-in date rules: `3 business days = exclude today and count next 3 Mon-Fri days`; `Next week = +7 calendar days`; `Next month = clamp to last valid day`.
-- **FR-005**: System MUST preserve backward compatibility when shortcuts are disabled or unspecified.
-- **FR-006**: System MUST support keyboard interaction and accessibility semantics for shortcut actions.
+- **FR-004**: System MUST use deterministic built-in date rules. `legacy`: `Today = [today, today]`; `Yesterday = [today-1, today-1]`; `Past 7 days = [today-6, today]`; `Past 30 days = [today-29, today]`; `This month = [first day of current month, last day of current month]`; `Last month = [first day of previous month, last day of previous month]`. `modern`: `3 business days = exclude today and count next 3 Mon-Fri days`; `Next week = +7 calendar days`; `Next month = clamp to last valid day`.
+- **FR-005**: System MUST preserve backward compatibility when shortcuts are disabled or unspecified, including existing shortcut visibility behavior: render shortcuts when mode resolves range-capable (`useRange=false && asSingle=false`, `useRange=true && asSingle=false`, or `useRange=true && asSingle=true`) and hide shortcuts in pure single mode (`useRange=false && asSingle=true`).
+- **FR-006**: System MUST support keyboard interaction and accessibility semantics for shortcut actions: each shortcut is a focusable control with an accessible name, Enter/Space activation is supported, and tab order follows rendered shortcut order for both default-rendered and extension-rendered items.
 - **FR-007**: System MUST apply built-in shortcut calculations in browser local timezone.
 - **FR-008**: In range mode, single-date built-in shortcuts MUST set both endpoints to the same resolved date (`[d, d]`).
 - **FR-009**: System MUST support both legacy custom shortcut handlers (`atClick(): Date[]`) and a typed resolver contract (`(context) => Date | [Date, Date]`) via backward-compatible adaptation.
 - **FR-010**: When a shortcut resolves to a date blocked by configured constraints, system MUST NOT apply the value, MUST keep prior selection unchanged, and MUST emit an invalid-shortcut signal/event.
 - **FR-011**: New built-in shortcut behavior MUST be opt-in; default shortcut behavior MUST remain backward compatible.
-- **FR-012**: `invalid-shortcut` event MUST be emitted with structured payload at least containing shortcut identifier, resolved value, reason, and mode; and MUST NOT emit `update:modelValue` on failure.
-- **FR-013**: Typed resolver context MUST be explicitly defined as exactly `{ currentValue, mode, now, constraints }`; in range mode, single-date resolver output MUST normalize to `[d, d]`; if any endpoint is blocked, the full result MUST be rejected.
-- **FR-014**: When custom shortcuts are configured, they MUST replace built-in shortcuts by default (no implicit merge).
+- **FR-012**: `invalid-shortcut` event MUST be emitted with structured payload containing shortcut identifier, resolved value, reason, and mode. `reason` MUST be one of `blocked-date`, `mode-mismatch`, `resolver-error`, or `invalid-result`. System MUST NOT emit `update:modelValue` on failure.
+- **FR-013**: Typed resolver context MUST be explicitly defined as exactly `{ currentValue, mode, now, constraints }`; in range mode, single-date resolver output MUST normalize to `[d, d]`; validation order MUST be normalize first, then evaluate start endpoint, then evaluate end endpoint against the same constraint snapshot; if any endpoint is blocked, the full result MUST be rejected atomically.
+- **FR-014**: When custom shortcuts are configured, they MUST replace built-in shortcuts by default (no implicit merge) for every supported shortcut input form (legacy array, legacy factory function, typed array, typed factory function).
 - **FR-015**: Per-item render extension MUST receive shortcut metadata plus an `activate()` helper; library MUST own mutation side effects and event emission.
 - **FR-016**: Resolver output MUST be mode-valid: in single mode, typed resolver `[Date, Date]` output MUST be rejected as invalid; in range mode, single `Date` MUST normalize to `[d, d]`.
 - **FR-017**: If both legacy `atClick()` and typed `resolver(context)` are defined on one shortcut item, typed resolver MUST take precedence.
@@ -108,9 +116,10 @@ As a keyboard or assistive-tech user, I can discover and activate shortcuts reli
 
 ### Measurable Outcomes
 
-- **SC-001**: 100% of built-in shortcuts produce expected date outputs in unit test matrix.
+- **SC-001**: 100% of built-in shortcuts produce expected date outputs in unit test matrix, including weekend starts, month-boundary rollover, and timezone-midnight activation cases.
 - **SC-002**: Custom shortcuts and per-item rendering can be injected by API without source patching in integration example.
-- **SC-003**: Keyboard-only activation works for all shortcut actions.
+- **SC-003**: Keyboard-only activation works for all shortcut actions in both default and extension-rendered shortcut items, preserving valid focus traversal behavior.
+- **SC-004**: For each invalid failure class (`blocked-date`, `mode-mismatch`, `resolver-error`, `invalid-result`), tests verify: `invalid-shortcut` payload includes `id`, `resolvedValue`, `reason`, and `mode`; selection value is unchanged; and no `update:modelValue` event is emitted.
 
 ## Clarifications
 
@@ -125,7 +134,7 @@ As a keyboard or assistive-tech user, I can discover and activate shortcuts reli
 - **CL-009** Q: What custom shortcut resolver contract should be supported? -> A: Support both legacy `atClick(): Date[]` and typed resolver with backward-compatible adapter.
 - **CL-010** Q: What happens when a shortcut resolves to a blocked date? -> A: Do not apply; keep value unchanged; emit invalid-shortcut signal/event.
 - **CL-011** Q: Should new built-in shortcuts be default or opt-in? -> A: Opt-in; legacy defaults remain unless enabled.
-- **CL-012** Q: What is the `invalid-shortcut` contract? -> A: Emit structured payload and do not emit model updates on failure.
+- **CL-012** Q: What is the `invalid-shortcut` contract? -> A: Emit structured payload with `reason` in `{blocked-date, mode-mismatch, resolver-error, invalid-result}` and do not emit model updates on failure.
 - **CL-013** Q: What is the typed resolver contract surface? -> A: Explicit context shape plus range normalization/rejection rules.
 - **CL-014** Q: When custom shortcuts are provided, how do they interact with built-ins? -> A: Custom shortcuts replace built-ins by default.
 - **CL-015** Q: What is the frozen typed resolver context contract? -> A: Exactly `{ currentValue, mode, now, constraints }`.
@@ -137,3 +146,9 @@ As a keyboard or assistive-tech user, I can discover and activate shortcuts reli
 - **CL-021** Q: How should resolver exceptions be handled? -> A: Fail soft; emit `invalid-shortcut` with `reason='resolver-error'`; no throw.
 - **CL-022** Q: What is post-activation panel behavior after shortcut execute? -> A: Reuse existing selection close/open/focus semantics.
 - **CL-023** Q: What is the canonical API for enabling new built-in shortcut preset while keeping legacy default? -> A: Dedicated `shortcutPreset` prop with enum `legacy | modern`; default `legacy`.
+- **CL-024** Q: What exact built-ins belong to each preset? -> A: `legacy = {Today, Yesterday, Past 7 days, Past 30 days, This month, Last month}` and `modern = {Today, 3 business days, Next week, Next month}`.
+- **CL-025** Q: When are shortcuts visible across `useRange`/`asSingle` combinations? -> A: Visible when `asRange()` resolves true (`false/false`, `true/false`, `true/true`); hidden in pure single mode (`false/true`).
+- **CL-026** Q: Is custom replacement all-or-nothing for every shortcut input shape? -> A: Yes; legacy array, legacy factory, typed array, and typed factory all replace built-ins by default.
+- **CL-027** Q: What is the constraint evaluation order for typed resolver outputs? -> A: Normalize output first, then validate start endpoint, then end endpoint; reject atomically on first blocked endpoint.
+- **CL-028** Q: What are the minimum accessibility pass/fail requirements? -> A: Each shortcut is focusable, has an accessible name, supports Enter/Space activation, and follows rendered tab order in both default and extension render paths.
+- **CL-029** Q: What external dependencies can alter deterministic outcomes? -> A: Dayjs date-math semantics and browser-local timezone source at click time; both are part of deterministic assumptions.

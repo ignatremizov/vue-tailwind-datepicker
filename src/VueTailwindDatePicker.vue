@@ -35,18 +35,24 @@ import VtdWeek from './components/Week.vue'
 import VtdMonth from './components/Month.vue'
 import useDate from './composables/date'
 import useDom from './composables/dom'
-import type { DatePickerDay } from './types'
+import useShortcut, { resolveModernBuiltInDate } from './composables/shortcut'
+import type {
+  DatePickerDay,
+  InvalidShortcutEventPayload,
+  LegacyShortcutDefinition,
+  ShortcutDefinition,
+  ShortcutFactory,
+  ShortcutPreset,
+  TypedShortcutDefinition,
+} from './types'
 import {
+  type BuiltInShortcutId,
+  type ShortcutActivationTarget,
+  activateShortcutKey,
   atMouseOverKey,
   betweenRangeClassesKey,
   datepickerClassesKey,
   isBetweenRangeKey,
-  setToCustomShortcutKey,
-  setToLastDayKey,
-  setToLastMonthKey,
-  setToThisMonthKey,
-  setToTodayKey,
-  setToYesterdayKey,
 } from './keys'
 
 export interface Props {
@@ -61,7 +67,12 @@ export interface Props {
   disableInRange?: boolean
   disableDate?: boolean | ((date: Date) => boolean)
   autoApply?: boolean
-  shortcuts?: boolean | (() => { label: string; atClick: () => Date[] }[])
+  shortcutPreset?: ShortcutPreset
+  shortcuts?:
+    | boolean
+    | ShortcutDefinition[]
+    | ShortcutFactory<LegacyShortcutDefinition>
+    | ShortcutFactory<TypedShortcutDefinition>
   separator?: string
   formatter?: {
     date: string
@@ -109,6 +120,7 @@ const props = withDefaults(defineProps<Props>(), {
   disableInRange: false,
   disableDate: false,
   autoApply: true,
+  shortcutPreset: 'legacy',
   shortcuts: true,
   separator: ' ~ ',
   formatter: () => ({
@@ -144,6 +156,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: Array<string> | Array<Dayjs> | string | Record<string, string>): void;
+  (e: 'invalid-shortcut', payload: InvalidShortcutEventPayload): void;
   (e: 'selectMonth', value: Dayjs): void;
   (e: 'selectYear', value: Dayjs): void;
   (e: 'selectRightMonth', value: Dayjs): void;
@@ -165,6 +178,7 @@ const {
 } = useDate()
 
 const { useVisibleViewport } = useDom()
+const { activateShortcut: activateShortcutByDefinition } = useShortcut()
 
 dayjs.extend(localeData)
 dayjs.extend(localizedFormat)
@@ -223,6 +237,25 @@ function classifyWeekend(date: Dayjs) {
   }
 }
 
+const builtInShortcutItems = computed(() => {
+  if (props.shortcutPreset === 'modern') {
+    return [
+      { id: 'today' as const, label: 'Today' },
+      { id: 'three-business-days' as const, label: '3 business days' },
+      { id: 'next-week' as const, label: 'Next week' },
+      { id: 'next-month' as const, label: 'Next month' },
+    ]
+  }
+
+  return [
+    { id: 'today' as const, label: props.options.shortcuts.today },
+    { id: 'yesterday' as const, label: props.options.shortcuts.yesterday },
+    { id: 'past-7-days' as const, label: props.options.shortcuts.past(7) },
+    { id: 'past-30-days' as const, label: props.options.shortcuts.past(30) },
+    { id: 'this-month' as const, label: props.options.shortcuts.currentMonth },
+    { id: 'last-month' as const, label: props.options.shortcuts.pastMonth },
+  ]
+})
 const calendar = computed(() => {
   const { previous, next, year } = unref(datepicker)
   return {
@@ -1952,62 +1985,127 @@ function emitShortcut(s: string, e: string) {
   forceEmit(s, e)
 }
 
-function setToToday(close?: (ref?: Ref | HTMLElement) => void) {
-  const s = dayjs().format(props.formatter.date)
-  const e = dayjs().format(props.formatter.date)
-
-  emitShortcut(s, e)
-  if (close)
-    close()
+function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition | TypedShortcutDefinition {
+  switch (target) {
+    case 'today':
+      return {
+        id: 'legacy-today',
+        label: props.options.shortcuts.today,
+        atClick: () => {
+          const date = dayjs().toDate()
+          return [date, date]
+        },
+      }
+    case 'yesterday':
+      return {
+        id: 'legacy-yesterday',
+        label: props.options.shortcuts.yesterday,
+        atClick: () => {
+          const date = dayjs().subtract(1, 'day').toDate()
+          return [date, date]
+        },
+      }
+    case 'past-7-days':
+      return {
+        id: 'legacy-past-7-days',
+        label: props.options.shortcuts.past(7),
+        atClick: () => {
+          return [
+            dayjs().subtract(6, 'day').toDate(),
+            dayjs().toDate(),
+          ]
+        },
+      }
+    case 'past-30-days':
+      return {
+        id: 'legacy-past-30-days',
+        label: props.options.shortcuts.past(30),
+        atClick: () => {
+          return [
+            dayjs().subtract(29, 'day').toDate(),
+            dayjs().toDate(),
+          ]
+        },
+      }
+    case 'this-month':
+      return {
+        id: 'legacy-this-month',
+        label: props.options.shortcuts.currentMonth,
+        atClick: () => {
+          return [
+            dayjs().date(1).toDate(),
+            dayjs().date(dayjs().daysInMonth()).toDate(),
+          ]
+        },
+      }
+    case 'last-month':
+      return {
+        id: 'legacy-last-month',
+        label: props.options.shortcuts.pastMonth,
+        atClick: () => {
+          return [
+            dayjs().date(1).subtract(1, 'month').toDate(),
+            dayjs().date(0).toDate(),
+          ]
+        },
+      }
+    case 'three-business-days':
+      return {
+        id: 'modern-three-business-days',
+        label: '3 business days',
+        resolver: ({ now }) => resolveModernBuiltInDate('three-business-days', now),
+      }
+    case 'next-week':
+      return {
+        id: 'modern-next-week',
+        label: 'Next week',
+        resolver: ({ now }) => resolveModernBuiltInDate('next-week', now),
+      }
+    case 'next-month':
+      return {
+        id: 'modern-next-month',
+        label: 'Next month',
+        resolver: ({ now }) => resolveModernBuiltInDate('next-month', now),
+      }
+  }
 }
 
-function setToYesterday(close?: (ref?: Ref | HTMLElement) => void) {
-  const s = dayjs().subtract(1, 'day').format(props.formatter.date)
-  const e = dayjs().subtract(1, 'day').format(props.formatter.date)
-
-  emitShortcut(s, e)
-  if (close)
-    close()
+function emitInvalidShortcut(payload: InvalidShortcutEventPayload) {
+  emit('invalid-shortcut', payload)
 }
 
-function setToLastDay(day: number, close?: (ref?: Ref | HTMLElement) => void) {
-  const s = dayjs()
-    .subtract(day - 1, 'day')
-    .format(props.formatter.date)
-  const e = dayjs().format(props.formatter.date)
-
+function applyShortcutResolvedValue(value: Date | [Date, Date]) {
+  const [start, end] = Array.isArray(value) ? value : [value, value]
+  const s = dayjs(start).format(props.formatter.date)
+  const e = dayjs(end).format(props.formatter.date)
   emitShortcut(s, e)
-  if (close)
-    close()
 }
 
-function setToThisMonth(close?: (ref?: Ref | HTMLElement) => void) {
-  const s = dayjs().date(1).format(props.formatter.date)
-  const e = dayjs().date(dayjs().daysInMonth()).format(props.formatter.date)
-
-  emitShortcut(s, e)
-  if (close)
-    close()
-}
-
-function setToLastMonth(close?: (ref?: Ref | HTMLElement) => void) {
-  const s = dayjs().date(1).subtract(1, 'month').format(props.formatter.date)
-  const e = dayjs().date(0).format(props.formatter.date)
-
-  emitShortcut(s, e)
-  if (close)
-    close()
-}
-
-function setToCustomShortcut(
-  item: { label: string; atClick: () => Date[] },
+function activateShortcut(
+  target: ShortcutActivationTarget,
   close?: (ref?: Ref | HTMLElement) => void,
-): void {
-  const [d, dd] = item.atClick()
-  const s = dayjs(d).format(props.formatter.date)
-  const e = dayjs(dd).format(props.formatter.date)
+  index?: number,
+) {
+  const item = typeof target === 'string' ? getBuiltInShortcut(target) : target
+  const mode = asRange() ? 'range' : 'single'
+  const activation = activateShortcutByDefinition({
+    item,
+    mode,
+    currentValue: props.modelValue,
+    now: new Date(),
+    index,
+    constraints: {
+      isDateBlocked: (date: Date) => useDisableDate(dayjs(date), props),
+    },
+  })
 
-  emitShortcut(s, e)
+  if (!activation.ok) {
+    emitInvalidShortcut(activation.payload)
+    return
+  }
+
+  applyShortcutResolvedValue(activation.value)
+
   if (close)
     close()
 }
@@ -2207,12 +2305,7 @@ provide(isBetweenRangeKey, isBetweenRange)
 provide(betweenRangeClassesKey, betweenRangeClasses)
 provide(datepickerClassesKey, datepickerClasses)
 provide(atMouseOverKey, atMouseOver)
-provide(setToTodayKey, setToToday)
-provide(setToYesterdayKey, setToYesterday)
-provide(setToLastDayKey, setToLastDay)
-provide(setToThisMonthKey, setToThisMonth)
-provide(setToLastMonthKey, setToLastMonth)
-provide(setToCustomShortcutKey, setToCustomShortcut)
+provide(activateShortcutKey, activateShortcut)
 </script>
 
 <template>
@@ -2266,7 +2359,11 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
               @keydown.capture="(event) => onPickerPanelKeydown(event, close)">
               <div class="flex flex-wrap lg:flex-nowrap" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
                 <VtdShortcut v-if="props.shortcuts" :shortcuts="props.shortcuts" :as-range="asRange()"
-                  :as-single="props.asSingle" :i18n="props.options.shortcuts" :close="close" />
+                  :as-single="props.asSingle" :built-in-shortcuts="builtInShortcutItems" :close="close">
+                  <template #shortcut-item="slotProps">
+                    <slot name="shortcut-item" v-bind="slotProps" />
+                  </template>
+                </VtdShortcut>
                 <div class="relative flex flex-wrap sm:flex-nowrap p-1 w-full" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
                   <div v-if="asRange() && !props.asSingle"
                     class="hidden h-full absolute inset-0 sm:flex justify-center items-center">
@@ -2463,7 +2560,11 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
       @keydown.capture="onPickerPanelKeydown">
       <div class="flex flex-wrap lg:flex-nowrap" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
         <VtdShortcut v-if="props.shortcuts" :shortcuts="props.shortcuts" :as-range="asRange()" :as-single="props.asSingle"
-          :i18n="props.options.shortcuts" />
+          :built-in-shortcuts="builtInShortcutItems">
+          <template #shortcut-item="slotProps">
+            <slot name="shortcut-item" v-bind="slotProps" />
+          </template>
+        </VtdShortcut>
         <div class="relative flex flex-wrap sm:flex-nowrap p-1 w-full" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
           <div v-if="asRange() && !props.asSingle"
             class="hidden h-full absolute inset-0 sm:flex justify-center items-center">

@@ -64,7 +64,7 @@ This feature extends picker runtime state and public API contracts for shortcut 
 - Fields:
   - `id: string`
   - `resolvedValue: Date | [Date, Date] | null`
-  - `reason: 'blocked-date' | 'invalid-mode-output' | 'resolver-error' | 'invalid-result'`
+  - `reason: 'blocked-date' | 'mode-mismatch' | 'resolver-error' | 'invalid-result'`
   - `mode: 'single' | 'range'`
 - Invariant: Failed activations emit this payload and do not emit `update:modelValue`.
 

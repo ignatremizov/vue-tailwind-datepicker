@@ -395,7 +395,14 @@ If you want to show week number in the calendar
 
 ## Shortcuts
 
-Display or not the dates shortcuts, default value is true.
+Display or hide shortcuts. Default value is `true`.
+
+`shortcuts` accepts:
+
+- `true`: show built-ins (from `shortcutPreset`)
+- `false`: hide all shortcuts
+- `ShortcutDefinition[]`: use custom shortcuts (replaces built-ins)
+- `() => ShortcutDefinition[]`: lazy factory for custom shortcuts (replaces built-ins)
 
 <DemoLayout>
   <VueTailwindDatePicker
@@ -413,6 +420,30 @@ const dateValue = ref([])
 
 <template>
   <vue-tailwind-datepicker v-model="dateValue" :shortcuts="false" />
+</template>
+```
+
+## Shortcut Preset
+
+Choose which built-in shortcut inventory is active when `shortcuts` is `true` and no custom shortcuts are provided.
+
+- `legacy` (default): Today, Yesterday, Last 7 Days, Last 30 Days, This Month, Last Month
+- `modern`: Today, 3 business days, Next week, Next month
+
+<DemoLayout>
+  <VueTailwindDatePicker
+    v-model="dateValue10"
+    shortcut-preset="modern"
+  />
+</DemoLayout>
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    shortcut-preset="modern"
+    :shortcuts="true"
+  />
 </template>
 ```
 

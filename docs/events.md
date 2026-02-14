@@ -77,6 +77,34 @@ const onSelectSomething = (newDate) => {
 The same works with `no-input` prop.
 :::
 
+## invalidShortcut
+
+Shortcut activation failure event. Triggered when resolver output is invalid, blocked by constraints, or resolver execution fails.
+
+```vue
+<script setup>
+import { ref } from "vue";
+const dateValue = ref("");
+
+const onInvalidShortcut = (payload) => {
+  console.log(payload.id);
+  console.log(payload.reason); // blocked-date | mode-mismatch | resolver-error | invalid-result
+  console.log(payload.mode); // single | range
+  console.log(payload.resolvedValue); // Date | [Date, Date] | null
+};
+</script>
+
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    :shortcuts="customShortcuts"
+    @invalid-shortcut="onInvalidShortcut"
+  />
+</template>
+```
+
+`update:modelValue` is not emitted when `invalid-shortcut` is emitted.
+
 ## selectYear
 
 Changed year event from dropdown for left/single calendar.

@@ -1,6 +1,6 @@
 import type { InjectionKey, Ref } from 'vue'
 import type { Dayjs } from 'dayjs'
-import type { DatePickerDay } from './types'
+import type { DatePickerDay, ShortcutDefinition } from './types'
 
 const isBetweenRangeKey: InjectionKey<(date: DatePickerDay) => boolean> =
   Symbol('isBetweenRange')
@@ -12,37 +12,32 @@ const datepickerClassesKey: InjectionKey<
 > = Symbol('datepickerClasses')
 const atMouseOverKey: InjectionKey<(date: Dayjs) => false | undefined> =
   Symbol('atMouseOver')
-const setToTodayKey: InjectionKey<
-  (close?: ((ref?: Ref | HTMLElement) => void) | undefined) => void
-> = Symbol('setToToday')
-const setToYesterdayKey: InjectionKey<
-  (close?: ((ref?: Ref | HTMLElement) => void) | undefined) => void
-> = Symbol('setToYesterday')
-const setToLastDayKey: InjectionKey<
-  (day: number, close?: ((ref?: Ref | HTMLElement) => void) | undefined) => void
-> = Symbol('setToLastDay')
-const setToThisMonthKey: InjectionKey<
-  (close?: ((ref?: Ref | HTMLElement) => void) | undefined) => void
-> = Symbol('setToThisMonth')
-const setToLastMonthKey: InjectionKey<
-  (close?: ((ref?: Ref | HTMLElement) => void) | undefined) => void
-> = Symbol('setToLastMonth')
-const setToCustomShortcutKey: InjectionKey<
+
+export type BuiltInShortcutId
+  = 'today'
+    | 'yesterday'
+    | 'past-7-days'
+    | 'past-30-days'
+    | 'this-month'
+    | 'last-month'
+    | 'three-business-days'
+    | 'next-week'
+    | 'next-month'
+
+export type ShortcutActivationTarget = ShortcutDefinition | BuiltInShortcutId
+
+const activateShortcutKey: InjectionKey<
   (
-    item: { label: string; atClick: () => Date[] },
-    close?: (ref?: Ref | HTMLElement) => void,
+    target: ShortcutActivationTarget,
+    close?: ((ref?: Ref | HTMLElement) => void) | undefined,
+    index?: number,
   ) => void
-> = Symbol('setToCustomShortcut')
+> = Symbol('activateShortcut')
 
 export {
   isBetweenRangeKey,
   betweenRangeClassesKey,
   datepickerClassesKey,
   atMouseOverKey,
-  setToTodayKey,
-  setToYesterdayKey,
-  setToLastDayKey,
-  setToThisMonthKey,
-  setToLastMonthKey,
-  setToCustomShortcutKey,
+  activateShortcutKey,
 }
