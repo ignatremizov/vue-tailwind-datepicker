@@ -66,6 +66,31 @@ const yearAriaAnnouncement = computed(() => {
   return `Year ${props.selectedYear} selected`
 })
 
+const ariaYearMin = computed(() => {
+  if (props.years.length === 0)
+    return undefined
+  return Math.min(...props.years)
+})
+
+const ariaYearMax = computed(() => {
+  if (props.years.length === 0)
+    return undefined
+  return Math.max(...props.years)
+})
+
+const ariaYearNow = computed(() => {
+  return props.selectedYear
+    ?? previewYear.value
+    ?? getCenteredYear()
+    ?? undefined
+})
+
+const ariaYearText = computed(() => {
+  if (ariaYearNow.value === undefined)
+    return undefined
+  return `Year ${ariaYearNow.value}`
+})
+
 function isSelectedYear(year: number) {
   const selected = isUserScrolling.value
     ? (previewYear.value ?? props.selectedYear)
@@ -969,9 +994,12 @@ onBeforeUnmount(() => {
           ref="selectorContainerRef"
           class="h-full w-full min-w-0 overflow-y-scroll px-0.5 py-1 focus:outline-none focus-visible:outline-none"
           :class="isUserScrolling ? 'vtd-year-scrolling' : ''"
-          role="listbox"
+          role="spinbutton"
           aria-label="Year selector"
-          aria-orientation="vertical"
+          :aria-valuemin="ariaYearMin"
+          :aria-valuemax="ariaYearMax"
+          :aria-valuenow="ariaYearNow"
+          :aria-valuetext="ariaYearText"
           tabindex="0"
           @focus="onSelectorFocus"
           @click="onYearCanvasClick"

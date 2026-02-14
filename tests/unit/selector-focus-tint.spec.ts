@@ -1,13 +1,14 @@
 import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
 
-function wait(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 async function mountSelectorPicker(selectorFocusTint: boolean) {
+  vi.useFakeTimers()
   const wrapper = mount(VueTailwindDatePicker, {
     attachTo: document.body,
     props: {
@@ -22,7 +23,7 @@ async function mountSelectorPicker(selectorFocusTint: boolean) {
     },
   })
 
-  await wait(320)
+  vi.advanceTimersByTime(260)
   await nextTick()
   await wrapper.get('#vtd-header-previous-month').trigger('click')
   await nextTick()

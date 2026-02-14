@@ -104,6 +104,10 @@ const selectorMonthItems = computed<SelectorMonthItem[]>(() => {
   return items
 })
 
+function monthOptionId(month: number, year: number) {
+  return `vtd-selector-month-${year}-${month}`
+}
+
 const centeredIndexFloat = computed(() => {
   const rowHeight = selectorRowHeight.value || FALLBACK_ROW_HEIGHT
   const viewportHeight = selectorViewportHeight.value || 256
@@ -160,6 +164,20 @@ function getCenteredItem() {
 
   return items[index]
 }
+
+const activeMonthOptionId = computed(() => {
+  if (!props.selectorMode)
+    return undefined
+
+  if (props.selectedMonth !== null && props.selectedYear !== null)
+    return monthOptionId(props.selectedMonth, props.selectedYear)
+
+  const centered = getCenteredItem()
+  if (!centered)
+    return undefined
+
+  return monthOptionId(centered.month, centered.year)
+})
 
 function scrollToIndex(index: number, behavior: ScrollBehavior = 'auto') {
   const container = selectorContainerRef.value
@@ -409,6 +427,7 @@ onBeforeUnmount(() => {
         class="h-full w-full min-w-0 overflow-y-auto px-0.5 py-1 select-none focus:outline-none focus-visible:outline-none"
         role="listbox"
         aria-label="Month selector"
+        :aria-activedescendant="activeMonthOptionId"
         tabindex="0"
         @focus="onSelectorFocus"
         @focusin="onSelectorFocus"
@@ -419,10 +438,11 @@ onBeforeUnmount(() => {
           v-for="item in selectorMonthItems"
           :key="item.key"
           :data-month-index="item.index"
-          class="h-11 flex items-center"
+          class="flex items-center"
+          :style="{ height: 'var(--vtd-selector-wheel-cell-height, 40px)' }"
         >
           <button
-            :id="`vtd-selector-month-${item.year}-${item.month}`"
+            :id="monthOptionId(item.month, item.year)"
             type="button"
             role="option"
             :aria-selected="props.selectedMonth === item.month && props.selectedYear === item.year"

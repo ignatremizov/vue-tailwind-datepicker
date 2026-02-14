@@ -1,6 +1,6 @@
 import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import Month from '../../src/components/Month.vue'
 import Year from '../../src/components/Year.vue'
 import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
@@ -30,11 +30,12 @@ function dispatchKey(target: HTMLElement, options: { key: string; shiftKey?: boo
   }))
 }
 
-function wait(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 async function mountSelectorPicker() {
+  vi.useFakeTimers()
   const wrapper = mount(VueTailwindDatePicker, {
     attachTo: document.body,
     props: {
@@ -50,7 +51,7 @@ async function mountSelectorPicker() {
     },
   })
 
-  await wait(320)
+  vi.advanceTimersByTime(260)
   await nextTick()
   return wrapper
 }
