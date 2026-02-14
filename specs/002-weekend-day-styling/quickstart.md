@@ -8,6 +8,12 @@ npm run typecheck
 npm run build
 ```
 
+### Pre-change baseline evidence (2026-02-14)
+
+- `npm run typecheck`: PASS
+- `npm run build`: PASS
+- Build note: `vite:dts` reported TypeScript engine drift advisory (`project 5.9.3` vs bundled `5.8.2`) with successful declaration generation.
+
 ## 2. Apply host CSS weekend tinting
 
 Use stable weekend hooks in consumer CSS:
@@ -50,12 +56,40 @@ npm run typecheck
 npm run build
 ```
 
+### Final gate evidence (2026-02-14)
+
+- `npm run typecheck`: PASS
+- `npm run build`: PASS
+- `npm run test:unit`: PASS (11/11 tests, includes `tests/unit/weekend-day-styling.spec.ts`)
+
 ## 6. Success criteria evidence capture
 
 Record QA outcomes to track SC-001 through SC-003.
 
 | Date | Scenario | Weekend hooks present | Host CSS applies | Precedence preserved | Notes |
 |------|----------|------------------------|------------------|----------------------|-------|
-| YYYY-MM-DD | Baseline month | pass/fail | pass/fail | pass/fail | |
-| YYYY-MM-DD | Off-month cells | pass/fail | pass/fail | pass/fail | |
-| YYYY-MM-DD | Range + disabled overlap | pass/fail | pass/fail | pass/fail | |
+| 2026-02-14 | Baseline month | pass | pass | pass | Covered by `tests/unit/weekend-day-styling.spec.ts` weekend hook contract assertions and App demo wiring |
+| 2026-02-14 | Off-month cells | pass | pass | pass | Off-month weekend hook coverage asserted by class contract test (`text-vtd-secondary-400` + weekend hooks) |
+| 2026-02-14 | Range + disabled overlap | pass | pass | pass | Range end/in-range + disabled weekend overlap validated in unit tests; today+weekend coexistence confirmed via class-merge code-path inspection |
+
+## 7. Implementation evidence log (story-by-story)
+
+| Date | Story/Task scope | Evidence type | Result | Notes |
+|------|-------------------|---------------|--------|-------|
+| 2026-02-14 | US1 weekend metadata + hook exposure (`T006`-`T009`) | Unit tests + code inspection + build/typecheck | pass | `DatePickerDay` includes saturday/sunday/weekend; weekend hook contract test covers in-month, off-month, and month navigation |
+| 2026-02-14 | US2 host-style customization (`T010`-`T013`) | Docs/demo verification + build/typecheck | pass | README + theming docs include stable hook examples; `src/App.vue` includes host CSS weekend tint demo scenario |
+| 2026-02-14 | US3 precedence/non-regression (`T014`-`T017`) | Unit tests + code inspection | pass | Calendar class merge keeps semantic classes first; selected/range/disabled overlap test passes; today semantics remain in `datepickerClasses` while weekend hooks are additive; no new required props/events introduced |
+| 2026-02-14 | Final polish gates (`T018`-`T022`) | Typecheck/build/unit tests + QA matrix reconciliation | pass | All quality gates pass; weekday non-regression and navigation stability validated by test assertions and navigation contract checks |
+
+## 8. Requirement reconciliation (FR-001..FR-008)
+
+| Requirement | Evidence | Status |
+|-------------|----------|--------|
+| FR-001 | `DatePickerDay` weekend fields + panel day-state assignment | pass |
+| FR-002 | `vtd-weekend` / `vtd-saturday` / `vtd-sunday` hooks in calendar button class binding | pass |
+| FR-003 | Weekend hook contract test verifies off-month weekend cells | pass |
+| FR-004 | README/theming docs + App host CSS demo show consumer-level styling overrides | pass |
+| FR-005 | Weekday non-regression asserted in weekend contract test (weekday cells have no weekend hooks) | pass |
+| FR-006 | Selected/range/disabled overlap verified in unit tests; today overlap preserved by unchanged `datepickerClasses` priority and additive weekend hooks | pass |
+| FR-007 | No new props/events required; hook-based styling only | pass |
+| FR-008 | Shared weekend classification helper uses fixed `day() === 6 || day() === 0` semantics | pass |

@@ -13,8 +13,8 @@
 
 **Purpose**: Prepare verification artifacts and baseline quality evidence before code changes.
 
-- [ ] T001 Record pre-change `npm run typecheck` and `npm run build` results in `specs/002-weekend-day-styling/quickstart.md`
-- [ ] T002 Add an implementation evidence log section for story-by-story validation in `specs/002-weekend-day-styling/quickstart.md`
+- [x] T001 Record pre-change `npm run typecheck` and `npm run build` results in `specs/002-weekend-day-styling/quickstart.md`
+- [x] T002 Add an implementation evidence log section for story-by-story validation in `specs/002-weekend-day-styling/quickstart.md`
 
 ---
 
@@ -24,9 +24,9 @@
 
 **CRITICAL**: No user-story implementation starts until this phase is complete.
 
-- [ ] T003 Extend `DatePickerDay` weekend state fields (`saturday`, `sunday`, `weekend`) in `src/types.ts`
-- [ ] T004 Add a shared weekend-classification helper (`day() === 6 || day() === 0`) in `src/VueTailwindDatePicker.vue`
-- [ ] T005 Wire weekend-classification helper usage into day-cell generation scaffolding for both calendar panels in `src/VueTailwindDatePicker.vue`
+- [x] T003 Extend `DatePickerDay` weekend state fields (`saturday`, `sunday`, `weekend`) in `src/types.ts`
+- [x] T004 Add a shared weekend-classification helper (`day() === 6 || day() === 0`) in `src/VueTailwindDatePicker.vue`
+- [x] T005 Wire weekend-classification helper usage into day-cell generation scaffolding for both calendar panels in `src/VueTailwindDatePicker.vue`
 
 **Checkpoint**: Shared type and classification primitives are ready for story delivery.
 
@@ -38,10 +38,10 @@
 
 **Independent Test**: Render a month with known weekends and verify weekend metadata/class hooks exist on weekend cells, including off-month cells.
 
-- [ ] T006 [US1] Populate `saturday`, `sunday`, and `weekend` flags for previous-panel day cells in `src/VueTailwindDatePicker.vue`
-- [ ] T007 [US1] Populate `saturday`, `sunday`, and `weekend` flags for next-panel day cells in `src/VueTailwindDatePicker.vue`
-- [ ] T008 [US1] Append `vtd-weekend`, `vtd-saturday`, and `vtd-sunday` class hooks in day-button bindings in `src/components/Calendar.vue`
-- [ ] T009 [US1] Validate weekend hook presence across month navigation and off-month cells, then capture evidence in `specs/002-weekend-day-styling/quickstart.md`
+- [x] T006 [US1] Populate `saturday`, `sunday`, and `weekend` flags for previous-panel day cells in `src/VueTailwindDatePicker.vue`
+- [x] T007 [US1] Populate `saturday`, `sunday`, and `weekend` flags for next-panel day cells in `src/VueTailwindDatePicker.vue`
+- [x] T008 [US1] Append `vtd-weekend`, `vtd-saturday`, and `vtd-sunday` class hooks in day-button bindings in `src/components/Calendar.vue`
+- [x] T009 [US1] Validate weekend hook presence across month navigation and off-month cells, then capture evidence in `specs/002-weekend-day-styling/quickstart.md`
 
 **Checkpoint**: Weekend hooks are present and deterministic across both calendar panels.
 
@@ -53,10 +53,10 @@
 
 **Independent Test**: Apply host CSS against weekend hook classes and verify weekend tinting works without internal component edits.
 
-- [ ] T010 [P] [US2] Document weekend hook usage and CSS override examples in `README.md`
-- [ ] T011 [P] [US2] Document weekend hook theming guidance in `docs/theming-options.md`
-- [ ] T012 [US2] Add a host-style weekend tint demonstration scenario in `src/App.vue`
-- [ ] T013 [US2] Execute host-CSS customization verification and record outcomes in `specs/002-weekend-day-styling/quickstart.md`
+- [x] T010 [P] [US2] Document weekend hook usage and CSS override examples in `README.md`
+- [x] T011 [P] [US2] Document weekend hook theming guidance in `docs/theming-options.md`
+- [x] T012 [US2] Add a host-style weekend tint demonstration scenario in `src/App.vue`
+- [x] T013 [US2] Execute host-CSS customization verification and record outcomes in `specs/002-weekend-day-styling/quickstart.md`
 
 **Checkpoint**: Weekend customization flow is documented and proven in integration usage.
 
@@ -68,10 +68,10 @@
 
 **Independent Test**: In range mode with disabled dates, verify weekend hooks coexist with selected, in-range, disabled, and today states without regressions.
 
-- [ ] T014 [US3] Keep weekend hook class merge additive after base semantic classes in `src/components/Calendar.vue`
-- [ ] T015 [US3] Validate selected and in-range weekend overlap behavior using demo flows in `src/App.vue`
-- [ ] T016 [US3] Validate disabled and today-weekend overlap behavior and record evidence in `specs/002-weekend-day-styling/quickstart.md`
-- [ ] T017 [US3] Confirm no new required props/events were introduced for weekend styling in `src/VueTailwindDatePicker.vue`
+- [x] T014 [US3] Keep weekend hook class merge additive after base semantic classes in `src/components/Calendar.vue`
+- [x] T015 [US3] Validate selected and in-range weekend overlap behavior using demo flows in `src/App.vue`
+- [x] T016 [US3] Validate disabled and today-weekend overlap behavior and record evidence in `specs/002-weekend-day-styling/quickstart.md`
+- [x] T017 [US3] Confirm no new required props/events were introduced for weekend styling in `src/VueTailwindDatePicker.vue`
 
 **Checkpoint**: Weekend hooks are additive and non-weekend semantics remain intact.
 
@@ -81,11 +81,11 @@
 
 **Purpose**: Run final quality gates and finalize requirement coverage evidence.
 
-- [ ] T018 Run final `npm run typecheck` and log status in `specs/002-weekend-day-styling/quickstart.md`
-- [ ] T019 Run final `npm run build` and log status in `specs/002-weekend-day-styling/quickstart.md`
-- [ ] T020 Reconcile the QA matrix and requirement evidence log against FR-001..FR-008 in `specs/002-weekend-day-styling/quickstart.md`
-- [ ] T021 Execute explicit weekday non-regression checks (non-weekend cells unchanged in single/range flows) and capture evidence in `specs/002-weekend-day-styling/quickstart.md`
-- [ ] T022 Run month-navigation responsiveness sanity checks and record observations in `specs/002-weekend-day-styling/quickstart.md`
+- [x] T018 Run final `npm run typecheck` and log status in `specs/002-weekend-day-styling/quickstart.md`
+- [x] T019 Run final `npm run build` and log status in `specs/002-weekend-day-styling/quickstart.md`
+- [x] T020 Reconcile the QA matrix and requirement evidence log against FR-001..FR-008 in `specs/002-weekend-day-styling/quickstart.md`
+- [x] T021 Execute explicit weekday non-regression checks (non-weekend cells unchanged in single/range flows) and capture evidence in `specs/002-weekend-day-styling/quickstart.md`
+- [x] T022 Run month-navigation responsiveness sanity checks and record observations in `specs/002-weekend-day-styling/quickstart.md`
 
 ---
 

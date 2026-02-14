@@ -119,6 +119,32 @@ const rangeDate = ref({
 
 Selector wheel visuals are also themeable through CSS variables on `.vtd-datepicker` (month/year selected and hover colors, borders, typography, and wheel cell sizing). Calendar range preview colors/opacity are exposed via `--vtd-calendar-range-preview-bg` and `--vtd-calendar-range-preview-bg-dark`. See `docs/theming-options.md` for examples.
 
+## Weekend Day Styling Hooks
+
+Day cells now expose stable weekend hooks so host apps can apply weekend tinting without patching component internals:
+
+- `vtd-weekend` for Saturday and Sunday
+- `vtd-saturday` for Saturday only
+- `vtd-sunday` for Sunday only
+
+```css
+/* Base weekend tint */
+.vtd-datepicker-date.vtd-weekend {
+  color: #dc2626;
+}
+
+/* Optional split palette */
+.vtd-datepicker-date.vtd-saturday {
+  color: #ea580c;
+}
+
+.vtd-datepicker-date.vtd-sunday {
+  color: #b91c1c;
+}
+```
+
+Hooks are additive: selected/range/disabled/today semantics remain unchanged unless your host CSS explicitly overrides them.
+
 ## Theming options
 
 **Light Mode**

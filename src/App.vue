@@ -24,6 +24,10 @@ const selectorDisabledValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
 const selectorEmptyModelValue = ref('')
 const selectorInvalidModelValue = ref('not-a-date ~ not-a-date')
 const singleDateValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
+const weekendTintValue = ref({
+  startDate: dayjs().startOf('month').format('YYYY-MM-DD HH:mm:ss'),
+  endDate: dayjs().endOf('month').format('YYYY-MM-DD HH:mm:ss'),
+})
 
 const currentLocale = ref('en')
 const localeOptions = [
@@ -166,6 +170,20 @@ function onSelectSomething(e: Dayjs) {
         />
       </div>
 
+      <div class="weekend-tint-demo rounded-lg border border-red-200 bg-red-50 p-4">
+        <p class="mb-3 text-sm font-medium text-red-900">
+          Host CSS weekend tint demo (`vtd-weekend`, `vtd-saturday`, `vtd-sunday`)
+        </p>
+        <VueTailwindDatePicker
+          v-model="weekendTintValue"
+          use-range
+          :i18n="currentLocale"
+        />
+        <p class="mt-3 text-xs text-red-800">
+          Verify weekends receive tint via host CSS hooks while selected/range/disabled states stay behaviorally unchanged.
+        </p>
+      </div>
+
       <div class="rounded-lg border border-cyan-200 bg-cyan-50 p-4">
         <p class="mb-3 text-sm font-medium text-cyan-900">
           Selector mode with empty/invalid model value seeds
@@ -191,3 +209,17 @@ function onSelectSomething(e: Dayjs) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.weekend-tint-demo :deep(.vtd-datepicker-date.vtd-weekend:not(.vtd-datepicker-date-selected):not(:disabled)) {
+  color: rgb(220 38 38 / 100%);
+}
+
+.weekend-tint-demo :deep(.vtd-datepicker-date.vtd-saturday:not(.vtd-datepicker-date-selected):not(:disabled)) {
+  color: rgb(234 88 12 / 100%);
+}
+
+.weekend-tint-demo :deep(.vtd-datepicker-date.vtd-sunday:not(.vtd-datepicker-date-selected):not(:disabled)) {
+  color: rgb(185 28 28 / 100%);
+}
+</style>

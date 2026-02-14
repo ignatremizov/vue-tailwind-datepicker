@@ -156,6 +156,19 @@ function getRangePreviewEdgeClass(date: any) {
   return classes
 }
 
+function weekendHookClasses(date: any) {
+  const classes = []
+
+  if (resolveDateFlag(date, 'weekend'))
+    classes.push('vtd-weekend')
+  if (resolveDateFlag(date, 'saturday'))
+    classes.push('vtd-saturday')
+  if (resolveDateFlag(date, 'sunday'))
+    classes.push('vtd-sunday')
+
+  return classes.join(' ')
+}
+
 function onDateKeydown(event: KeyboardEvent, date: any) {
   const currentKey = getDateKey(date)
   const currentIndex = calendarDates.value.findIndex((entry: any) => getDateKey(entry) === currentKey)
@@ -247,6 +260,7 @@ watch(
             class="vtd-datepicker-date relative w-[2.7rem] h-[2.7rem] lg:w-10 lg:h-10 flex justify-center items-center text-xs 2xl:text-sm focus:outline-none focus-visible:outline-none"
             :class="[
               datepickerClasses(date),
+              weekendHookClasses(date),
               asRange ? 'transition-[color] duration-120 ease-out' : 'transition-colors',
               isCalendarFocusTarget(date) ? 'vtd-calendar-focus-target' : '',
             ]" :disabled="isDateDisabled(date) || isDateInRange(date)" :data-date="date.toDate()" @click="emit('updateDate', date)"
