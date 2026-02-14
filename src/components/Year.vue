@@ -1,22 +1,28 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+
+type SelectorFocus = 'month' | 'year'
 
 const props = withDefaults(defineProps<{
   years: number[]
   selectorMode?: boolean
   selectedYear?: number | null
   selectedMonth?: number | null
+  selectorFocus?: SelectorFocus
   yearScrollMode?: 'boundary' | 'fractional'
 }>(), {
   selectorMode: false,
   selectedYear: null,
   selectedMonth: null,
+  selectorFocus: 'month',
   yearScrollMode: 'boundary',
 })
 
 const emit = defineEmits<{
   (e: 'updateYear', value: number): void
   (e: 'scrollYear', value: number): void
+  (e: 'focusYear'): void
+  (e: 'requestFocusMonth'): void
 }>()
 
 const selectorContainerRef = ref<HTMLDivElement | null>(null)
@@ -27,6 +33,7 @@ const selectorScrollTop = ref(0)
 const selectorViewportHeight = ref(256)
 const selectorViewportWidth = ref(0)
 const selectorPaddingTop = ref(0)
+const selectorRowHeight = ref(44)
 let scrollFrameId: number | null = null
 let drawFrameId: number | null = null
 let scrollIdleTimeoutId: ReturnType<typeof setTimeout> | null = null
@@ -46,12 +53,18 @@ const USER_SCROLL_IDLE_MS = 120
 const PROGRAMMATIC_SCROLL_SYNC_MS = 180
 const CLICK_SYNC_SUPPRESS_MS = 560
 const SMOOTH_SCROLL_SYNC_MS = 520
-const ROW_HEIGHT = 44
+const DEFAULT_ROW_HEIGHT = 44
 const CONTENT_TOP_BOTTOM_PADDING = 4
 const REANCHOR_SCROLL_DEADZONE_PX = 0.75
 const EDGE_GUARD_ROWS = 140
 const PREANCHOR_EDGE_ROWS = 90
 const PREANCHOR_EMIT_COOLDOWN_MS = 90
+
+const yearAriaAnnouncement = computed(() => {
+  if (props.selectedYear === null)
+    return 'No year selected'
+  return `Year ${props.selectedYear} selected`
+})
 
 function isSelectedYear(year: number) {
   const selected = isUserScrolling.value
@@ -67,6 +80,15 @@ function clamp(value: number, min: number, max: number) {
 function readCssNumber(value: string | undefined, fallback: number) {
   const parsed = Number.parseFloat(value ?? '')
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+function readCssVariable(container: HTMLElement | null, variableName: string) {
+  if (!container)
+    return ''
+  const computedValue = getComputedStyle(container).getPropertyValue(variableName).trim()
+  if (computedValue)
+    return computedValue
+  return container.style.getPropertyValue(variableName).trim()
 }
 
 function resolveInheritedFontToken(token: string | undefined, inherited: string, fallback: string) {
@@ -89,6 +111,10 @@ function getCanvasDpr(container: HTMLElement | null) {
   return Math.min(4, Math.max(1, cssDpr))
 }
 
+function getSelectorRowHeight() {
+  return Math.max(1, selectorRowHeight.value || DEFAULT_ROW_HEIGHT)
+}
+
 function markProgrammaticScrollSync(durationMs = PROGRAMMATIC_SCROLL_SYNC_MS) {
   isProgrammaticScrollSync.value = true
   if (programmaticSyncTimeoutId !== null)
@@ -103,10 +129,17 @@ function updateSelectorMetrics() {
   if (!container)
     return
 
+  // TODO: re-measure when `--vtd-selector-wheel-cell-height` changes at runtime
+  // even if no focus/scroll/resize event occurs while selector mode stays open.
+  const computedStyles = getComputedStyle(container)
   selectorViewportHeight.value = container.clientHeight || selectorViewportHeight.value
   selectorViewportWidth.value = container.clientWidth || selectorViewportWidth.value
   selectorScrollTop.value = container.scrollTop
-  selectorPaddingTop.value = Number.parseFloat(getComputedStyle(container).paddingTop || '0') || 0
+  selectorPaddingTop.value = Number.parseFloat(computedStyles.paddingTop || '0') || 0
+  selectorRowHeight.value = readCssNumber(
+    readCssVariable(container, '--vtd-selector-wheel-cell-height'),
+    DEFAULT_ROW_HEIGHT,
+  )
 }
 
 function getYearFractionalOffset() {
@@ -123,14 +156,15 @@ function shouldSuppressSelectedYearSync() {
 
 function getCenteredIndexFloat() {
   const viewportHeight = selectorViewportHeight.value || 256
-  const guardOffsetPx = EDGE_GUARD_ROWS * ROW_HEIGHT
+  const rowHeight = getSelectorRowHeight()
+  const guardOffsetPx = EDGE_GUARD_ROWS * rowHeight
   return (
     selectorScrollTop.value
     - selectorPaddingTop.value
     - guardOffsetPx
     + (viewportHeight / 2)
-    - (ROW_HEIGHT / 2)
-  ) / ROW_HEIGHT
+    - (rowHeight / 2)
+  ) / rowHeight
 }
 
 function getCenteredYear() {
@@ -182,17 +216,19 @@ function maybeEmitPreanchor(
 }
 
 function getScrollContentHeight() {
+  const rowHeight = getSelectorRowHeight()
   return Math.max(
     1,
-    ((props.years.length + (EDGE_GUARD_ROWS * 2)) * ROW_HEIGHT) + (CONTENT_TOP_BOTTOM_PADDING * 2),
+    ((props.years.length + (EDGE_GUARD_ROWS * 2)) * rowHeight) + (CONTENT_TOP_BOTTOM_PADDING * 2),
   )
 }
 
 function centerIndexToScrollTop(index: number, container: HTMLDivElement) {
+  const rowHeight = getSelectorRowHeight()
   return selectorPaddingTop.value
-    + ((index + EDGE_GUARD_ROWS) * ROW_HEIGHT)
+    + ((index + EDGE_GUARD_ROWS) * rowHeight)
     - (container.clientHeight / 2)
-    + (ROW_HEIGHT / 2)
+    + (rowHeight / 2)
 }
 
 function centerYearByIndex(index: number, behavior: ScrollBehavior = 'auto') {
@@ -271,7 +307,7 @@ function preserveOffsetAcrossYearWindowShift(previousFirstYear: number, nextFirs
   if (yearShift === 0)
     return
 
-  const deltaPx = -yearShift * ROW_HEIGHT
+  const deltaPx = -yearShift * getSelectorRowHeight()
   if (Math.abs(deltaPx) <= 0.01)
     return
 
@@ -421,12 +457,16 @@ function drawYearCanvas() {
   const indexFloat = clamp(rawIndexFloat, -1, maxIndex + 1)
   const startIndex = Math.floor(indexFloat - 4)
   const endIndex = Math.ceil(indexFloat + 4)
+  const rowHeight = getSelectorRowHeight()
 
   const centerY = height / 2
   const buttonX = 2
   const buttonWidth = Math.max(0, width - 4)
   const cssVars = selectorContainerRef.value ? getComputedStyle(selectorContainerRef.value) : null
-  const buttonHeight = readCssNumber(cssVars?.getPropertyValue('--vtd-selector-wheel-cell-height').trim(), 40)
+  const buttonHeight = readCssNumber(
+    readCssVariable(selectorContainerRef.value, '--vtd-selector-wheel-cell-height'),
+    rowHeight,
+  )
   const textCenterX = width / 2
   const hoverBg = cssVars?.getPropertyValue('--vtd-selector-year-hover-bg').trim() || 'rgba(30, 41, 59, 0.92)'
   const hoverBorder = cssVars?.getPropertyValue('--vtd-selector-year-hover-border').trim() || 'rgba(100, 116, 139, 0.5)'
@@ -475,9 +515,9 @@ function drawYearCanvas() {
   ctx.textBaseline = hasBoundingMetrics ? 'alphabetic' : 'middle'
 
   for (let i = startIndex - 1; i <= endIndex + 1; i += 1) {
-    const y = centerY + ((i - indexFloat) * ROW_HEIGHT)
+    const y = centerY + ((i - indexFloat) * rowHeight)
 
-    if (y < -ROW_HEIGHT || y > height + ROW_HEIGHT)
+    if (y < -rowHeight || y > height + rowHeight)
       continue
 
     const top = y - (buttonHeight / 2)
@@ -549,7 +589,7 @@ function onYearCanvasClick(event: MouseEvent) {
 
   const rect = container.getBoundingClientRect()
   const localY = event.clientY - rect.top
-  const deltaRows = Math.round((localY - (rect.height / 2)) / ROW_HEIGHT)
+  const deltaRows = Math.round((localY - (rect.height / 2)) / getSelectorRowHeight())
   const targetIndex = clamp(
     Math.round(getCenteredIndexFloat()) + deltaRows,
     0,
@@ -578,7 +618,7 @@ function onSelectorPointerMove(event: MouseEvent) {
 
   const rect = container.getBoundingClientRect()
   const localY = event.clientY - rect.top
-  const deltaRows = Math.round((localY - (rect.height / 2)) / ROW_HEIGHT)
+  const deltaRows = Math.round((localY - (rect.height / 2)) / getSelectorRowHeight())
   const targetIndex = clamp(
     Math.round(getCenteredIndexFloat()) + deltaRows,
     0,
@@ -646,6 +686,102 @@ function onSelectorScroll() {
   if (scrollFrameId !== null)
     return
   scrollFrameId = requestAnimationFrame(flushScrollYearUpdate)
+}
+
+function getKeyboardBaseYear() {
+  return props.selectedYear
+    ?? previewYear.value
+    ?? getCenteredYear()
+    ?? props.years[Math.floor(props.years.length / 2)]
+    ?? new Date().getFullYear()
+}
+
+function applyKeyboardYearDelta(delta: number) {
+  if (!props.selectorMode)
+    return
+
+  const targetYear = getKeyboardBaseYear() + delta
+  suppressSelectedYearSyncUntil = Date.now() + CLICK_SYNC_SUPPRESS_MS
+  lastEmittedScrollYear = targetYear
+  previewYear.value = targetYear
+  pendingScrollYear = null
+  emit('updateYear', targetYear)
+
+  const targetIndex = props.years.findIndex(year => year === targetYear)
+  if (targetIndex >= 0)
+    centerYearByIndex(targetIndex, 'smooth')
+  else
+    queueCanvasDraw()
+}
+
+function onSelectorKeydown(event: KeyboardEvent) {
+  if (!props.selectorMode)
+    return
+
+  // Intentional: both Tab and Shift+Tab switch between year/month wheels.
+  // Although this local handler always requests the sibling wheel, reverse
+  // traversal is preserved at the picker level by the parent focus cycle logic.
+  if (event.key === 'Tab' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+    event.preventDefault()
+    emit('requestFocusMonth')
+    return
+  }
+
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+    event.preventDefault()
+    emit('requestFocusMonth')
+    return
+  }
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    applyKeyboardYearDelta(1)
+    return
+  }
+
+  if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    applyKeyboardYearDelta(-1)
+    return
+  }
+
+  if (event.key === 'PageDown') {
+    event.preventDefault()
+    applyKeyboardYearDelta(event.shiftKey ? 100 : 10)
+    return
+  }
+
+  if (event.key === 'PageUp') {
+    event.preventDefault()
+    applyKeyboardYearDelta(event.shiftKey ? -100 : -10)
+    return
+  }
+
+  if (event.key === 'Home') {
+    event.preventDefault()
+    applyKeyboardYearDelta(-100)
+    return
+  }
+
+  if (event.key === 'End') {
+    event.preventDefault()
+    applyKeyboardYearDelta(100)
+  }
+}
+
+function onSelectorFocus() {
+  emit('focusYear')
+  if (!props.selectorMode || props.selectedYear === null)
+    return
+
+  // Browsers can nudge scroll position on focus/tab. Keep the wheel anchored
+  // to the selected year and treat the resulting scroll as programmatic.
+  markProgrammaticScrollSync(120)
+  updateSelectorMetrics()
+  scrollSelectedYearIntoView('auto', {
+    includeFractionalOffset: props.yearScrollMode === 'fractional',
+  })
+  queueCanvasDraw()
 }
 
 watch(
@@ -778,6 +914,10 @@ watch(
   (enabled) => {
     if (!enabled) {
       hoveredYear.value = null
+      if (resizeObserver) {
+        resizeObserver.disconnect()
+        resizeObserver = null
+      }
       return
     }
 
@@ -814,8 +954,10 @@ onBeforeUnmount(() => {
     clearTimeout(scrollIdleTimeoutId)
   if (programmaticSyncTimeoutId !== null)
     clearTimeout(programmaticSyncTimeoutId)
-  if (resizeObserver)
+  if (resizeObserver) {
     resizeObserver.disconnect()
+    resizeObserver = null
+  }
 })
 </script>
 
@@ -825,11 +967,15 @@ onBeforeUnmount(() => {
       <div class="relative h-64 w-full min-w-0">
         <div
           ref="selectorContainerRef"
-          class="h-full w-full min-w-0 overflow-y-scroll px-0.5 py-1"
+          class="h-full w-full min-w-0 overflow-y-scroll px-0.5 py-1 focus:outline-none focus-visible:outline-none"
           :class="isUserScrolling ? 'vtd-year-scrolling' : ''"
           role="listbox"
           aria-label="Year selector"
+          aria-orientation="vertical"
+          tabindex="0"
+          @focus="onSelectorFocus"
           @click="onYearCanvasClick"
+          @keydown="onSelectorKeydown"
           @mousemove.passive="onSelectorPointerMove"
           @mouseleave="clearHoveredYear"
           @scroll.passive="onSelectorScroll"
@@ -841,6 +987,7 @@ onBeforeUnmount(() => {
           class="pointer-events-none absolute inset-0 z-10 block"
           aria-hidden="true"
         />
+        <span class="sr-only" aria-live="polite">{{ yearAriaAnnouncement }}</span>
       </div>
     </template>
 

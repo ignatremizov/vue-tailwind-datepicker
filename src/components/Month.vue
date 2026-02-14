@@ -32,6 +32,8 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: 'updateMonth', value: number): void
   (e: 'scrollMonth', value: SelectorMonthPayload): void
+  (e: 'focusMonth'): void
+  (e: 'requestFocusYear'): void
 }>()
 
 const SELECTOR_VISIBLE_RADIUS = 180
@@ -39,6 +41,7 @@ const SELECTOR_CENTER_INDEX = SELECTOR_VISIBLE_RADIUS
 const SELECTOR_EDGE_REBASE_THRESHOLD = 42
 const USER_SCROLL_IDLE_MS = 90
 const PROGRAMMATIC_SCROLL_SYNC_MS = 120
+const SMOOTH_SCROLL_SYNC_MS = 420
 const FALLBACK_ROW_HEIGHT = 44
 
 const selectorContainerRef = ref<HTMLDivElement | null>(null)
@@ -121,13 +124,13 @@ function emitScrollMonth(target: SelectorMonthPayload) {
   emit('scrollMonth', target)
 }
 
-function markProgrammaticScrollSync() {
+function markProgrammaticScrollSync(durationMs = PROGRAMMATIC_SCROLL_SYNC_MS) {
   isProgrammaticScrollSync.value = true
   if (programmaticSyncTimeoutId !== null)
     clearTimeout(programmaticSyncTimeoutId)
   programmaticSyncTimeoutId = setTimeout(() => {
     isProgrammaticScrollSync.value = false
-  }, PROGRAMMATIC_SCROLL_SYNC_MS)
+  }, durationMs)
 }
 
 function updateSelectorMetrics() {
@@ -256,20 +259,75 @@ function onSelectorKeydown(event: KeyboardEvent) {
   if (!props.selectorMode)
     return
 
+  // Intentional: both Tab and Shift+Tab switch between month/year wheels.
+  // Although this local handler always requests the sibling wheel, reverse
+  // traversal is preserved at the picker level by the parent focus cycle logic.
+  if (event.key === 'Tab' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+    event.preventDefault()
+    emit('requestFocusYear')
+    return
+  }
+
+  if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+    event.preventDefault()
+    emit('requestFocusYear')
+    return
+  }
+
   if (event.key === 'ArrowDown' || event.key === 'PageDown') {
     event.preventDefault()
-    const current = getSelectionBase()
-    const next = addMonths(current.month, current.year, 1)
-    emitScrollMonth(next)
+    applyKeyboardMonthDelta(1)
     return
   }
 
   if (event.key === 'ArrowUp' || event.key === 'PageUp') {
     event.preventDefault()
-    const current = getSelectionBase()
-    const next = addMonths(current.month, current.year, -1)
-    emitScrollMonth(next)
+    applyKeyboardMonthDelta(-1)
   }
+}
+
+function getKeyboardBaseSelection() {
+  if (props.selectedMonth !== null && props.selectedYear !== null) {
+    return {
+      month: props.selectedMonth,
+      year: props.selectedYear,
+    }
+  }
+
+  const centered = getCenteredItem()
+  if (centered) {
+    return {
+      month: centered.month,
+      year: centered.year,
+    }
+  }
+
+  return getSelectionBase()
+}
+
+function applyKeyboardMonthDelta(delta: number) {
+  if (!props.selectorMode)
+    return
+
+  const current = getKeyboardBaseSelection()
+  const next = addMonths(current.month, current.year, delta)
+  emitScrollMonth(next)
+
+  const targetItem = selectorMonthItems.value.find(
+    item => item.month === next.month && item.year === next.year,
+  )
+  if (targetItem) {
+    markProgrammaticScrollSync(SMOOTH_SCROLL_SYNC_MS)
+    scrollToIndex(targetItem.index, 'smooth')
+    return
+  }
+
+  anchorSelection.value = next
+  nextTick(() => {
+    markProgrammaticScrollSync(SMOOTH_SCROLL_SYNC_MS)
+    updateSelectorMetrics()
+    scrollToIndex(SELECTOR_CENTER_INDEX, 'smooth')
+  })
 }
 
 function onMonthClick(item: SelectorMonthItem) {
@@ -278,9 +336,14 @@ function onMonthClick(item: SelectorMonthItem) {
     return
   }
 
-  markProgrammaticScrollSync()
+  markProgrammaticScrollSync(SMOOTH_SCROLL_SYNC_MS)
   scrollToIndex(item.index, 'smooth')
   emitScrollMonth({ month: item.month, year: item.year })
+  selectorContainerRef.value?.focus({ preventScroll: true })
+}
+
+function onSelectorFocus() {
+  emit('focusMonth')
 }
 
 watch(
@@ -343,10 +406,12 @@ onBeforeUnmount(() => {
     <div class="relative h-full w-full min-w-0 overflow-hidden rounded-md">
       <div
         ref="selectorContainerRef"
-        class="h-full w-full min-w-0 overflow-y-auto px-0.5 py-1 select-none"
+        class="h-full w-full min-w-0 overflow-y-auto px-0.5 py-1 select-none focus:outline-none focus-visible:outline-none"
         role="listbox"
         aria-label="Month selector"
-        :tabindex="props.selectorFocus === 'month' ? 0 : -1"
+        tabindex="0"
+        @focus="onSelectorFocus"
+        @focusin="onSelectorFocus"
         @scroll.passive="onSelectorScroll"
         @keydown="onSelectorKeydown"
       >
@@ -367,6 +432,7 @@ onBeforeUnmount(() => {
                 ? 'vtd-month-selector-btn-selected'
                 : 'vtd-month-selector-btn-default bg-transparent border-transparent focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 dark:focus:bg-vtd-secondary-700 dark:focus:text-vtd-secondary-100',
             ]"
+            tabindex="-1"
             @click="onMonthClick(item)"
             v-text="props.months[item.month]"
           />

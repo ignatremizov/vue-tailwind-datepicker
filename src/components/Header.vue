@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+
 type PickerViewMode = 'calendar' | 'selector'
 type SelectorFocus = 'month' | 'year'
 type SelectionPanel = 'previous' | 'next'
@@ -24,10 +26,12 @@ const props = withDefaults(defineProps<{
     setYear: ($event: number) => void
   }
   selectorMode?: boolean
+  selectorFocus?: SelectorFocus
   pickerViewMode?: PickerViewMode
   panelName?: SelectionPanel
 }>(), {
   selectorMode: false,
+  selectorFocus: 'month',
   pickerViewMode: 'calendar',
   panelName: 'previous',
 })
@@ -58,8 +62,39 @@ function onHeaderValueClick(focus: SelectorFocus) {
   emit('enter-selector-mode', { panel: props.panelName, focus })
 }
 
-function onSelectorHeaderClick() {
-  onHeaderValueClick('month')
+function onSelectorHeaderClick(focus: SelectorFocus = 'month') {
+  onHeaderValueClick(focus)
+}
+
+const selectorMonthTextRef = ref<HTMLElement | null>(null)
+const selectorYearTextRef = ref<HTMLElement | null>(null)
+
+function resolveSelectorFocusFromClick(event: MouseEvent): SelectorFocus {
+  // Keyboard-triggered click events (Enter/Space) report detail=0.
+  if (event.detail === 0)
+    return props.selectorFocus
+
+  const target = event.target
+  if (target instanceof Node) {
+    if (selectorMonthTextRef.value?.contains(target))
+      return 'month'
+    if (selectorYearTextRef.value?.contains(target))
+      return 'year'
+  }
+
+  const currentTarget = event.currentTarget
+  if (currentTarget instanceof HTMLElement) {
+    const rect = currentTarget.getBoundingClientRect()
+    const clickX = event.clientX - rect.left
+    if (clickX >= 0 && clickX <= rect.width)
+      return clickX < (rect.width / 2) ? 'month' : 'year'
+  }
+
+  return props.selectorFocus
+}
+
+function onSelectorHeaderClickWithHeuristic(event: MouseEvent) {
+  onSelectorHeaderClick(resolveSelectorFocusFromClick(event))
 }
 </script>
 
@@ -94,11 +129,14 @@ function onSelectorHeaderClick() {
             :aria-expanded="props.pickerViewMode === 'selector'"
             aria-label="Toggle month and year selector"
             class="group relative px-3 pl-8 pr-8 py-1.5 inline-flex items-center justify-center w-full leading-relaxed rounded-md text-xs 2xl:text-sm tracking-wide text-vtd-secondary-700 font-semibold sm:font-medium transition-colors border border-vtd-primary-300/65 bg-vtd-primary-50/45 hover:bg-vtd-primary-100/70 hover:text-vtd-secondary-900 focus:bg-vtd-primary-100/80 focus:text-vtd-secondary-900 focus:border-vtd-primary-400 focus:ring-3 focus:ring-vtd-primary-500/15 focus:outline-hidden uppercase truncate dark:bg-vtd-secondary-700/45 dark:text-vtd-secondary-100 dark:border-vtd-primary-500/35 dark:hover:bg-vtd-secondary-700/70 dark:focus:bg-vtd-secondary-700/75 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-25"
-            @click="onSelectorHeaderClick"
+            @click="onSelectorHeaderClickWithHeuristic"
           >
-            <span class="text-center">{{ calendar.month }} {{ calendar.year }}</span>
+            <span class="inline-flex items-center gap-1.5 text-center">
+              <span ref="selectorMonthTextRef" @click.stop="onSelectorHeaderClick('month')">{{ calendar.month }}</span>
+              <span ref="selectorYearTextRef" class="tabular-nums" @click.stop="onSelectorHeaderClick('year')">{{ calendar.year }}</span>
+            </span>
             <svg
-              class="h-3.5 w-3.5 absolute right-3 top-1/2 -translate-y-1/2 transition-transform duration-150"
+              class="pointer-events-none h-3.5 w-3.5 absolute right-3 top-1/2 -translate-y-1/2 transition-transform duration-150"
               :class="props.pickerViewMode === 'selector' ? 'rotate-180' : ''"
               viewBox="0 0 20 20"
               fill="currentColor"

@@ -43,6 +43,21 @@
 
 @layer components {
     .vtd-datepicker {
+        --vtd-calendar-range-preview-bg: rgb(14 165 233 / 60%);
+        --vtd-calendar-range-preview-bg-dark: rgb(51 65 85 / 50%);
+        --vtd-calendar-range-preview-edge-bg: var(--vtd-calendar-day-selected-bg);
+        --vtd-calendar-range-preview-edge-bg-dark: var(--vtd-calendar-day-selected-bg);
+        --vtd-calendar-day-focus-shadow: inset 0 0 0 2px var(--color-vtd-primary-500);
+        --vtd-calendar-day-selected-bg: var(--color-vtd-primary-500);
+        --vtd-calendar-day-selected-text: rgb(255 255 255 / 100%);
+        --vtd-calendar-day-selected-font-weight: 700;
+        --vtd-calendar-day-selected-border-width: 0px;
+        --vtd-calendar-day-selected-border-color: transparent;
+        --vtd-calendar-day-selected-shadow: none;
+        --vtd-calendar-day-selected-radius: 9999px;
+        --vtd-calendar-day-selected-start-radius: 9999px 0 0 9999px;
+        --vtd-calendar-day-selected-end-radius: 0 9999px 9999px 0;
+
         --vtd-selector-wheel-cell-height: 40px;
         --vtd-selector-month-font-family: inherit;
         --vtd-selector-month-font-size: 0.875rem;
@@ -77,6 +92,7 @@
     }
 
     .dark .vtd-datepicker {
+        --vtd-calendar-day-focus-shadow: inset 0 0 0 2px var(--color-vtd-primary-400);
         --vtd-selector-month-text: rgb(163 163 163 / 100%);
         --vtd-selector-year-text: rgb(163 163 163 / 100%);
         --vtd-selector-month-hover-bg: rgb(56 189 248 / 18%);
@@ -91,6 +107,49 @@
     .vtd-datepicker [aria-label='Year selector'] {
         overscroll-behavior-y: contain;
         scrollbar-gutter: stable;
+    }
+
+    .vtd-datepicker .vtd-datepicker-range-preview {
+        background-color: var(--vtd-calendar-range-preview-bg);
+        transition: opacity 120ms ease-out, background-color 140ms ease-out;
+    }
+
+    .dark .vtd-datepicker .vtd-datepicker-range-preview {
+        background-color: var(--vtd-calendar-range-preview-bg-dark);
+    }
+
+    .vtd-datepicker .vtd-datepicker-range-preview-edge {
+        background-color: var(--vtd-calendar-range-preview-edge-bg);
+    }
+
+    .dark .vtd-datepicker .vtd-datepicker-range-preview-edge {
+        background-color: var(--vtd-calendar-range-preview-edge-bg-dark);
+    }
+
+    .vtd-datepicker .vtd-datepicker-date:focus-visible {
+        box-shadow: var(--vtd-calendar-day-focus-shadow);
+    }
+
+    .vtd-datepicker .vtd-datepicker-date-selected {
+        background-color: var(--vtd-calendar-day-selected-bg);
+        color: var(--vtd-calendar-day-selected-text);
+        font-weight: var(--vtd-calendar-day-selected-font-weight);
+        border-style: solid;
+        border-width: var(--vtd-calendar-day-selected-border-width);
+        border-color: var(--vtd-calendar-day-selected-border-color);
+        box-shadow: var(--vtd-calendar-day-selected-shadow);
+    }
+
+    .vtd-datepicker .vtd-datepicker-date-selected-single {
+        border-radius: var(--vtd-calendar-day-selected-radius);
+    }
+
+    .vtd-datepicker .vtd-datepicker-date-selected-start {
+        border-radius: var(--vtd-calendar-day-selected-start-radius);
+    }
+
+    .vtd-datepicker .vtd-datepicker-date-selected-end {
+        border-radius: var(--vtd-calendar-day-selected-end-radius);
     }
 
     .vtd-datepicker [aria-label='Month selector'] {

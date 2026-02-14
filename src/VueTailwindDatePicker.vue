@@ -73,6 +73,7 @@ export interface Props {
   selectorMode?: boolean
   selectorFocusTint?: boolean
   selectorYearScrollMode?: 'boundary' | 'fractional'
+  closeOnRangeSelection?: boolean
   options?: {
     shortcuts: {
       today: string
@@ -116,6 +117,7 @@ const props = withDefaults(defineProps<Props>(), {
   selectorMode: false,
   selectorFocusTint: true,
   selectorYearScrollMode: 'boundary',
+  closeOnRangeSelection: true,
   options: () => ({
     shortcuts: {
       today: 'Today',
@@ -167,6 +169,7 @@ dayjs.extend(weekOfYear)
 const VtdRef = ref(null)
 const VtdStaticRef = ref<HTMLElement | null>(null)
 const VtdInputRef = ref<HTMLInputElement | null>(null)
+const VtdPopoverButtonRef = ref<unknown>(null)
 const placement = ref<boolean | null>(null)
 const givenPlaceholder = ref('')
 const selection = ref<Dayjs | null>(null)
@@ -523,11 +526,40 @@ function getPickerQueryRoot() {
   return VtdRef.value as HTMLElement | null
 }
 
+function isPopoverOpen() {
+  return !!(VtdRef.value && document.body.contains(VtdRef.value))
+}
+
+function resolvePopoverButtonElement() {
+  const refValue = VtdPopoverButtonRef.value as
+    | HTMLElement
+    | { $el?: unknown; $?: { vnode?: { el?: unknown } } }
+    | null
+
+  if (!refValue)
+    return null
+  if (refValue instanceof HTMLElement)
+    return refValue
+  if (refValue.$el instanceof HTMLElement)
+    return refValue.$el
+  if (refValue.$?.vnode?.el instanceof HTMLElement)
+    return refValue.$.vnode.el
+  return VtdInputRef.value?.closest('label') ?? null
+}
+
+function triggerPopoverButtonClick() {
+  const buttonElement = resolvePopoverButtonElement()
+  if (buttonElement)
+    buttonElement.click()
+}
+
 function focusHeaderValue(panel: SelectionPanel, focus: SelectorFocus) {
   const queryRoot = getPickerQueryRoot()
   if (!queryRoot)
     return
-  const headerButton = queryRoot.querySelector<HTMLElement>(`#vtd-header-${panel}-${focus}`)
+  const headerButton
+    = queryRoot.querySelector<HTMLElement>(`#vtd-header-${panel}-${focus}`)
+      ?? queryRoot.querySelector<HTMLElement>(`#vtd-header-${panel}-month`)
   if (headerButton instanceof HTMLElement)
     headerButton.focus()
 }
@@ -548,18 +580,59 @@ function focusSelectorModeTarget(
     const monthSelector = panelElement.querySelector<HTMLElement>('[aria-label="Month selector"]')
     if (monthSelector) {
       monthSelector.focus()
-      return
+      return true
     }
   }
   else {
-    const yearSelectorActiveButton
-      = panelElement.querySelector<HTMLButtonElement>('[aria-label="Year selector"] [aria-selected="true"]')
-        ?? panelElement.querySelector<HTMLButtonElement>('[aria-label="Year selector"] button')
-    if (yearSelectorActiveButton) {
-      yearSelectorActiveButton.focus()
-      return
+    const yearSelector = panelElement.querySelector<HTMLElement>('[aria-label="Year selector"]')
+    if (yearSelector) {
+      yearSelector.focus()
+      return true
     }
   }
+
+  return false
+}
+
+function focusSelectorModeTargetDeferred(
+  context: SelectionContext = selectionContext.value,
+  focus: SelectorFocus = selectorFocus.value,
+  attempt = 0,
+) {
+  requestAnimationFrame(() => {
+    const focused = focusSelectorModeTarget(context, focus)
+    if (!focused && attempt < 2)
+      focusSelectorModeTargetDeferred(context, focus, attempt + 1)
+  })
+}
+
+function focusCalendarModeTarget() {
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return false
+
+  const preferredPanel = queryRoot.querySelector<HTMLElement>('[data-vtd-selector-panel="previous"]')
+  const fallbackPanel = queryRoot.querySelector<HTMLElement>('[data-vtd-selector-panel="next"]')
+  const panelElement = preferredPanel ?? fallbackPanel
+  if (!panelElement)
+    return false
+
+  const calendarDateButton
+    = panelElement.querySelector<HTMLButtonElement>('.vtd-calendar-focus-target')
+      ?? panelElement.querySelector<HTMLButtonElement>('.vtd-datepicker-date:not(:disabled)')
+  if (!calendarDateButton)
+    return false
+
+  calendarDateButton.focus()
+  return true
+}
+
+function focusCalendarModeTargetDeferred(attempt = 0) {
+  requestAnimationFrame(() => {
+    const focused = focusCalendarModeTarget()
+    if (!focused && attempt < 2)
+      focusCalendarModeTargetDeferred(attempt + 1)
+  })
 }
 
 interface SyncSelectorStateOptions {
@@ -683,12 +756,34 @@ function isSelectorPanel(panelName: SelectionPanel) {
 }
 
 function getSelectorColumnClass(focus: SelectorFocus) {
-  if (!props.selectorFocusTint)
-    return 'border-black/[.08] dark:border-vtd-secondary-700/[1]'
+  if (!props.selectorFocusTint) {
+    return selectorFocus.value === focus
+      ? 'border-vtd-primary-300 dark:border-vtd-primary-500'
+      : 'border-black/[.08] dark:border-vtd-secondary-700/[1]'
+  }
 
   return selectorFocus.value === focus
-    ? 'border-vtd-primary-300 bg-vtd-primary-50/40 dark:border-vtd-primary-500 dark:bg-vtd-secondary-700/50'
+    ? 'border-vtd-primary-300 bg-vtd-primary-50/40 ring-2 ring-vtd-primary-400/35 ring-offset-1 ring-offset-transparent dark:border-vtd-primary-500 dark:bg-vtd-secondary-700/50 dark:ring-vtd-primary-500/35'
     : 'border-black/[.08] dark:border-vtd-secondary-700/[1]'
+}
+
+function onSelectorColumnFocus(panelName: SelectionPanel, focus: SelectorFocus) {
+  if (!props.selectorMode)
+    return
+  selectionContext.value = resolveSelectionContext(panelName)
+  selectorFocus.value = focus
+}
+
+function requestSelectorColumnFocus(panelName: SelectionPanel, focus: SelectorFocus) {
+  if (!props.selectorMode)
+    return
+
+  const context = resolveSelectionContext(panelName)
+  selectionContext.value = context
+  selectorFocus.value = focus
+  nextTick(() => {
+    focusSelectorModeTargetDeferred(context, focus)
+  })
 }
 
 function enterSelectorMode(payload: HeaderInteractionPayload) {
@@ -704,7 +799,7 @@ function enterSelectorMode(payload: HeaderInteractionPayload) {
   nextTick(() => {
     if (pickerViewMode.value === 'selector') {
       closeLegacyPanels()
-      focusSelectorModeTarget(selectionContext.value, selectorFocus.value)
+      focusSelectorModeTargetDeferred(selectionContext.value, selectorFocus.value)
     }
   })
 }
@@ -733,7 +828,7 @@ function togglePickerViewMode(
   nextTick(() => {
     if (pickerViewMode.value === 'selector') {
       closeLegacyPanels()
-      focusSelectorModeTarget(selectionContext.value, selectorFocus.value)
+      focusSelectorModeTargetDeferred(selectionContext.value, selectorFocus.value)
     }
   })
 }
@@ -796,21 +891,160 @@ function resetPickerViewMode() {
     closeLegacyPanels()
 }
 
-function onPickerPanelKeydown(event: KeyboardEvent) {
-  if (event.key !== 'Escape')
+function isVisibleElement(element: HTMLElement) {
+  return element.getClientRects().length > 0
+}
+
+function getSelectorFocusCycleTargets() {
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return []
+
+  const targets: HTMLElement[] = []
+  const pushTarget = (element: HTMLElement | null) => {
+    if (!element || !isVisibleElement(element))
+      return
+    if (targets.includes(element))
+      return
+    targets.push(element)
+  }
+
+  const appendPanelTargets = (panel: SelectionPanel) => {
+    pushTarget(queryRoot.querySelector<HTMLElement>(`#vtd-header-${panel}-month`))
+    const panelElement = queryRoot.querySelector<HTMLElement>(`[data-vtd-selector-panel="${panel}"]`)
+    if (!panelElement)
+      return
+    pushTarget(panelElement.querySelector<HTMLElement>('[aria-label="Month selector"]'))
+    pushTarget(panelElement.querySelector<HTMLElement>('[aria-label="Year selector"]'))
+  }
+
+  appendPanelTargets('previous')
+  if (asRange() && !props.asSingle)
+    appendPanelTargets('next')
+
+  // Shortcuts are treated as a single focus stop in selector tab order.
+  pushTarget(queryRoot.querySelector<HTMLElement>('.vtd-shortcuts'))
+  return targets
+}
+
+function getCalendarFocusCycleTargets() {
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return []
+
+  const targets: HTMLElement[] = []
+  const pushTarget = (element: HTMLElement | null) => {
+    if (!element || !isVisibleElement(element))
+      return
+    if (targets.includes(element))
+      return
+    targets.push(element)
+  }
+
+  const appendCalendarTarget = (panel: SelectionPanel) => {
+    const panelElement = queryRoot.querySelector<HTMLElement>(`[data-vtd-selector-panel="${panel}"]`)
+    if (!panelElement)
+      return
+    pushTarget(panelElement.querySelector<HTMLElement>('.vtd-calendar-focus-target'))
+  }
+
+  const isDoublePanel = asRange() && !props.asSingle
+  const previousHeader = queryRoot.querySelector<HTMLElement>('#vtd-header-previous-month')
+  const nextHeader = queryRoot.querySelector<HTMLElement>('#vtd-header-next-month')
+  const shortcutContainer = queryRoot.querySelector<HTMLElement>('.vtd-shortcuts')
+
+  // Calendar mode tab order:
+  // previous calendar -> (next header -> next calendar) -> shortcuts -> previous header -> repeat
+  appendCalendarTarget('previous')
+  if (isDoublePanel) {
+    pushTarget(nextHeader)
+    appendCalendarTarget('next')
+  }
+  pushTarget(shortcutContainer)
+  pushTarget(previousHeader)
+  return targets
+}
+
+type PopoverCloseFn = (ref?: Ref | HTMLElement) => void
+
+function closePopoverFromPanel(close?: PopoverCloseFn) {
+  resetPickerViewMode()
+  if (close) {
+    if (VtdInputRef.value) {
+      close(VtdInputRef.value)
+      return
+    }
+    close()
     return
-  if (!props.selectorMode || pickerViewMode.value !== 'selector')
+  }
+  if (!props.noInput)
+    triggerPopoverButtonClick()
+}
+
+function onPickerPanelKeydown(event: KeyboardEvent, close?: PopoverCloseFn) {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    event.stopPropagation()
+    closePopoverFromPanel(close)
+    return
+  }
+
+  if (event.key !== 'Tab')
+    return
+
+  const inSelectorMode = props.selectorMode && pickerViewMode.value === 'selector'
+  const targets = inSelectorMode
+    ? getSelectorFocusCycleTargets()
+    : getCalendarFocusCycleTargets()
+  if (targets.length === 0)
     return
 
   event.preventDefault()
   event.stopPropagation()
-  togglePickerViewMode(
-    {
-      panel: resolveContextPanel(selectionContext.value),
-      focus: selectorFocus.value,
-    },
-    { restoreFocus: true },
-  )
+
+  const activeElement = document.activeElement as HTMLElement | null
+  let currentIndex = targets.findIndex(target => target === activeElement || target.contains(activeElement))
+  if (currentIndex < 0) {
+    currentIndex = targets.findIndex((target) => {
+      const panel = resolveContextPanel(selectionContext.value)
+      const expectedHeader = target.id === `vtd-header-${panel}-month`
+      const expectedMonth = selectorFocus.value === 'month' && target.getAttribute('aria-label') === 'Month selector'
+      const expectedYear = selectorFocus.value === 'year' && target.getAttribute('aria-label') === 'Year selector'
+      return expectedHeader || expectedMonth || expectedYear
+    })
+  }
+  if (currentIndex < 0)
+    currentIndex = 0
+
+  const delta = event.shiftKey ? -1 : 1
+  const nextIndex = (currentIndex + delta + targets.length) % targets.length
+  targets[nextIndex].focus()
+}
+
+function onInputKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Enter' || event.altKey || event.ctrlKey || event.metaKey)
+    return
+
+  event.preventDefault()
+  event.stopPropagation()
+  resetPickerViewMode()
+
+  if (!isPopoverOpen())
+    triggerPopoverButtonClick()
+
+  nextTick(() => {
+    focusCalendarModeTargetDeferred()
+  })
+}
+
+function onPopoverAfterEnter() {
+  nextTick(() => {
+    if (props.selectorMode && pickerViewMode.value === 'selector') {
+      focusSelectorModeTargetDeferred(selectionContext.value, selectorFocus.value)
+      return
+    }
+    focusCalendarModeTargetDeferred()
+  })
 }
 
 watch(
@@ -1012,7 +1246,7 @@ function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
             ),
           )
         }
-        if (close)
+        if (close && props.closeOnRangeSelection)
           close()
 
         applyValue.value = []
@@ -1339,11 +1573,11 @@ function datepickerClasses(date: DatePickerDay) {
   if (active) {
     classes = today
       ? 'text-vtd-primary-500 font-semibold dark:text-vtd-primary-400 rounded-full focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring focus:ring-vtd-primary-500 focus:ring-opacity-10 focus:outline-none dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-25 dark:focus:bg-opacity-50'
-      : disabled
-        ? 'text-vtd-secondary-600 font-normal disabled:text-vtd-secondary-500 disabled:cursor-not-allowed rounded-full'
-        : date.isBetween(s as Dayjs, e as Dayjs, 'date', '()')
-          ? 'text-vtd-secondary-700 font-medium dark:text-vtd-secondary-100 rounded-full'
-          : 'text-vtd-secondary-600 font-medium dark:text-vtd-secondary-200 rounded-full'
+        : disabled
+          ? 'text-vtd-secondary-600 font-normal disabled:text-vtd-secondary-500 disabled:cursor-not-allowed rounded-full'
+          : date.isBetween(s as Dayjs, e as Dayjs, 'date', '()')
+            ? 'text-vtd-secondary-700 font-medium dark:text-vtd-secondary-100'
+            : 'text-vtd-secondary-600 font-medium dark:text-vtd-secondary-200 rounded-full'
   }
   if (off)
     classes = 'text-vtd-secondary-400 font-light disabled:cursor-not-allowed'
@@ -1351,27 +1585,27 @@ function datepickerClasses(date: DatePickerDay) {
   if (s && e && !off) {
     if (date.isSame(s, 'date')) {
       classes = e.isAfter(s, 'date')
-        ? 'bg-vtd-primary-500 text-white font-bold rounded-l-full disabled:cursor-not-allowed'
-        : 'bg-vtd-primary-500 text-white font-bold rounded-r-full disabled:cursor-not-allowed'
+        ? 'vtd-datepicker-date-selected vtd-datepicker-date-selected-start disabled:cursor-not-allowed'
+        : 'vtd-datepicker-date-selected vtd-datepicker-date-selected-end disabled:cursor-not-allowed'
       if (s.isSame(e, 'date')) {
         classes
-          = 'bg-vtd-primary-500 text-white font-bold rounded-full disabled:cursor-not-allowed'
+          = 'vtd-datepicker-date-selected vtd-datepicker-date-selected-single disabled:cursor-not-allowed'
       }
     }
     if (date.isSame(e, 'date')) {
       classes = e.isAfter(s, 'date')
-        ? 'bg-vtd-primary-500 text-white font-bold rounded-r-full disabled:cursor-not-allowed'
-        : 'bg-vtd-primary-500 text-white font-bold rounded-l-full disabled:cursor-not-allowed'
+        ? 'vtd-datepicker-date-selected vtd-datepicker-date-selected-end disabled:cursor-not-allowed'
+        : 'vtd-datepicker-date-selected vtd-datepicker-date-selected-start disabled:cursor-not-allowed'
       if (s.isSame(e, 'date')) {
         classes
-          = 'bg-vtd-primary-500 text-white font-bold rounded-full disabled:cursor-not-allowed'
+          = 'vtd-datepicker-date-selected vtd-datepicker-date-selected-single disabled:cursor-not-allowed'
       }
     }
   }
   else if (s) {
     if (date.isSame(s, 'date') && !off) {
       classes
-        = 'bg-vtd-primary-500 text-white font-bold rounded-full disabled:cursor-not-allowed'
+        = 'vtd-datepicker-date-selected vtd-datepicker-date-selected-single disabled:cursor-not-allowed'
     }
   }
 
@@ -1445,20 +1679,35 @@ function betweenRangeClasses(date: Dayjs) {
     }
   }
 
-  if (s && e) {
-    if (date.isSame(s, 'date')) {
-      if (e.isBefore(s))
-        classes += ' rounded-r-full inset-0'
+  const startDate = dayjs.isDayjs(s) && s.isValid() ? s : null
+  const endDate = dayjs.isDayjs(e) && e.isValid() ? e : null
 
-      if (s.isBefore(e))
-        classes += ' rounded-l-full inset-0'
+  if (startDate && endDate) {
+    const isWithinRange
+      = date.isBetween(startDate, endDate, 'date', '[]')
+        || date.isBetween(endDate, startDate, 'date', '[]')
+    if (!isWithinRange)
+      return classes
+
+    if (date.isSame(startDate, 'date')) {
+      if (endDate.isBefore(startDate))
+        classes += ' rounded-r-full inset-0 vtd-datepicker-range-preview-edge'
+
+      if (startDate.isBefore(endDate))
+        classes += ' rounded-l-full inset-0 vtd-datepicker-range-preview-edge'
+
+      if (startDate.isSame(endDate, 'date'))
+        classes += ' rounded-full inset-0 vtd-datepicker-range-preview-edge'
     }
-    else if (date.isSame(e, 'date')) {
-      if (e.isBefore(s))
-        classes += ' rounded-l-full inset-0'
+    else if (date.isSame(endDate, 'date')) {
+      if (endDate.isBefore(startDate))
+        classes += ' rounded-l-full inset-0 vtd-datepicker-range-preview-edge'
 
-      if (s.isBefore(e))
-        classes += ' rounded-r-full inset-0'
+      if (startDate.isBefore(endDate))
+        classes += ' rounded-r-full inset-0 vtd-datepicker-range-preview-edge'
+
+      if (startDate.isSame(endDate, 'date'))
+        classes += ' rounded-full inset-0 vtd-datepicker-range-preview-edge'
     }
     else {
       classes += ' inset-0'
@@ -1818,7 +2067,7 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
   <Popover v-if="!props.noInput" id="vtd" v-slot="{ open }: { open: boolean }" as="div" class="relative w-full">
     <PopoverOverlay v-if="props.overlay && !props.disabled" class="fixed inset-0 bg-black opacity-30" />
 
-    <PopoverButton as="label" class="relative block" @click="resetPickerViewMode">
+    <PopoverButton ref="VtdPopoverButtonRef" as="label" class="relative block" @click="resetPickerViewMode">
       <slot :value="pickerValue" :placeholder="givenPlaceholder" :clear="clearPicker">
         <input ref="VtdInputRef" v-bind="$attrs" v-model="pickerValue" type="text" class="relative block w-full"
           :disabled="props.disabled" :class="[
@@ -1826,7 +2075,7 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
             inputClasses
             || 'pl-3 pr-12 py-2.5 rounded-lg overflow-hidden border-solid text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 transition-colors bg-white border border-vtd-secondary-300 focus:border-vtd-primary-300 focus:ring focus:ring-vtd-primary-500 focus:ring-opacity-10 focus:outline-none dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-20',
           ]" autocomplete="off" data-lpignore="true" data-form-type="other" :placeholder="givenPlaceholder"
-          @keyup.stop="keyUp" @keydown.stop>
+          @keyup.stop="keyUp" @keydown.stop="onInputKeydown">
         <div class="absolute inset-y-0 right-0 inline-flex items-center rounded-md overflow-hidden">
           <button type="button" :disabled="props.disabled" :class="props.disabled ? 'cursor-default opacity-50' : 'opacity-100'
             " class="px-2 py-1 mr-1 focus:outline-none text-vtd-secondary-400 dark:text-opacity-70 rounded-md" @click="
@@ -1853,7 +2102,7 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
     <transition enter-from-class="opacity-0 translate-y-3" enter-to-class="opacity-100 translate-y-0"
       enter-active-class="transform transition ease-out duration-200"
       leave-active-class="transform transition ease-in duration-150" leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 translate-y-3">
+      leave-to-class="opacity-0 translate-y-3" @after-enter="onPopoverAfterEnter">
       <PopoverPanel v-if="!props.disabled" v-slot="{ close }: { close: (ref?: Ref | HTMLElement) => void }" as="div"
         class="relative z-50">
         <div class="absolute z-50 top-full sm:mt-2.5" :class="getAbsoluteParentClass(open)">
@@ -1862,7 +2111,7 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
             <div
               class="vtd-datepicker static sm:relative w-full bg-white sm:rounded-lg sm:shadow-sm border-0 sm:border border-black/[.1] px-3 py-3 sm:px-4 sm:py-4 dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700/[1]"
               :class="[getAbsoluteClass(open), props.selectorMode && props.asSingle ? 'sm:w-[28.5rem] sm:h-[23.5rem]' : '']"
-              @keydown.capture="onPickerPanelKeydown">
+              @keydown.capture="(event) => onPickerPanelKeydown(event, close)">
               <div class="flex flex-wrap lg:flex-nowrap" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
                 <VtdShortcut v-if="props.shortcuts" :shortcuts="props.shortcuts" :as-range="asRange()"
                   :as-single="props.asSingle" :i18n="props.options.shortcuts" :close="close" />
@@ -1882,6 +2131,7 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                       :calendar="calendar.previous"
                       panel-name="previous"
                       :selector-mode="props.selectorMode"
+                      :selector-focus="selectorFocus"
                       :picker-view-mode="pickerViewMode"
                       @enter-selector-mode="enterSelectorMode"
                       @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
@@ -1899,6 +2149,8 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                               :selected-month="selectorState.selectedMonth"
                               :selected-year="selectorState.selectedYear"
                               :selector-focus="selectorFocus"
+                              @focus-month="onSelectorColumnFocus('previous', 'month')"
+                              @request-focus-year="requestSelectorColumnFocus('previous', 'year')"
                               @update-month="(month) => onSelectorMonthUpdate('previous', month)"
                               @scroll-month="(month) => onSelectorMonthUpdate('previous', month)"
                             />
@@ -1912,7 +2164,10 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                               selector-mode
                               :selected-month="selectorState.selectedMonth"
                               :selected-year="selectorState.selectedYear"
+                              :selector-focus="selectorFocus"
                               :year-scroll-mode="props.selectorYearScrollMode"
+                              @focus-year="onSelectorColumnFocus('previous', 'year')"
+                              @request-focus-month="requestSelectorColumnFocus('previous', 'month')"
                               @update-year="(year) => onSelectorYearUpdate('previous', year)"
                               @scroll-year="(year) => onSelectorYearUpdate('previous', year)"
                             />
@@ -1942,6 +2197,7 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                       :calendar="calendar.next"
                       panel-name="next"
                       :selector-mode="props.selectorMode"
+                      :selector-focus="selectorFocus"
                       :picker-view-mode="pickerViewMode"
                       @enter-selector-mode="enterSelectorMode"
                       @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
@@ -1959,6 +2215,8 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                               :selected-month="selectorState.selectedMonth"
                               :selected-year="selectorState.selectedYear"
                               :selector-focus="selectorFocus"
+                              @focus-month="onSelectorColumnFocus('next', 'month')"
+                              @request-focus-year="requestSelectorColumnFocus('next', 'year')"
                               @update-month="(month) => onSelectorMonthUpdate('next', month)"
                               @scroll-month="(month) => onSelectorMonthUpdate('next', month)"
                             />
@@ -1973,7 +2231,10 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                               selector-mode
                               :selected-month="selectorState.selectedMonth"
                               :selected-year="selectorState.selectedYear"
+                              :selector-focus="selectorFocus"
                               :year-scroll-mode="props.selectorYearScrollMode"
+                              @focus-year="onSelectorColumnFocus('next', 'year')"
+                              @request-focus-month="requestSelectorColumnFocus('next', 'month')"
                               @update-year="(year) => onSelectorYearUpdate('next', year)"
                               @scroll-year="(year) => onSelectorYearUpdate('next', year)"
                             />
@@ -2047,6 +2308,7 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
               :calendar="calendar.previous"
               panel-name="previous"
               :selector-mode="props.selectorMode"
+              :selector-focus="selectorFocus"
               :picker-view-mode="pickerViewMode"
               @enter-selector-mode="enterSelectorMode"
               @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
@@ -2064,6 +2326,8 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                       :selected-month="selectorState.selectedMonth"
                       :selected-year="selectorState.selectedYear"
                       :selector-focus="selectorFocus"
+                      @focus-month="onSelectorColumnFocus('previous', 'month')"
+                      @request-focus-year="requestSelectorColumnFocus('previous', 'year')"
                       @update-month="(month) => onSelectorMonthUpdate('previous', month)"
                       @scroll-month="(month) => onSelectorMonthUpdate('previous', month)"
                     />
@@ -2077,7 +2341,10 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                       selector-mode
                       :selected-month="selectorState.selectedMonth"
                       :selected-year="selectorState.selectedYear"
+                      :selector-focus="selectorFocus"
                       :year-scroll-mode="props.selectorYearScrollMode"
+                      @focus-year="onSelectorColumnFocus('previous', 'year')"
+                      @request-focus-month="requestSelectorColumnFocus('previous', 'month')"
                       @update-year="(year) => onSelectorYearUpdate('previous', year)"
                       @scroll-year="(year) => onSelectorYearUpdate('previous', year)"
                     />
@@ -2106,6 +2373,7 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
               :calendar="calendar.next"
               panel-name="next"
               :selector-mode="props.selectorMode"
+              :selector-focus="selectorFocus"
               :picker-view-mode="pickerViewMode"
               @enter-selector-mode="enterSelectorMode"
               @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
@@ -2123,6 +2391,8 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                       :selected-month="selectorState.selectedMonth"
                       :selected-year="selectorState.selectedYear"
                       :selector-focus="selectorFocus"
+                      @focus-month="onSelectorColumnFocus('next', 'month')"
+                      @request-focus-year="requestSelectorColumnFocus('next', 'year')"
                       @update-month="(month) => onSelectorMonthUpdate('next', month)"
                       @scroll-month="(month) => onSelectorMonthUpdate('next', month)"
                     />
@@ -2137,7 +2407,10 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                       selector-mode
                       :selected-month="selectorState.selectedMonth"
                       :selected-year="selectorState.selectedYear"
+                      :selector-focus="selectorFocus"
                       :year-scroll-mode="props.selectorYearScrollMode"
+                      @focus-year="onSelectorColumnFocus('next', 'year')"
+                      @request-focus-month="requestSelectorColumnFocus('next', 'month')"
                       @update-year="(year) => onSelectorYearUpdate('next', year)"
                       @scroll-year="(year) => onSelectorYearUpdate('next', year)"
                     />
