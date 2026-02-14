@@ -668,6 +668,45 @@ Enable native-like month/year wheel selectors. Default is `false`.
 </template>
 ```
 
+## Direct Year Input
+
+Enable direct year typing inside selector mode. Default is `false`.
+
+- Scope: available in selector mode entered from the header toggle.
+- When enabled, valid typed year tokens update selector/calendar state immediately.
+- When disabled, selector year behavior stays scroll-only.
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    :selector-mode="true"
+    :direct-year-input="true"
+  />
+</template>
+```
+
+## Year Numbering Mode
+
+Controls typed-year validation semantics. Default is `historical`.
+
+- `historical`: year `0` is invalid.
+- `astronomical`: year `0` is valid.
+- This prop affects direct year text parsing/validation only; it does not change year-wheel scrolling behavior.
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    :selector-mode="true"
+    :direct-year-input="true"
+    year-numbering-mode="astronomical"
+  />
+</template>
+```
+
 ## Selector Year Scroll Mode
 
 Choose year-wheel sync behavior when selector mode is enabled.

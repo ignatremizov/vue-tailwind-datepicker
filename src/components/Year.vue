@@ -1,8 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import VtdSelectorWheelStepButton from './SelectorWheelStepButton.vue'
-
-type SelectorFocus = 'month' | 'year'
+import { resolveDirectYearInputToken } from '../composables/directYearInput'
+import type {
+  SelectionPanel,
+  SelectorFocus,
+  SelectorYearInputEventPayload,
+  SelectorYearInputTrigger,
+  YearNumberingMode,
+} from '../types'
 
 const props = withDefaults(defineProps<{
   years: number[]
@@ -11,6 +17,10 @@ const props = withDefaults(defineProps<{
   selectedMonth?: number | null
   selectorFocus?: SelectorFocus
   yearScrollMode?: 'boundary' | 'fractional'
+  directYearInput?: boolean
+  yearInputText?: string
+  yearNumberingMode?: YearNumberingMode
+  panelName?: SelectionPanel
   homeJump?: number
   endJump?: number
   pageJump?: number
@@ -21,6 +31,10 @@ const props = withDefaults(defineProps<{
   selectedMonth: null,
   selectorFocus: 'month',
   yearScrollMode: 'boundary',
+  directYearInput: false,
+  yearInputText: '',
+  yearNumberingMode: 'historical',
+  panelName: 'previous',
   homeJump: 100,
   endJump: 100,
   pageJump: 10,
@@ -32,12 +46,15 @@ const emit = defineEmits<{
   (e: 'scrollYear', value: number): void
   (e: 'focusYear'): void
   (e: 'requestFocusMonth'): void
+  (e: 'yearInput', payload: SelectorYearInputEventPayload): void
 }>()
 
 const selectorContainerRef = ref<HTMLDivElement | null>(null)
 const selectorCanvasRef = ref<HTMLCanvasElement | null>(null)
 const isUserScrolling = ref(false)
 const isProgrammaticScrollSync = ref(false)
+const isYearInputFocused = ref(false)
+const localYearInputText = ref('')
 const selectorScrollTop = ref(0)
 const selectorViewportHeight = ref(256)
 const selectorViewportWidth = ref(0)
@@ -76,6 +93,22 @@ const yearAriaAnnouncement = computed(() => {
     return 'No year selected'
   return `Year ${props.selectedYear} selected`
 })
+
+function emitYearInputLifecycle(
+  trigger: SelectorYearInputTrigger,
+  rawText = localYearInputText.value,
+) {
+  const token = resolveDirectYearInputToken(rawText, props.yearNumberingMode)
+
+  emit('yearInput', {
+    panel: props.panelName,
+    trigger,
+    rawText: token.rawText,
+    normalizedText: token.normalizedText,
+    parsedYear: token.parsedYear,
+    isValidToken: token.isValidToken,
+  })
+}
 
 const ariaYearMin = computed(() => {
   if (props.years.length === 0)
@@ -675,6 +708,43 @@ function clearHoveredYear() {
   queueCanvasDraw()
 }
 
+function onYearInput(event: Event) {
+  const target = event.target
+  if (!(target instanceof HTMLInputElement))
+    return
+
+  localYearInputText.value = target.value
+  emitYearInputLifecycle('input', target.value)
+}
+
+function onYearInputKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    event.stopPropagation()
+    emitYearInputLifecycle('enter')
+    return
+  }
+
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    event.stopPropagation()
+    emitYearInputLifecycle('escape')
+  }
+}
+
+function onYearInputFocus(event: FocusEvent) {
+  isYearInputFocused.value = true
+  emit('focusYear')
+  const target = event.target
+  if (target instanceof HTMLInputElement)
+    target.select()
+}
+
+function onYearInputBlur() {
+  isYearInputFocused.value = false
+  emitYearInputLifecycle('blur')
+}
+
 function flushScrollYearUpdate() {
   scrollFrameId = null
   const indexFloat = getCenteredIndexFloat()
@@ -848,6 +918,17 @@ function onSelectorStepClick(delta: number) {
   applyKeyboardYearDelta(delta)
   selectorContainerRef.value?.focus({ preventScroll: true })
 }
+
+watch(
+  () => props.yearInputText,
+  (nextValue) => {
+    const value = nextValue ?? ''
+    if (isYearInputFocused.value && value === localYearInputText.value)
+      return
+    localYearInputText.value = value
+  },
+  { immediate: true },
+)
 
 watch(
   () => [
@@ -1029,7 +1110,26 @@ onBeforeUnmount(() => {
 <template>
   <div :class="props.selectorMode ? 'w-full min-w-0' : 'mx-auto flex max-w-[20.5rem] flex-wrap'">
     <template v-if="props.selectorMode">
-      <div class="relative h-64 w-full min-w-0">
+      <div class="w-full min-w-0">
+        <div v-if="props.directYearInput" class="px-0.5">
+          <label class="sr-only">Year input</label>
+          <input
+            v-model="localYearInputText"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            spellcheck="false"
+            class="vtd-selector-year-input w-full rounded-md border border-vtd-primary-300/70 bg-white px-2.5 py-1.5 text-center text-sm tabular-nums text-vtd-secondary-700 shadow-sm transition-colors placeholder-vtd-secondary-400 focus:border-vtd-primary-400 focus:ring-2 focus:ring-vtd-primary-500/20 focus:outline-none dark:border-vtd-primary-500/40 dark:bg-vtd-secondary-800 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500"
+            data-vtd-selector-year-input
+            aria-label="Year input"
+            :aria-controls="`vtd-selector-year-wheel-${props.panelName}`"
+            @input="onYearInput"
+            @keydown="onYearInputKeydown"
+            @focus="onYearInputFocus"
+            @blur="onYearInputBlur"
+          >
+        </div>
+        <div class="relative w-full min-w-0" :class="props.directYearInput ? 'mt-1.5 h-56' : 'h-64'">
         <VtdSelectorWheelStepButton
           z-class="z-30"
           direction="up"
@@ -1041,6 +1141,7 @@ onBeforeUnmount(() => {
           class="h-full w-full min-w-0 overflow-y-scroll px-0.5 py-1 focus:outline-none focus-visible:outline-none"
           :class="isUserScrolling ? 'vtd-year-scrolling' : ''"
           role="spinbutton"
+          :id="`vtd-selector-year-wheel-${props.panelName}`"
           aria-label="Year selector"
           :aria-valuemin="ariaYearMin"
           :aria-valuemax="ariaYearMax"
@@ -1068,6 +1169,7 @@ onBeforeUnmount(() => {
           @click="onSelectorStepClick(1)"
         />
         <span class="sr-only" aria-live="polite">{{ yearAriaAnnouncement }}</span>
+      </div>
       </div>
     </template>
 

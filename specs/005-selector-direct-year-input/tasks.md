@@ -6,63 +6,63 @@
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 Add shared direct-year-input and year-numbering type definitions in `src/types.ts` (FR-012, FR-014).
-- [ ] T002 Add `directYearInput` and `yearNumberingMode` props with backward-compatible defaults in `src/VueTailwindDatePicker.vue` (FR-010, FR-012, FR-014).
-- [ ] T003 Add selector year-input event payload typings used by parent/child wiring in `src/types.ts` (FR-001, FR-006).
+- [X] T001 Add shared direct-year-input and year-numbering type definitions in `src/types.ts` (FR-012, FR-014).
+- [X] T002 Add `directYearInput` and `yearNumberingMode` props with backward-compatible defaults in `src/VueTailwindDatePicker.vue` (FR-010, FR-012, FR-014).
+- [X] T003 Add selector year-input event payload typings used by parent/child wiring in `src/types.ts` (FR-001, FR-006).
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-- [ ] T004 Create signed-year normalization and bounds-validation helpers in `src/composables/directYearInput.ts` (FR-007, FR-011).
-- [ ] T005 Add selector year-input session state (`rawText`, `parsedYear`, `isValidToken`, `lastValidYear`) in `src/VueTailwindDatePicker.vue` (FR-003, FR-015).
-- [ ] T006 Add shared helper to commit typed years to active selector/calendar context while preserving month in `src/VueTailwindDatePicker.vue` (FR-002, FR-004, FR-016, FR-017).
-- [ ] T007 Add shared helper to emit active-context `update:modelValue` during typed-year commits in `src/VueTailwindDatePicker.vue` (FR-016, FR-017).
-- [ ] T008 Add temporary inversion tracking and explicit commit-boundary normalization helpers in `src/VueTailwindDatePicker.vue` (FR-018, FR-019, FR-021, FR-022).
+- [X] T004 Create signed-year normalization and bounds-validation helpers in `src/composables/directYearInput.ts` (FR-007, FR-011).
+- [X] T005 Add selector year-input session state (`rawText`, `parsedYear`, `isValidToken`, `lastValidYear`) in `src/VueTailwindDatePicker.vue` (FR-003, FR-015).
+- [X] T006 Add shared helper to commit typed years to active selector/calendar context while preserving month in `src/VueTailwindDatePicker.vue` (FR-002, FR-004, FR-016, FR-017).
+- [X] T007 Add shared helper to emit active-context `update:modelValue` during typed-year commits in `src/VueTailwindDatePicker.vue` (FR-016, FR-017).
+- [X] T008 Add temporary inversion tracking and explicit commit-boundary normalization helpers in `src/VueTailwindDatePicker.vue` (FR-018, FR-019, FR-021, FR-022).
 
 ## Phase 3: User Story 1 - Type Year Directly from Selector Header Flow (Priority: P1)
 
 **Goal**: Let users type valid years directly in selector mode entered from header toggle and get immediate navigation/model sync.
 **Independent Test**: Enter selector mode from header, type `2034`, confirm immediate selector/calendar update and persisted year on confirm.
 
-- [ ] T009 [US1] Add direct year text-input UI for selector-mode year column in `src/components/Year.vue` (FR-001, FR-006).
-- [ ] T010 [US1] Emit year-input lifecycle events (`input`, `enter`, `escape`, `blur`) in `src/components/Year.vue` (FR-006, FR-009).
-- [ ] T011 [US1] Wire direct-year-input props/events through both selector panels in `src/VueTailwindDatePicker.vue` (FR-001, FR-010).
-- [ ] T012 [US1] Commit valid typed tokens immediately to selector/calendar year with month preserved in `src/VueTailwindDatePicker.vue` (FR-002, FR-004, FR-015).
-- [ ] T013 [US1] Emit immediate model updates for single and active range contexts on valid typed tokens in `src/VueTailwindDatePicker.vue` (FR-016, FR-017).
-- [ ] T014 [US1] Re-anchor selector year window when valid typed year falls outside the current window in `src/VueTailwindDatePicker.vue` (FR-008).
-- [ ] T015 [US1] Keep Enter confirmation in place without closing selector mode in `src/VueTailwindDatePicker.vue` (FR-006, FR-009, FR-022).
+- [X] T009 [US1] Add direct year text-input UI for selector-mode year column in `src/components/Year.vue` (FR-001, FR-006).
+- [X] T010 [US1] Emit year-input lifecycle events (`input`, `enter`, `escape`, `blur`) in `src/components/Year.vue` (FR-006, FR-009).
+- [X] T011 [US1] Wire direct-year-input props/events through both selector panels in `src/VueTailwindDatePicker.vue` (FR-001, FR-010).
+- [X] T012 [US1] Commit valid typed tokens immediately to selector/calendar year with month preserved in `src/VueTailwindDatePicker.vue` (FR-002, FR-004, FR-015).
+- [X] T013 [US1] Emit immediate model updates for single and active range contexts on valid typed tokens in `src/VueTailwindDatePicker.vue` (FR-016, FR-017).
+- [X] T014 [US1] Re-anchor selector year window when valid typed year falls outside the current window in `src/VueTailwindDatePicker.vue` (FR-008).
+- [X] T015 [US1] Keep Enter confirmation in place without closing selector mode in `src/VueTailwindDatePicker.vue` (FR-006, FR-009, FR-022).
 
 ## Phase 4: User Story 2 - Validate and Guard Invalid Year Input (Priority: P2)
 
 **Goal**: Ensure partial/invalid input never commits invalid state and always reverts predictably.
 **Independent Test**: Enter mixed content, out-of-range values, and partial tokens; verify no invalid commit and deterministic reversion.
 
-- [ ] T016 [US2] Apply trim/sanitize pipeline for mixed or pasted input before token validation in `src/composables/directYearInput.ts` (FR-011).
-- [ ] T017 [US2] Enforce `historical` vs `astronomical` year-`0` validity in parsing helpers in `src/composables/directYearInput.ts` (FR-013).
-- [ ] T018 [US2] Block invalid/partial token commits from mutating resolved calendar/model state in `src/VueTailwindDatePicker.vue` (FR-003, FR-007).
-- [ ] T019 [US2] Revert invalid/partial blur text to `lastValidYear` representation in `src/VueTailwindDatePicker.vue` (FR-009).
-- [ ] T020 [US2] Revert Escape action to `lastValidYear` representation without new commit in `src/VueTailwindDatePicker.vue` (FR-009).
-- [ ] T021 [US2] Advance `lastValidYear` baseline after each valid typed token commit in `src/VueTailwindDatePicker.vue` (FR-015).
+- [X] T016 [US2] Apply trim/sanitize pipeline for mixed or pasted input before token validation in `src/composables/directYearInput.ts` (FR-011).
+- [X] T017 [US2] Enforce `historical` vs `astronomical` year-`0` validity in parsing helpers in `src/composables/directYearInput.ts` (FR-013).
+- [X] T018 [US2] Block invalid/partial token commits from mutating resolved calendar/model state in `src/VueTailwindDatePicker.vue` (FR-003, FR-007).
+- [X] T019 [US2] Revert invalid/partial blur text to `lastValidYear` representation in `src/VueTailwindDatePicker.vue` (FR-009).
+- [X] T020 [US2] Revert Escape action to `lastValidYear` representation without new commit in `src/VueTailwindDatePicker.vue` (FR-009).
+- [X] T021 [US2] Advance `lastValidYear` baseline after each valid typed token commit in `src/VueTailwindDatePicker.vue` (FR-015).
 
 ## Phase 5: User Story 3 - Preserve Existing Scroll Selector Behavior (Priority: P3)
 
 **Goal**: Keep wheel-based interaction fully intact while typed input stays synchronized in single and range modes.
 **Independent Test**: Mix scroll and typed year changes in one session, including range mode, and confirm synchronization without regressions.
 
-- [ ] T022 [US3] Synchronize year-wheel scroll changes back into direct-year input text state in `src/VueTailwindDatePicker.vue` (FR-005).
-- [ ] T023 [US3] Synchronize valid typed-year commits into year-wheel selected/centered state in `src/components/Year.vue` (FR-005, FR-008).
-- [ ] T024 [US3] Keep scroll-only behavior unchanged when `directYearInput` is disabled in `src/components/Year.vue` (FR-010, FR-020).
-- [ ] T025 [US3] Confirm `yearNumberingMode` affects text-input parsing only and does not alter year-wheel behavior when direct input is enabled in `src/VueTailwindDatePicker.vue` and `src/components/Year.vue` (FR-020).
-- [ ] T026 [US3] Route typed-year updates to active range panel context only in `src/VueTailwindDatePicker.vue` (FR-017).
-- [ ] T027 [US3] Allow temporary `start > end` inversion during live typed-year updates in `src/VueTailwindDatePicker.vue` (FR-018).
-- [ ] T028 [US3] Auto-swap inverted range endpoints only on Apply commit boundary in `src/VueTailwindDatePicker.vue` (FR-019, FR-021, FR-022).
-- [ ] T029 [US3] Auto-swap on close-with-persist and skip normalization for Enter/Escape/Cancel/backdrop exits in `src/VueTailwindDatePicker.vue` (FR-019, FR-022).
+- [X] T022 [US3] Synchronize year-wheel scroll changes back into direct-year input text state in `src/VueTailwindDatePicker.vue` (FR-005).
+- [X] T023 [US3] Synchronize valid typed-year commits into year-wheel selected/centered state in `src/components/Year.vue` (FR-005, FR-008).
+- [X] T024 [US3] Keep scroll-only behavior unchanged when `directYearInput` is disabled in `src/components/Year.vue` (FR-010, FR-020).
+- [X] T025 [US3] Confirm `yearNumberingMode` affects text-input parsing only and does not alter year-wheel behavior when direct input is enabled in `src/VueTailwindDatePicker.vue` and `src/components/Year.vue` (FR-020).
+- [X] T026 [US3] Route typed-year updates to active range panel context only in `src/VueTailwindDatePicker.vue` (FR-017).
+- [X] T027 [US3] Allow temporary `start > end` inversion during live typed-year updates in `src/VueTailwindDatePicker.vue` (FR-018).
+- [X] T028 [US3] Auto-swap inverted range endpoints only on Apply commit boundary in `src/VueTailwindDatePicker.vue` (FR-019, FR-021, FR-022).
+- [X] T029 [US3] Auto-swap on close-with-persist and skip normalization for Enter/Escape/Cancel/backdrop exits in `src/VueTailwindDatePicker.vue` (FR-019, FR-022).
 
 ## Phase 6: Final Polish & Cross-Cutting
 
-- [ ] T030 [P] Document new direct-year-input props, defaults, and scope in `docs/props.md` (FR-010, FR-012, FR-014, FR-020).
-- [ ] T031 [P] Document direct-year selector usage and commit-boundary behavior in `README.md` (FR-001, FR-019, FR-022).
-- [ ] T032 Run manual validation scenarios (including locale/IME numeric-input behavior and selector scroll/wheel regression checks) and record outcomes in `specs/005-selector-direct-year-input/quickstart.md` (SC-001, SC-002, SC-003, SC-004, SC-005).
-- [ ] T033 Run `npm run typecheck` and `npm run build` from scripts in `package.json` (SC-003).
+- [X] T030 [P] Document new direct-year-input props, defaults, and scope in `docs/props.md` (FR-010, FR-012, FR-014, FR-020).
+- [X] T031 [P] Document direct-year selector usage and commit-boundary behavior in `README.md` (FR-001, FR-019, FR-022).
+- [X] T032 Run manual validation scenarios (including locale/IME numeric-input behavior and selector scroll/wheel regression checks) and record outcomes in `specs/005-selector-direct-year-input/quickstart.md` (SC-001, SC-002, SC-003, SC-004, SC-005).
+- [X] T033 Run `npm run typecheck` and `npm run build` from scripts in `package.json` (SC-003).
 
 ## Dependencies & Execution Order
 

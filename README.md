@@ -268,6 +268,40 @@ Hooks are stable across locales and also apply when `selector-mode` is enabled:
 
 Hooks are additive: selected/range/disabled/today semantics remain unchanged unless your host CSS explicitly overrides them.
 
+## Direct Year Input (Selector Mode)
+
+Use `directYearInput` to allow typing a year directly in selector mode. The feature is opt-in and defaults to `false`.
+
+```vue
+<script setup>
+import { ref } from "vue";
+
+const value = ref({
+  startDate: "",
+  endDate: "",
+});
+</script>
+
+<template>
+  <vue-tailwind-datepicker
+    v-model="value"
+    use-range
+    :selector-mode="true"
+    :direct-year-input="true"
+    year-numbering-mode="historical"
+  />
+</template>
+```
+
+Behavior summary:
+
+- Valid typed tokens commit immediately to selector/calendar state and emit `update:modelValue` for the active context.
+- Year parsing supports signed `-99999..99999`; `year-numbering-mode="historical"` rejects `0`, while `astronomical` accepts `0`.
+- Enter confirms in place and keeps selector mode open.
+- Escape and invalid blur revert to the last valid year text.
+- In range mode, temporary `start > end` from live typing is allowed and is normalized only at explicit persist boundaries (`Apply` or close-with-persist toggle).
+- Cancel-like exits (Escape, Cancel button, backdrop dismiss) do not trigger range normalization.
+
 ## Theming options
 
 **Light Mode**

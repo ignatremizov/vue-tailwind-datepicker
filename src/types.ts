@@ -130,3 +130,25 @@ export interface DateTimeErrorEventPayload {
   field: DateTimeErrorField
   endpoint: DateTimeEndpointSelection | null
 }
+
+export type SelectorFocus = 'month' | 'year'
+export type SelectionPanel = 'previous' | 'next'
+export type YearNumberingMode = 'historical' | 'astronomical'
+export type SelectorYearInputTrigger = 'input' | 'enter' | 'escape' | 'blur'
+
+export interface DirectYearInputConfig {
+  directYearInput: boolean
+  yearNumberingMode: YearNumberingMode
+}
+
+export interface SelectorYearInputTokenState {
+  rawText: string
+  normalizedText: string
+  parsedYear: number | null
+  isValidToken: boolean
+}
+
+export interface SelectorYearInputEventPayload extends SelectorYearInputTokenState {
+  panel: SelectionPanel
+  trigger: SelectorYearInputTrigger
+}
