@@ -79,3 +79,29 @@ When `selector-mode` is enabled, month/year wheel visuals can be tuned via CSS v
   --vtd-selector-year-text-offset-y: 0px;
 }
 ```
+
+## Weekend Day Hook Theming
+
+Weekend day-cell theming is available through stable hooks:
+
+- `.vtd-weekend` applies to Saturday and Sunday.
+- `.vtd-saturday` applies to Saturday only.
+- `.vtd-sunday` applies to Sunday only.
+
+```css
+/* Weekend tint with optional per-day override */
+.vtd-datepicker-date.vtd-weekend {
+  color: rgb(220 38 38 / 100%);
+}
+
+.vtd-datepicker-date.vtd-saturday {
+  color: rgb(234 88 12 / 100%);
+}
+
+.vtd-datepicker-date.vtd-sunday {
+  color: rgb(185 28 28 / 100%);
+}
+```
+
+These hooks are additive selectors layered on top of existing day states.
+Selected/range/disabled/today semantics remain the base behavior unless host CSS intentionally overrides them.
