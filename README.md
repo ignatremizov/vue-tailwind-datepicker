@@ -54,6 +54,59 @@ const formatter = ref({
 </template>
 ```
 
+## Native Scroll Selector Mode
+
+Enable native-like month/year scrolling with `selectorMode` (use `:selector-mode` in templates). Default is `false`.
+
+**Single date**
+
+```vue
+<script setup>
+import { ref } from "vue";
+
+const singleDate = ref("");
+</script>
+
+<template>
+  <vue-tailwind-datepicker v-model="singleDate" as-single :selector-mode="true" />
+</template>
+```
+
+**Range**
+
+```vue
+<script setup>
+import { ref } from "vue";
+
+const rangeDate = ref({
+  startDate: "",
+  endDate: "",
+});
+</script>
+
+<template>
+  <vue-tailwind-datepicker v-model="rangeDate" use-range :selector-mode="true" />
+</template>
+```
+
+**Selector behavior options**
+
+- `selector-year-scroll-mode="boundary"`: clarity-first default; year wheel advances discretely.
+- `selector-year-scroll-mode="fractional"`: continuous month-synced year-wheel drift.
+- `:selector-focus-tint="false"`: keeps selector containers neutral while preserving functionality.
+
+```vue
+<vue-tailwind-datepicker
+  v-model="rangeDate"
+  use-range
+  :selector-mode="true"
+  selector-year-scroll-mode="boundary"
+  :selector-focus-tint="true"
+/>
+```
+
+Selector wheel visuals are also themeable through CSS variables on `.vtd-datepicker` (month/year selected and hover colors, borders, typography, and wheel cell sizing). See `docs/theming-options.md` for examples.
+
 ## Theming options
 
 **Light Mode**

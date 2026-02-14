@@ -376,7 +376,14 @@ If you want to show week number in the calendar
 
 ## Shortcuts
 
-Display or not the dates shortcuts, default value is true.
+Display or hide shortcuts. Default value is `true`.
+
+`shortcuts` accepts:
+
+- `true`: show built-ins (from `shortcutPreset`)
+- `false`: hide all shortcuts
+- `ShortcutDefinition[]`: use custom shortcuts (replaces built-ins)
+- `() => ShortcutDefinition[]`: lazy factory for custom shortcuts (replaces built-ins)
 
 <DemoLayout>
   <VueTailwindDatePicker
@@ -394,6 +401,30 @@ const dateValue = ref([])
 
 <template>
   <vue-tailwind-datepicker v-model="dateValue" :shortcuts="false" />
+</template>
+```
+
+## Shortcut Preset
+
+Choose which built-in shortcut inventory is active when `shortcuts` is `true` and no custom shortcuts are provided.
+
+- `legacy` (default): Today, Yesterday, Last 7 Days, Last 30 Days, This Month, Last Month
+- `modern`: Today, 3 business days, Next week, Next month
+
+<DemoLayout>
+  <VueTailwindDatePicker
+    v-model="dateValue10"
+    shortcut-preset="modern"
+  />
+</DemoLayout>
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    shortcut-preset="modern"
+    :shortcuts="true"
+  />
 </template>
 ```
 
@@ -584,6 +615,73 @@ const options = ref({
     v-model="dateValue"
     :options="options"
     :auto-apply="false"
+  />
+</template>
+```
+
+## Selector Mode
+
+Enable native-like month/year wheel selectors. Default is `false`.
+
+<DemoLayout>
+  <VueTailwindDatePicker
+    v-model="dateValue3"
+    as-single
+    :selector-mode="true"
+  />
+</DemoLayout>
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    :selector-mode="true"
+  />
+</template>
+```
+
+## Selector Year Scroll Mode
+
+Choose year-wheel sync behavior when selector mode is enabled.
+
+- `boundary` (default): year wheel moves discretely on year boundaries.
+- `fractional`: year wheel drifts continuously with month progress.
+
+<DemoLayout>
+  <VueTailwindDatePicker
+    v-model="dateValue4"
+    as-single
+    use-range
+    :selector-mode="true"
+    selector-year-scroll-mode="fractional"
+  />
+</DemoLayout>
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    use-range
+    :selector-mode="true"
+    selector-year-scroll-mode="boundary"
+  />
+</template>
+```
+
+## Selector Focus Tint
+
+Control whether the active selector column receives extra focus tint styling.
+Default is `true`.
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    :selector-mode="true"
+    :selector-focus-tint="false"
   />
 </template>
 ```
