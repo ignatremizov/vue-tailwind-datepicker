@@ -1,10 +1,10 @@
 <!--
 Sync Impact Report
-- Version change: N/A -> 1.0.0
-- Modified principles: Initial ratification
-- Added sections: Core Principles, Sources of Truth, Quality Gates, Workflow & Review, Governance
+- Version change: 1.0.0 -> 1.0.1
+- Modified sections: Sources of Truth, Governance metadata
+- Added sections: None
 - Removed sections: None
-- Templates requiring updates: ⚠ pending (.specify/templates not initialized in this repo)
+- Templates requiring updates: None
 - Deferred items:
   - TODO(ENGINEERING_GUIDE): repository-local AGENTS.md path is not present; define canonical engineering guide path.
 -->
@@ -35,7 +35,7 @@ surface only when simpler extensions cannot satisfy requirements.
 
 ## Sources of Truth
 
-- **Requirements, scope, and status**: `specs/001-feat-native-scroll-month-year-selector/spec.md` and companion artifacts in `specs/001-feat-native-scroll-month-year-selector/`
+- **Requirements, scope, and status**: active feature artifacts under `specs/NNN-feature-name/` (`spec.md`, `plan.md`, `tasks.md`), selected by the current feature branch/work item
 - **Engineering standards and decision rules**: TODO(ENGINEERING_GUIDE): define repository-local AGENTS.md (or equivalent canonical standards file) path
 
 ## Quality Gates
@@ -66,4 +66,4 @@ Compliance review expectations:
 - Planning artifacts MUST include constitution check status
 - Reviewers SHOULD verify traceability and quality-gate completion
 
-**Version**: 1.0.0 | **Ratified**: 2026-02-11 | **Last Amended**: 2026-02-11
+**Version**: 1.0.1 | **Ratified**: 2026-02-11 | **Last Amended**: 2026-02-13
