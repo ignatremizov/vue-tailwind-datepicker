@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-
-type SelectorFocus = 'month' | 'year'
+import type {
+  SelectionPanel,
+  SelectorFocus,
+  SelectorYearInputEventPayload,
+  SelectorYearInputTrigger,
+} from '../types'
 
 const props = withDefaults(defineProps<{
   years: number[]
@@ -10,12 +14,18 @@ const props = withDefaults(defineProps<{
   selectedMonth?: number | null
   selectorFocus?: SelectorFocus
   yearScrollMode?: 'boundary' | 'fractional'
+  directYearInput?: boolean
+  yearInputText?: string
+  panelName?: SelectionPanel
 }>(), {
   selectorMode: false,
   selectedYear: null,
   selectedMonth: null,
   selectorFocus: 'month',
   yearScrollMode: 'boundary',
+  directYearInput: false,
+  yearInputText: '',
+  panelName: 'previous',
 })
 
 const emit = defineEmits<{
@@ -23,12 +33,15 @@ const emit = defineEmits<{
   (e: 'scrollYear', value: number): void
   (e: 'focusYear'): void
   (e: 'requestFocusMonth'): void
+  (e: 'yearInput', payload: SelectorYearInputEventPayload): void
 }>()
 
 const selectorContainerRef = ref<HTMLDivElement | null>(null)
 const selectorCanvasRef = ref<HTMLCanvasElement | null>(null)
 const isUserScrolling = ref(false)
 const isProgrammaticScrollSync = ref(false)
+const isYearInputFocused = ref(false)
+const localYearInputText = ref('')
 const selectorScrollTop = ref(0)
 const selectorViewportHeight = ref(256)
 const selectorViewportWidth = ref(0)
@@ -65,6 +78,17 @@ const yearAriaAnnouncement = computed(() => {
     return 'No year selected'
   return `Year ${props.selectedYear} selected`
 })
+
+function emitYearInputLifecycle(trigger: SelectorYearInputTrigger, rawText = localYearInputText.value) {
+  emit('yearInput', {
+    panel: props.panelName,
+    trigger,
+    rawText,
+    normalizedText: rawText,
+    parsedYear: null,
+    isValidToken: false,
+  })
+}
 
 function isSelectedYear(year: number) {
   const selected = isUserScrolling.value
@@ -635,6 +659,43 @@ function clearHoveredYear() {
   queueCanvasDraw()
 }
 
+function onYearInput(event: Event) {
+  const target = event.target
+  if (!(target instanceof HTMLInputElement))
+    return
+
+  localYearInputText.value = target.value
+  emitYearInputLifecycle('input', target.value)
+}
+
+function onYearInputKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    event.stopPropagation()
+    emitYearInputLifecycle('enter')
+    return
+  }
+
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    event.stopPropagation()
+    emitYearInputLifecycle('escape')
+  }
+}
+
+function onYearInputFocus(event: FocusEvent) {
+  isYearInputFocused.value = true
+  emit('focusYear')
+  const target = event.target
+  if (target instanceof HTMLInputElement)
+    target.select()
+}
+
+function onYearInputBlur() {
+  isYearInputFocused.value = false
+  emitYearInputLifecycle('blur')
+}
+
 function flushScrollYearUpdate() {
   scrollFrameId = null
   const indexFloat = getCenteredIndexFloat()
@@ -783,6 +844,17 @@ function onSelectorFocus() {
   })
   queueCanvasDraw()
 }
+
+watch(
+  () => props.yearInputText,
+  (nextValue) => {
+    const value = nextValue ?? ''
+    if (isYearInputFocused.value && value === localYearInputText.value)
+      return
+    localYearInputText.value = value
+  },
+  { immediate: true },
+)
 
 watch(
   () => [
@@ -964,11 +1036,31 @@ onBeforeUnmount(() => {
 <template>
   <div :class="props.selectorMode ? 'mt-1.5 w-full min-w-0' : 'flex flex-wrap'">
     <template v-if="props.selectorMode">
-      <div class="relative h-64 w-full min-w-0">
+      <div class="w-full min-w-0">
+        <div v-if="props.directYearInput" class="px-0.5">
+          <label class="sr-only">Year input</label>
+          <input
+            v-model="localYearInputText"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            spellcheck="false"
+            class="vtd-selector-year-input w-full rounded-md border border-vtd-primary-300/70 bg-white px-2.5 py-1.5 text-center text-sm tabular-nums text-vtd-secondary-700 shadow-sm transition-colors placeholder-vtd-secondary-400 focus:border-vtd-primary-400 focus:ring-2 focus:ring-vtd-primary-500/20 focus:outline-none dark:border-vtd-primary-500/40 dark:bg-vtd-secondary-800 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500"
+            data-vtd-selector-year-input
+            aria-label="Year input"
+            :aria-controls="`vtd-selector-year-wheel-${props.panelName}`"
+            @input="onYearInput"
+            @keydown="onYearInputKeydown"
+            @focus="onYearInputFocus"
+            @blur="onYearInputBlur"
+          >
+        </div>
+        <div class="relative w-full min-w-0" :class="props.directYearInput ? 'mt-1.5 h-56' : 'h-64'">
         <div
           ref="selectorContainerRef"
           class="h-full w-full min-w-0 overflow-y-scroll px-0.5 py-1 focus:outline-none focus-visible:outline-none"
           :class="isUserScrolling ? 'vtd-year-scrolling' : ''"
+          :id="`vtd-selector-year-wheel-${props.panelName}`"
           role="listbox"
           aria-label="Year selector"
           aria-orientation="vertical"
@@ -988,6 +1080,7 @@ onBeforeUnmount(() => {
           aria-hidden="true"
         />
         <span class="sr-only" aria-live="polite">{{ yearAriaAnnouncement }}</span>
+      </div>
       </div>
     </template>
 
