@@ -173,8 +173,7 @@ function getCenteredYear() {
     return null
 
   const centeredIndex = clamp(Math.round(getCenteredIndexFloat()), 0, years.length - 1)
-  const baseYear = years[0]
-  return baseYear + centeredIndex
+  return years[centeredIndex] ?? null
 }
 
 function maybeEmitPreanchor(
@@ -432,7 +431,6 @@ function drawYearCanvas() {
   const years = props.years
   if (years.length === 0)
     return
-  const baseYear = years[0]
 
   const width = canvas.clientWidth || selectorViewportWidth.value || 0
   const height = canvas.clientHeight || selectorViewportHeight.value || 0
@@ -542,7 +540,9 @@ function drawYearCanvas() {
       continue
     }
 
-    const year = baseYear + i
+    const year = years[i]
+    if (typeof year !== 'number')
+      continue
     const isSelected = isSelectedYear(year)
     const isHovered = hoveredYear.value === year
 

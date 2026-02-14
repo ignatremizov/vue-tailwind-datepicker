@@ -41,7 +41,12 @@ Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
 Object.defineProperty(HTMLElement.prototype, 'getClientRects', {
   configurable: true,
   writable: true,
-  value() {
+  value(this: HTMLElement) {
+    const style = window.getComputedStyle(this)
+
+    if (!style || style.display === 'none' || style.visibility === 'hidden')
+      return [] as unknown as DOMRectList
+
     return [createMockRect()] as unknown as DOMRectList
   },
 })
