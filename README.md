@@ -54,6 +54,71 @@ const formatter = ref({
 </template>
 ```
 
+## Native Scroll Selector Mode
+
+Enable native-like month/year scrolling with `selectorMode` (use `:selector-mode` in templates). Default is `false`.
+
+**Single date**
+
+```vue
+<script setup>
+import { ref } from "vue";
+
+const singleDate = ref("");
+</script>
+
+<template>
+  <vue-tailwind-datepicker v-model="singleDate" as-single :selector-mode="true" />
+</template>
+```
+
+**Range**
+
+```vue
+<script setup>
+import { ref } from "vue";
+
+const rangeDate = ref({
+  startDate: "",
+  endDate: "",
+});
+</script>
+
+<template>
+  <vue-tailwind-datepicker v-model="rangeDate" use-range :selector-mode="true" />
+</template>
+```
+
+**Selector behavior options**
+
+- `selector-year-scroll-mode="boundary"`: clarity-first default; year wheel advances discretely.
+- `selector-year-scroll-mode="fractional"`: continuous month-synced year-wheel drift.
+- `:selector-year-home-jump="100"`: Home key jump size (years) in year wheel mode.
+- `:selector-year-end-jump="100"`: End key jump size (years) in year wheel mode.
+- `:selector-year-page-jump="10"`: PageUp/PageDown jump size (years) in year wheel mode.
+- `:selector-year-page-shift-jump="100"`: Shift+PageUp/Shift+PageDown jump size (years).
+- `:selector-focus-tint="false"`: keeps selector containers neutral while preserving functionality.
+- `:close-on-range-selection="false"`: keeps the popover open after selecting the second range date.
+  Recommended with `selector-mode` when you want a fully native-like keep-open flow.
+  In `no-input` static mode this option is a no-op because there is no popover to close.
+
+```vue
+<vue-tailwind-datepicker
+  v-model="rangeDate"
+  use-range
+  :selector-mode="true"
+  selector-year-scroll-mode="boundary"
+  :selector-year-home-jump="100"
+  :selector-year-end-jump="100"
+  :selector-year-page-jump="10"
+  :selector-year-page-shift-jump="100"
+  :selector-focus-tint="true"
+  :close-on-range-selection="false"
+/>
+```
+
+Selector wheel visuals are also themeable through CSS variables on `.vtd-datepicker` (month/year selected and hover colors, borders, typography, and wheel cell sizing). Calendar range preview colors/opacity are exposed via `--vtd-calendar-range-preview-bg` and `--vtd-calendar-range-preview-bg-dark`. See `docs/theming-options.md` for examples.
+
 ## Theming options
 
 **Light Mode**

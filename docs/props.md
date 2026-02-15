@@ -315,6 +315,25 @@ const dateValue = ref([])
 </template>
 ```
 
+## Close on range selection
+
+Control whether popover mode closes immediately after selecting the second date in range mode.
+Default is `true`.
+
+When using `selector-mode`, set this to `false` if you want a fully native-like keep-open flow after second-date selection.
+
+In `no-input` static mode this prop is a no-op because there is no popover to close.
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    use-range
+    :close-on-range-selection="false"
+  />
+</template>
+```
+
 ## Start from
 
 Change start from of datepicker, by default `startFrom` is new Date().
@@ -584,6 +603,95 @@ const options = ref({
     v-model="dateValue"
     :options="options"
     :auto-apply="false"
+  />
+</template>
+```
+
+## Selector Mode
+
+Enable native-like month/year wheel selectors. Default is `false`.
+
+<DemoLayout>
+  <VueTailwindDatePicker
+    v-model="dateValue3"
+    as-single
+    :selector-mode="true"
+  />
+</DemoLayout>
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    :selector-mode="true"
+  />
+</template>
+```
+
+## Selector Year Scroll Mode
+
+Choose year-wheel sync behavior when selector mode is enabled.
+
+- `boundary` (default): year wheel moves discretely on year boundaries.
+- `fractional`: year wheel drifts continuously with month progress.
+
+<DemoLayout>
+  <VueTailwindDatePicker
+    v-model="dateValue4"
+    as-single
+    use-range
+    :selector-mode="true"
+    selector-year-scroll-mode="fractional"
+  />
+</DemoLayout>
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    use-range
+    :selector-mode="true"
+    selector-year-scroll-mode="boundary"
+  />
+</template>
+```
+
+## Selector Year Keyboard Jumps
+
+Control keyboard jump distance (in years) for the selector year wheel.
+
+- `selector-year-home-jump` and `selector-year-end-jump` default to `100`.
+- `selector-year-page-jump` defaults to `10`.
+- `selector-year-page-shift-jump` defaults to `100`.
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    :selector-mode="true"
+    :selector-year-home-jump="50"
+    :selector-year-end-jump="50"
+    :selector-year-page-jump="12"
+    :selector-year-page-shift-jump="120"
+  />
+</template>
+```
+
+## Selector Focus Tint
+
+Control whether the active selector column receives extra focus tint styling.
+Default is `true`.
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    :selector-mode="true"
+    :selector-focus-tint="false"
   />
 </template>
 ```

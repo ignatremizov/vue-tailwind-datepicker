@@ -70,6 +70,14 @@ export interface Props {
   startFrom?: Date
   weekdaysSize?: string
   weekNumber?: boolean
+  selectorMode?: boolean
+  selectorFocusTint?: boolean
+  selectorYearScrollMode?: 'boundary' | 'fractional'
+  selectorYearHomeJump?: number
+  selectorYearEndJump?: number
+  selectorYearPageJump?: number
+  selectorYearPageShiftJump?: number
+  closeOnRangeSelection?: boolean
   options?: {
     shortcuts: {
       today: string
@@ -110,6 +118,14 @@ const props = withDefaults(defineProps<Props>(), {
   startFrom: () => new Date(),
   weekdaysSize: 'short',
   weekNumber: false,
+  selectorMode: false,
+  selectorFocusTint: true,
+  selectorYearScrollMode: 'boundary',
+  selectorYearHomeJump: 100,
+  selectorYearEndJump: 100,
+  selectorYearPageJump: 10,
+  selectorYearPageShiftJump: 100,
+  closeOnRangeSelection: true,
   options: () => ({
     shortcuts: {
       today: 'Today',
@@ -159,7 +175,9 @@ dayjs.extend(duration)
 dayjs.extend(weekOfYear)
 
 const VtdRef = ref(null)
+const VtdStaticRef = ref<HTMLElement | null>(null)
 const VtdInputRef = ref<HTMLInputElement | null>(null)
+const VtdPopoverButtonRef = ref<unknown>(null)
 const placement = ref<boolean | null>(null)
 const givenPlaceholder = ref('')
 const selection = ref<Dayjs | null>(null)
@@ -440,6 +458,733 @@ const calendar = computed(() => {
 })
 
 const displayDatepicker = ref(false)
+type PickerViewMode = 'calendar' | 'selector'
+type SelectorFocus = 'month' | 'year'
+type SelectionContext = 'single' | 'singleRangeDisplayed' | 'previousPanel' | 'nextPanel'
+type SelectionPanel = 'previous' | 'next'
+type SelectorMonthPayload = number | { month: number, year: number }
+
+interface SelectorState {
+  selectedMonth: number
+  selectedYear: number
+  anchorYear: number
+}
+
+interface SelectorPanelState {
+  previous: boolean
+  next: boolean
+}
+
+interface HeaderInteractionPayload {
+  panel: SelectionPanel
+  focus: SelectorFocus
+}
+
+interface HeaderMonthStepPayload {
+  panel: SelectionPanel
+  delta: -1 | 1
+}
+
+interface SelectorMonthWheelHandle {
+  stepBy: (delta: -1 | 1) => void
+}
+
+interface TogglePickerViewOptions {
+  restoreFocus?: boolean
+}
+
+const SELECTOR_YEAR_WINDOW_SIZE = 401
+const SELECTOR_YEAR_WINDOW_RADIUS = Math.floor(SELECTOR_YEAR_WINDOW_SIZE / 2)
+const SELECTOR_YEAR_REANCHOR_THRESHOLD = 24
+
+const pickerViewMode = ref<PickerViewMode>('calendar')
+const selectorFocus = ref<SelectorFocus>('month')
+const selectionContext = ref<SelectionContext>('single')
+const selectorState = reactive<SelectorState>({
+  selectedMonth: datepicker.value.previous.month(),
+  selectedYear: datepicker.value.previous.year(),
+  anchorYear: datepicker.value.previous.year(),
+})
+const selectorPanels = reactive<SelectorPanelState>({
+  previous: false,
+  next: false,
+})
+const previousSelectorMonthWheelRef = ref<SelectorMonthWheelHandle | null>(null)
+const nextSelectorMonthWheelRef = ref<SelectorMonthWheelHandle | null>(null)
+
+function setPreviousSelectorMonthWheelRef(instance: unknown) {
+  previousSelectorMonthWheelRef.value = instance as SelectorMonthWheelHandle | null
+}
+
+function setNextSelectorMonthWheelRef(instance: unknown) {
+  nextSelectorMonthWheelRef.value = instance as SelectorMonthWheelHandle | null
+}
+
+function generateSelectorYears(anchorYear: number) {
+  const startYear = anchorYear - SELECTOR_YEAR_WINDOW_RADIUS
+  return Array.from({ length: SELECTOR_YEAR_WINDOW_SIZE }, (_, index) => startYear + index)
+}
+
+function anchorSelectorYearWindow(targetYear: number) {
+  if (selectorState.anchorYear === targetYear)
+    return
+  selectorState.anchorYear = targetYear
+}
+
+const selectorYears = computed(() => {
+  return generateSelectorYears(selectorState.anchorYear)
+})
+
+function resolveSelectionContext(panel: SelectionPanel): SelectionContext {
+  const isSingleDateMode = !!props.asSingle && !props.useRange
+  const isSinglePanelRangeMode = !!props.asSingle && !!props.useRange
+
+  if (isSingleDateMode)
+    return 'single'
+  if (isSinglePanelRangeMode)
+    return 'singleRangeDisplayed'
+  return panel === 'next' ? 'nextPanel' : 'previousPanel'
+}
+
+function isDualPanelRangeMode() {
+  return asRange() && !props.asSingle
+}
+
+function resolveContextDate(context: SelectionContext): Dayjs {
+  if (context === 'nextPanel')
+    return datepicker.value.next
+  return datepicker.value.previous
+}
+
+function resolveContextPanel(context: SelectionContext): SelectionPanel {
+  return context === 'nextPanel' ? 'next' : 'previous'
+}
+
+function getPanelSelectedMonth(panel: SelectionPanel) {
+  return resolveContextDate(resolveSelectionContext(panel)).month()
+}
+
+function getPanelSelectedYear(panel: SelectionPanel) {
+  return resolveContextDate(resolveSelectionContext(panel)).year()
+}
+
+function getPickerQueryRoot() {
+  if (props.noInput)
+    return VtdStaticRef.value
+  return VtdRef.value as HTMLElement | null
+}
+
+function isPopoverOpen() {
+  return !!(VtdRef.value && document.body.contains(VtdRef.value))
+}
+
+function resolvePopoverButtonElement() {
+  const refValue = VtdPopoverButtonRef.value as
+    | HTMLElement
+    | { $el?: unknown; $?: { vnode?: { el?: unknown } } }
+    | null
+
+  if (!refValue)
+    return null
+  if (refValue instanceof HTMLElement)
+    return refValue
+  if (refValue.$el instanceof HTMLElement)
+    return refValue.$el
+  if (refValue.$?.vnode?.el instanceof HTMLElement)
+    return refValue.$.vnode.el
+  return VtdInputRef.value?.closest('label') ?? null
+}
+
+function triggerPopoverButtonClick() {
+  const buttonElement = resolvePopoverButtonElement()
+  if (buttonElement)
+    buttonElement.click()
+}
+
+function focusHeaderValue(panel: SelectionPanel, focus: SelectorFocus) {
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return
+  const headerButton
+    = queryRoot.querySelector<HTMLElement>(`#vtd-header-${panel}-${focus}`)
+      ?? queryRoot.querySelector<HTMLElement>(`#vtd-header-${panel}-month`)
+  if (headerButton instanceof HTMLElement)
+    headerButton.focus()
+}
+
+function focusSelectorModeTarget(
+  context: SelectionContext = selectionContext.value,
+  focus: SelectorFocus = selectorFocus.value,
+) {
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return
+  const panel = resolveContextPanel(context)
+  const panelElement = queryRoot.querySelector<HTMLElement>(`[data-vtd-selector-panel="${panel}"]`)
+  if (!panelElement)
+    return
+
+  if (focus === 'month') {
+    const monthSelector = panelElement.querySelector<HTMLElement>('[aria-label="Month selector"]')
+    if (monthSelector) {
+      monthSelector.focus()
+      return true
+    }
+  }
+  else {
+    const yearSelector = panelElement.querySelector<HTMLElement>('[aria-label="Year selector"]')
+    if (yearSelector) {
+      yearSelector.focus()
+      return true
+    }
+  }
+
+  return false
+}
+
+function focusSelectorModeTargetDeferred(
+  context: SelectionContext = selectionContext.value,
+  focus: SelectorFocus = selectorFocus.value,
+  attempt = 0,
+) {
+  requestAnimationFrame(() => {
+    const focused = focusSelectorModeTarget(context, focus)
+    if (!focused && attempt < 2)
+      focusSelectorModeTargetDeferred(context, focus, attempt + 1)
+  })
+}
+
+function focusCalendarModeTarget() {
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return false
+
+  const preferredPanel = queryRoot.querySelector<HTMLElement>('[data-vtd-selector-panel="previous"]')
+  const fallbackPanel = queryRoot.querySelector<HTMLElement>('[data-vtd-selector-panel="next"]')
+  const panelElement = preferredPanel ?? fallbackPanel
+  if (!panelElement)
+    return false
+
+  const calendarDateButton
+    = panelElement.querySelector<HTMLButtonElement>('.vtd-calendar-focus-target')
+      ?? panelElement.querySelector<HTMLButtonElement>('.vtd-datepicker-date:not(:disabled)')
+  if (!calendarDateButton)
+    return false
+
+  calendarDateButton.focus()
+  return true
+}
+
+function focusCalendarModeTargetDeferred(attempt = 0) {
+  requestAnimationFrame(() => {
+    const focused = focusCalendarModeTarget()
+    if (!focused && attempt < 2)
+      focusCalendarModeTargetDeferred(attempt + 1)
+  })
+}
+
+interface SyncSelectorStateOptions {
+  syncAnchor?: boolean
+}
+
+function syncSelectorState(
+  context: SelectionContext = selectionContext.value,
+  options: SyncSelectorStateOptions = {},
+) {
+  const { syncAnchor = true } = options
+  const contextDate = resolveContextDate(context)
+  selectorState.selectedMonth = contextDate.month()
+  selectorState.selectedYear = contextDate.year()
+  if (syncAnchor)
+    anchorSelectorYearWindow(contextDate.year())
+}
+
+function syncDatepickerYears() {
+  datepicker.value.year.previous = datepicker.value.previous.year()
+  datepicker.value.year.next = datepicker.value.next.year()
+}
+
+function syncSelectorRangeOrder(context: SelectionContext) {
+  if (context === 'nextPanel') {
+    if (
+      datepicker.value.previous.isSame(datepicker.value.next, 'month')
+      || datepicker.value.previous.isAfter(datepicker.value.next)
+    ) {
+      datepicker.value.previous = datepicker.value.next.subtract(1, 'month')
+    }
+    return
+  }
+
+  if (
+    datepicker.value.next.isSame(datepicker.value.previous, 'month')
+    || datepicker.value.next.isBefore(datepicker.value.previous)
+  ) {
+    datepicker.value.next = datepicker.value.previous.add(1, 'month')
+  }
+}
+
+function applySelectorMonth(context: SelectionContext, month: number, year?: number) {
+  if (context === 'nextPanel') {
+    let nextDate = datepicker.value.next
+    if (typeof year === 'number')
+      nextDate = nextDate.year(year)
+    nextDate = nextDate.month(month)
+    datepicker.value.next = nextDate
+    emit('selectRightMonth', datepicker.value.next)
+  }
+  else {
+    let previousDate = datepicker.value.previous
+    if (typeof year === 'number')
+      previousDate = previousDate.year(year)
+    previousDate = previousDate.month(month)
+    datepicker.value.previous = previousDate
+    emit('selectMonth', datepicker.value.previous)
+  }
+
+  syncSelectorRangeOrder(context)
+  syncDatepickerYears()
+}
+
+function resolveSelectorMonthDelta(currentMonth: number, targetMonth: number) {
+  const rawDelta = targetMonth - currentMonth
+  if (rawDelta > 6)
+    return rawDelta - 12
+  if (rawDelta < -6)
+    return rawDelta + 12
+  return rawDelta
+}
+
+function applySelectorYear(context: SelectionContext, year: number) {
+  if (context === 'nextPanel') {
+    datepicker.value.next = datepicker.value.next.year(year)
+    emit('selectRightYear', datepicker.value.next)
+  }
+  else {
+    datepicker.value.previous = datepicker.value.previous.year(year)
+    emit('selectYear', datepicker.value.previous)
+  }
+
+  syncSelectorRangeOrder(context)
+  syncDatepickerYears()
+}
+
+function closeLegacyPanels() {
+  const isAlreadyClosed
+    = panel.previous.calendar
+      && !panel.previous.month
+      && !panel.previous.year
+      && panel.next.calendar
+      && !panel.next.month
+      && !panel.next.year
+  if (isAlreadyClosed)
+    return
+
+  panel.previous.calendar = true
+  panel.previous.month = false
+  panel.previous.year = false
+  panel.next.calendar = true
+  panel.next.month = false
+  panel.next.year = false
+}
+
+function shouldReanchorSelectorYearWindow(year: number) {
+  const years = selectorYears.value
+  if (years.length === 0)
+    return true
+  const firstYear = years[0]
+  const lastYear = years[years.length - 1]
+  return year <= firstYear + SELECTOR_YEAR_REANCHOR_THRESHOLD
+    || year >= lastYear - SELECTOR_YEAR_REANCHOR_THRESHOLD
+}
+
+function ensureSelectorYearInWindow(year: number) {
+  const years = selectorYears.value
+  if (years.length === 0) {
+    anchorSelectorYearWindow(year)
+    return
+  }
+
+  const firstYear = years[0]
+  const lastYear = years[years.length - 1]
+  if (year < firstYear || year > lastYear)
+    anchorSelectorYearWindow(year)
+}
+
+function isSelectorPanel(panelName: SelectionPanel) {
+  if (!props.selectorMode || pickerViewMode.value !== 'selector')
+    return false
+  if (isDualPanelRangeMode())
+    return selectorPanels[panelName]
+  return selectionContext.value === resolveSelectionContext(panelName)
+}
+
+function getPanelPickerViewMode(panelName: SelectionPanel): PickerViewMode {
+  return isSelectorPanel(panelName) ? 'selector' : 'calendar'
+}
+
+function getSelectorColumnClass(focus: SelectorFocus) {
+  if (!props.selectorFocusTint) {
+    return selectorFocus.value === focus
+      ? 'border-vtd-primary-300 dark:border-vtd-primary-500'
+      : 'border-black/[.08] dark:border-vtd-secondary-700/[1]'
+  }
+
+  return selectorFocus.value === focus
+    ? 'border-vtd-primary-300 bg-vtd-primary-50/40 ring-2 ring-vtd-primary-400/35 ring-offset-1 ring-offset-transparent dark:border-vtd-primary-500 dark:bg-vtd-secondary-700/50 dark:ring-vtd-primary-500/35'
+    : 'border-black/[.08] dark:border-vtd-secondary-700/[1]'
+}
+
+function onSelectorColumnFocus(panelName: SelectionPanel, focus: SelectorFocus) {
+  if (!props.selectorMode)
+    return
+  selectionContext.value = resolveSelectionContext(panelName)
+  selectorFocus.value = focus
+}
+
+function requestSelectorColumnFocus(panelName: SelectionPanel, focus: SelectorFocus) {
+  if (!props.selectorMode)
+    return
+
+  const context = resolveSelectionContext(panelName)
+  selectionContext.value = context
+  selectorFocus.value = focus
+  nextTick(() => {
+    focusSelectorModeTargetDeferred(context, focus)
+  })
+}
+
+function enterSelectorMode(payload: HeaderInteractionPayload) {
+  if (!props.selectorMode)
+    return
+  const { panel, focus } = payload
+
+  selectorFocus.value = focus
+  selectionContext.value = resolveSelectionContext(panel)
+  if (isDualPanelRangeMode())
+    selectorPanels[panel] = true
+  syncSelectorState(selectionContext.value)
+  pickerViewMode.value = 'selector'
+  closeLegacyPanels()
+  nextTick(() => {
+    if (pickerViewMode.value === 'selector') {
+      closeLegacyPanels()
+      focusSelectorModeTargetDeferred(selectionContext.value, selectorFocus.value)
+    }
+  })
+}
+
+function togglePickerViewMode(
+  payload: HeaderInteractionPayload,
+  options: TogglePickerViewOptions = {},
+) {
+  if (!props.selectorMode)
+    return
+  const { restoreFocus = false } = options
+  const { panel, focus } = payload
+
+  selectorFocus.value = focus
+  selectionContext.value = resolveSelectionContext(panel)
+  const isDualPanel = isDualPanelRangeMode()
+
+  if (isDualPanel) {
+    const nextOpenState = !selectorPanels[panel]
+    selectorPanels[panel] = nextOpenState
+
+    if (!selectorPanels.previous && !selectorPanels.next) {
+      pickerViewMode.value = 'calendar'
+      closeLegacyPanels()
+      if (restoreFocus)
+        nextTick(() => focusHeaderValue(panel, focus))
+      return
+    }
+
+    pickerViewMode.value = 'selector'
+    closeLegacyPanels()
+    if (nextOpenState) {
+      syncSelectorState(selectionContext.value)
+      nextTick(() => {
+        if (pickerViewMode.value === 'selector') {
+          closeLegacyPanels()
+          focusSelectorModeTargetDeferred(selectionContext.value, selectorFocus.value)
+        }
+      })
+      return
+    }
+
+    if (!selectorPanels[panel]) {
+      selectionContext.value = selectorPanels.previous ? 'previousPanel' : 'nextPanel'
+    }
+    return
+  }
+
+  if (pickerViewMode.value === 'selector') {
+    pickerViewMode.value = 'calendar'
+    closeLegacyPanels()
+    if (restoreFocus)
+      nextTick(() => focusHeaderValue(panel, focus))
+    return
+  }
+  syncSelectorState(selectionContext.value)
+  pickerViewMode.value = 'selector'
+  closeLegacyPanels()
+  nextTick(() => {
+    if (pickerViewMode.value === 'selector') {
+      closeLegacyPanels()
+      focusSelectorModeTargetDeferred(selectionContext.value, selectorFocus.value)
+    }
+  })
+}
+
+function onSelectorMonthUpdate(panelName: SelectionPanel, payload: SelectorMonthPayload) {
+  if (!props.selectorMode)
+    return
+  const context = resolveSelectionContext(panelName)
+  selectionContext.value = context
+  const targetMonth = typeof payload === 'number' ? payload : payload.month
+  const targetYear = typeof payload === 'number' ? undefined : payload.year
+  const contextDate = resolveContextDate(context)
+  const isSameMonth = contextDate.month() === targetMonth
+  const isSameYear = targetYear === undefined || contextDate.year() === targetYear
+  if (isSameMonth && isSameYear) {
+    closeLegacyPanels()
+    return
+  }
+
+  if (typeof targetYear === 'number') {
+    applySelectorMonth(context, targetMonth, targetYear)
+  }
+  else {
+    // Month-only selector events infer year rollover from cyclic month deltas.
+    const delta = resolveSelectorMonthDelta(contextDate.month(), targetMonth)
+    const inferredDate = contextDate.add(delta, 'month')
+    applySelectorMonth(context, inferredDate.month(), inferredDate.year())
+  }
+
+  syncSelectorState(context, { syncAnchor: false })
+  if (shouldReanchorSelectorYearWindow(selectorState.selectedYear))
+    anchorSelectorYearWindow(selectorState.selectedYear)
+  closeLegacyPanels()
+}
+
+function onSelectorYearUpdate(panelName: SelectionPanel, year: number) {
+  if (!props.selectorMode)
+    return
+  const context = resolveSelectionContext(panelName)
+  selectionContext.value = context
+
+  // Keyboard jumps can target a year beyond the current virtual window.
+  // Anchor first so the requested year is renderable in the next selector paint.
+  ensureSelectorYearInWindow(year)
+
+  if (resolveContextDate(context).year() === year) {
+    syncSelectorState(context, { syncAnchor: false })
+    if (shouldReanchorSelectorYearWindow(selectorState.selectedYear))
+      anchorSelectorYearWindow(selectorState.selectedYear)
+    closeLegacyPanels()
+    return
+  }
+  applySelectorYear(context, year)
+  syncSelectorState(context, { syncAnchor: false })
+  if (shouldReanchorSelectorYearWindow(selectorState.selectedYear))
+    anchorSelectorYearWindow(selectorState.selectedYear)
+  closeLegacyPanels()
+}
+
+function onHeaderMonthStep(payload: HeaderMonthStepPayload) {
+  if (!props.selectorMode || pickerViewMode.value !== 'selector')
+    return
+
+  const wheel = payload.panel === 'next'
+    ? nextSelectorMonthWheelRef.value
+    : previousSelectorMonthWheelRef.value
+  if (wheel) {
+    selectionContext.value = resolveSelectionContext(payload.panel)
+    wheel.stepBy(payload.delta)
+    closeLegacyPanels()
+    return
+  }
+
+  const context = resolveSelectionContext(payload.panel)
+  selectionContext.value = context
+  const nextDate = resolveContextDate(context).add(payload.delta, 'month')
+  applySelectorMonth(context, nextDate.month(), nextDate.year())
+  syncSelectorState(context, { syncAnchor: false })
+  if (shouldReanchorSelectorYearWindow(selectorState.selectedYear))
+    anchorSelectorYearWindow(selectorState.selectedYear)
+  closeLegacyPanels()
+}
+
+function resetPickerViewMode() {
+  pickerViewMode.value = 'calendar'
+  selectorPanels.previous = false
+  selectorPanels.next = false
+  if (props.selectorMode)
+    closeLegacyPanels()
+}
+
+function isVisibleElement(element: HTMLElement) {
+  return element.getClientRects().length > 0
+}
+
+function getSelectorFocusCycleTargets() {
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return []
+
+  const targets: HTMLElement[] = []
+  const pushTarget = (element: HTMLElement | null) => {
+    if (!element || !isVisibleElement(element))
+      return
+    if (targets.includes(element))
+      return
+    targets.push(element)
+  }
+
+  const appendPanelTargets = (panel: SelectionPanel) => {
+    pushTarget(queryRoot.querySelector<HTMLElement>(`#vtd-header-${panel}-month`))
+    const panelElement = queryRoot.querySelector<HTMLElement>(`[data-vtd-selector-panel="${panel}"]`)
+    if (!panelElement)
+      return
+    pushTarget(panelElement.querySelector<HTMLElement>('[aria-label="Month selector"]'))
+    pushTarget(panelElement.querySelector<HTMLElement>('[aria-label="Year selector"]'))
+  }
+
+  appendPanelTargets('previous')
+  if (asRange() && !props.asSingle)
+    appendPanelTargets('next')
+
+  // Shortcuts are treated as a single focus stop in selector tab order.
+  pushTarget(queryRoot.querySelector<HTMLElement>('.vtd-shortcuts'))
+  return targets
+}
+
+function getCalendarFocusCycleTargets() {
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return []
+
+  const targets: HTMLElement[] = []
+  const pushTarget = (element: HTMLElement | null) => {
+    if (!element || !isVisibleElement(element))
+      return
+    if (targets.includes(element))
+      return
+    targets.push(element)
+  }
+
+  const appendCalendarTarget = (panel: SelectionPanel) => {
+    const panelElement = queryRoot.querySelector<HTMLElement>(`[data-vtd-selector-panel="${panel}"]`)
+    if (!panelElement)
+      return
+    pushTarget(panelElement.querySelector<HTMLElement>('.vtd-calendar-focus-target'))
+  }
+
+  const isDoublePanel = asRange() && !props.asSingle
+  const previousHeader = queryRoot.querySelector<HTMLElement>('#vtd-header-previous-month')
+  const nextHeader = queryRoot.querySelector<HTMLElement>('#vtd-header-next-month')
+  const shortcutContainer = queryRoot.querySelector<HTMLElement>('.vtd-shortcuts')
+
+  // Calendar mode tab order:
+  // previous calendar -> (next header -> next calendar) -> shortcuts -> previous header -> repeat
+  appendCalendarTarget('previous')
+  if (isDoublePanel) {
+    pushTarget(nextHeader)
+    appendCalendarTarget('next')
+  }
+  pushTarget(shortcutContainer)
+  pushTarget(previousHeader)
+  return targets
+}
+
+type PopoverCloseFn = (ref?: Ref | HTMLElement) => void
+
+function closePopoverFromPanel(close?: PopoverCloseFn) {
+  resetPickerViewMode()
+  if (close) {
+    if (VtdInputRef.value) {
+      close(VtdInputRef.value)
+      return
+    }
+    close()
+    return
+  }
+  if (!props.noInput)
+    triggerPopoverButtonClick()
+}
+
+function onPickerPanelKeydown(event: KeyboardEvent, close?: PopoverCloseFn) {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    event.stopPropagation()
+    closePopoverFromPanel(close)
+    return
+  }
+
+  if (event.key !== 'Tab')
+    return
+
+  const inSelectorMode = props.selectorMode && pickerViewMode.value === 'selector'
+  const targets = inSelectorMode
+    ? getSelectorFocusCycleTargets()
+    : getCalendarFocusCycleTargets()
+  if (targets.length === 0)
+    return
+
+  event.preventDefault()
+  event.stopPropagation()
+
+  const activeElement = document.activeElement as HTMLElement | null
+  let currentIndex = targets.findIndex(target => target === activeElement || target.contains(activeElement))
+  if (currentIndex < 0) {
+    currentIndex = targets.findIndex((target) => {
+      const panel = resolveContextPanel(selectionContext.value)
+      const expectedHeader = target.id === `vtd-header-${panel}-month`
+      const expectedMonth = selectorFocus.value === 'month' && target.getAttribute('aria-label') === 'Month selector'
+      const expectedYear = selectorFocus.value === 'year' && target.getAttribute('aria-label') === 'Year selector'
+      return expectedHeader || expectedMonth || expectedYear
+    })
+  }
+  if (currentIndex < 0)
+    currentIndex = 0
+
+  const delta = event.shiftKey ? -1 : 1
+  const nextIndex = (currentIndex + delta + targets.length) % targets.length
+  targets[nextIndex].focus()
+}
+
+function onInputKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Enter' || event.altKey || event.ctrlKey || event.metaKey)
+    return
+
+  event.preventDefault()
+  event.stopPropagation()
+  resetPickerViewMode()
+
+  if (!isPopoverOpen())
+    triggerPopoverButtonClick()
+
+  nextTick(() => {
+    focusCalendarModeTargetDeferred()
+  })
+}
+
+function onPopoverAfterEnter() {
+  nextTick(() => {
+    if (props.selectorMode && pickerViewMode.value === 'selector') {
+      focusSelectorModeTargetDeferred(selectionContext.value, selectorFocus.value)
+      return
+    }
+    focusCalendarModeTargetDeferred()
+  })
+}
+
+watch(
+  () => props.selectorMode,
+  (enabled) => {
+    if (!enabled)
+      resetPickerViewMode()
+  },
+)
 
 setTimeout(() => {
   displayDatepicker.value = true
@@ -632,7 +1377,11 @@ function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
             ),
           )
         }
-        if (close)
+        const shouldClosePopover
+          = props.closeOnRangeSelection && typeof close === 'function'
+        // In `no-input` static mode there is no popover close callback, so
+        // this option intentionally becomes a no-op.
+        if (shouldClosePopover)
           close()
 
         applyValue.value = []
@@ -958,12 +1707,12 @@ function datepickerClasses(date: DatePickerDay) {
   }
   if (active) {
     classes = today
-      ? 'text-vtd-primary-500 font-semibold dark:text-vtd-primary-400 rounded-full focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring focus:ring-vtd-primary-500 focus:ring-opacity-10 focus:outline-none dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-25 dark:focus:bg-opacity-50'
-      : disabled
-        ? 'text-vtd-secondary-600 font-normal disabled:text-vtd-secondary-500 disabled:cursor-not-allowed rounded-full'
-        : date.isBetween(s as Dayjs, e as Dayjs, 'date', '()')
-          ? 'text-vtd-secondary-700 font-medium dark:text-vtd-secondary-100 rounded-full'
-          : 'text-vtd-secondary-600 font-medium dark:text-vtd-secondary-200 rounded-full'
+      ? 'text-vtd-primary-500 font-semibold dark:text-vtd-primary-400 rounded-full focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring focus:ring-vtd-primary-500/10 focus:outline-none dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600/50 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/25'
+        : disabled
+          ? 'text-vtd-secondary-600 font-normal disabled:text-vtd-secondary-500 disabled:cursor-not-allowed rounded-full'
+          : date.isBetween(s as Dayjs, e as Dayjs, 'date', '()')
+            ? 'text-vtd-secondary-700 font-medium dark:text-vtd-secondary-100'
+            : 'text-vtd-secondary-600 font-medium dark:text-vtd-secondary-200 rounded-full'
   }
   if (off)
     classes = 'text-vtd-secondary-400 font-light disabled:cursor-not-allowed'
@@ -971,27 +1720,27 @@ function datepickerClasses(date: DatePickerDay) {
   if (s && e && !off) {
     if (date.isSame(s, 'date')) {
       classes = e.isAfter(s, 'date')
-        ? 'bg-vtd-primary-500 text-white font-bold rounded-l-full disabled:cursor-not-allowed'
-        : 'bg-vtd-primary-500 text-white font-bold rounded-r-full disabled:cursor-not-allowed'
+        ? 'vtd-datepicker-date-selected vtd-datepicker-date-selected-start disabled:cursor-not-allowed'
+        : 'vtd-datepicker-date-selected vtd-datepicker-date-selected-end disabled:cursor-not-allowed'
       if (s.isSame(e, 'date')) {
         classes
-          = 'bg-vtd-primary-500 text-white font-bold rounded-full disabled:cursor-not-allowed'
+          = 'vtd-datepicker-date-selected vtd-datepicker-date-selected-single disabled:cursor-not-allowed'
       }
     }
     if (date.isSame(e, 'date')) {
       classes = e.isAfter(s, 'date')
-        ? 'bg-vtd-primary-500 text-white font-bold rounded-r-full disabled:cursor-not-allowed'
-        : 'bg-vtd-primary-500 text-white font-bold rounded-l-full disabled:cursor-not-allowed'
+        ? 'vtd-datepicker-date-selected vtd-datepicker-date-selected-end disabled:cursor-not-allowed'
+        : 'vtd-datepicker-date-selected vtd-datepicker-date-selected-start disabled:cursor-not-allowed'
       if (s.isSame(e, 'date')) {
         classes
-          = 'bg-vtd-primary-500 text-white font-bold rounded-full disabled:cursor-not-allowed'
+          = 'vtd-datepicker-date-selected vtd-datepicker-date-selected-single disabled:cursor-not-allowed'
       }
     }
   }
   else if (s) {
     if (date.isSame(s, 'date') && !off) {
       classes
-        = 'bg-vtd-primary-500 text-white font-bold rounded-full disabled:cursor-not-allowed'
+        = 'vtd-datepicker-date-selected vtd-datepicker-date-selected-single disabled:cursor-not-allowed'
     }
   }
 
@@ -1065,20 +1814,35 @@ function betweenRangeClasses(date: Dayjs) {
     }
   }
 
-  if (s && e) {
-    if (date.isSame(s, 'date')) {
-      if (e.isBefore(s))
-        classes += ' rounded-r-full inset-0'
+  const startDate = dayjs.isDayjs(s) && s.isValid() ? s : null
+  const endDate = dayjs.isDayjs(e) && e.isValid() ? e : null
 
-      if (s.isBefore(e))
-        classes += ' rounded-l-full inset-0'
+  if (startDate && endDate) {
+    const isWithinRange
+      = date.isBetween(startDate, endDate, 'date', '[]')
+        || date.isBetween(endDate, startDate, 'date', '[]')
+    if (!isWithinRange)
+      return classes
+
+    if (date.isSame(startDate, 'date')) {
+      if (endDate.isBefore(startDate))
+        classes += ' rounded-r-full inset-0 vtd-datepicker-range-preview-edge'
+
+      if (startDate.isBefore(endDate))
+        classes += ' rounded-l-full inset-0 vtd-datepicker-range-preview-edge'
+
+      if (startDate.isSame(endDate, 'date'))
+        classes += ' rounded-full inset-0 vtd-datepicker-range-preview-edge'
     }
-    else if (date.isSame(e, 'date')) {
-      if (e.isBefore(s))
-        classes += ' rounded-l-full inset-0'
+    else if (date.isSame(endDate, 'date')) {
+      if (endDate.isBefore(startDate))
+        classes += ' rounded-l-full inset-0 vtd-datepicker-range-preview-edge'
 
-      if (s.isBefore(e))
-        classes += ' rounded-r-full inset-0'
+      if (startDate.isBefore(endDate))
+        classes += ' rounded-r-full inset-0 vtd-datepicker-range-preview-edge'
+
+      if (startDate.isSame(endDate, 'date'))
+        classes += ' rounded-full inset-0 vtd-datepicker-range-preview-edge'
     }
     else {
       classes += ' inset-0'
@@ -1417,6 +2181,11 @@ function getAbsoluteParentClass(open: boolean) {
   return 'left-0 right-auto'
 }
 
+watchEffect(() => {
+  if (pickerViewMode.value === 'calendar')
+    syncSelectorState(resolveSelectionContext('previous'))
+})
+
 provide(isBetweenRangeKey, isBetweenRange)
 provide(betweenRangeClassesKey, betweenRangeClasses)
 provide(datepickerClassesKey, datepickerClasses)
@@ -1433,18 +2202,18 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
   <Popover v-if="!props.noInput" id="vtd" v-slot="{ open }: { open: boolean }" as="div" class="relative w-full">
     <PopoverOverlay v-if="props.overlay && !props.disabled" class="fixed inset-0 bg-black opacity-30" />
 
-    <PopoverButton as="label" class="relative block">
+    <PopoverButton ref="VtdPopoverButtonRef" as="label" class="relative block" @click="resetPickerViewMode">
       <slot :value="pickerValue" :placeholder="givenPlaceholder" :clear="clearPicker">
         <input ref="VtdInputRef" v-bind="$attrs" v-model="pickerValue" type="text" class="relative block w-full"
           :disabled="props.disabled" :class="[
             props.disabled ? 'cursor-default opacity-50' : 'opacity-100',
             inputClasses
-            || 'pl-3 pr-12 py-2.5 rounded-lg overflow-hidden border-solid text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 transition-colors bg-white border border-vtd-secondary-300 focus:border-vtd-primary-300 focus:ring focus:ring-vtd-primary-500 focus:ring-opacity-10 focus:outline-none dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-20',
+            || 'pl-3 pr-12 py-2.5 rounded-lg overflow-hidden border-solid text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 transition-colors bg-white border border-vtd-secondary-300 focus:border-vtd-primary-300 focus:ring focus:ring-vtd-primary-500/10 focus:outline-none dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/20',
           ]" autocomplete="off" data-lpignore="true" data-form-type="other" :placeholder="givenPlaceholder"
-          @keyup.stop="keyUp" @keydown.stop>
+          @keyup.stop="keyUp" @keydown.stop="onInputKeydown">
         <div class="absolute inset-y-0 right-0 inline-flex items-center rounded-md overflow-hidden">
           <button type="button" :disabled="props.disabled" :class="props.disabled ? 'cursor-default opacity-50' : 'opacity-100'
-            " class="px-2 py-1 mr-1 focus:outline-none text-vtd-secondary-400 dark:text-opacity-70 rounded-md" @click="
+            " class="px-2 py-1 mr-1 focus:outline-none text-vtd-secondary-400 dark:text-vtd-secondary-400/70 rounded-md" @click="
     props.disabled
       ? false
       : pickerValue
@@ -1468,7 +2237,7 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
     <transition enter-from-class="opacity-0 translate-y-3" enter-to-class="opacity-100 translate-y-0"
       enter-active-class="transform transition ease-out duration-200"
       leave-active-class="transform transition ease-in duration-150" leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 translate-y-3">
+      leave-to-class="opacity-0 translate-y-3" @after-enter="onPopoverAfterEnter">
       <PopoverPanel v-if="!props.disabled" v-slot="{ close }: { close: (ref?: Ref | HTMLElement) => void }" as="div"
         class="relative z-50">
         <div class="absolute z-50 top-full sm:mt-2.5" :class="getAbsoluteParentClass(open)">
@@ -1476,46 +2245,165 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
             class="fixed inset-0 z-50 overflow-y-auto sm:overflow-visible sm:static sm:z-auto bg-white dark:bg-vtd-secondary-800 sm:rounded-lg shadow-sm">
             <div
               class="vtd-datepicker static sm:relative w-full bg-white sm:rounded-lg sm:shadow-sm border-0 sm:border border-black/[.1] px-3 py-3 sm:px-4 sm:py-4 dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700/[1]"
-              :class="getAbsoluteClass(open)">
-              <div class="flex flex-wrap lg:flex-nowrap">
+              :class="[getAbsoluteClass(open), props.selectorMode && props.asSingle ? 'sm:w-[28.5rem] sm:h-[23.5rem]' : '']"
+              @keydown.capture="(event) => onPickerPanelKeydown(event, close)">
+              <div class="flex flex-wrap lg:flex-nowrap" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
                 <VtdShortcut v-if="props.shortcuts" :shortcuts="props.shortcuts" :as-range="asRange()"
                   :as-single="props.asSingle" :i18n="props.options.shortcuts" :close="close" />
-                <div class="relative flex flex-wrap sm:flex-nowrap p-1 w-full">
+                <div class="relative flex flex-wrap sm:flex-nowrap p-1 w-full" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
                   <div v-if="asRange() && !props.asSingle"
                     class="hidden h-full absolute inset-0 sm:flex justify-center items-center">
                     <div class="h-full border-r border-black/[.1] dark:border-vtd-secondary-700/[1]" />
                   </div>
-                  <div class="relative overflow-hidden" :class="{
+                  <div class="relative w-full" data-vtd-selector-panel="previous" :class="{
                     'mb-3 sm:mb-0 sm:mr-2 w-full md:w-1/2 lg:w-80':
                       asRange() && !props.asSingle,
                     'w-full': !asRange() && props.asSingle,
+                    'sm:h-full': props.selectorMode && props.asSingle,
+                    'overflow-visible': isSelectorPanel('previous'),
+                    'overflow-hidden': !isSelectorPanel('previous'),
                   }">
-                    <VtdHeader :panel="panel.previous" :calendar="calendar.previous" />
+                    <VtdHeader
+                      :panel="panel.previous"
+                      :calendar="calendar.previous"
+                      panel-name="previous"
+                      :selector-mode="props.selectorMode"
+                      :selector-focus="selectorFocus"
+                      :picker-view-mode="getPanelPickerViewMode('previous')"
+                      @enter-selector-mode="enterSelectorMode"
+                      @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
+                      @step-month="onHeaderMonthStep"
+                    />
                     <div class="px-0.5 sm:px-2">
-                      <VtdMonth v-show="panel.previous.month" :months="months"
-                        @update-month="calendar.previous.setMonth" />
-                      <VtdYear v-show="panel.previous.year" :years="calendar.previous.years()"
-                        @update-year="calendar.previous.setYear" />
-                      <div v-show="panel.previous.calendar">
-                        <VtdWeek :weeks="weeks" />
-                        <VtdCalendar :calendar="calendar.previous" :weeks="weeks" :as-range="asRange()"
-                          :week-number="weekNumber" @update-date="(date) => setDate(date, close)" />
-                      </div>
+                      <template v-if="isSelectorPanel('previous')">
+                        <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
+                          <div
+                            class="rounded-md border p-1 min-w-0"
+                            :class="getSelectorColumnClass('month')"
+                          >
+                            <VtdMonth
+                              :ref="setPreviousSelectorMonthWheelRef"
+                              :months="months"
+                              selector-mode
+                              :selected-month="getPanelSelectedMonth('previous')"
+                              :selected-year="getPanelSelectedYear('previous')"
+                              :selector-focus="selectorFocus"
+                              @focus-month="onSelectorColumnFocus('previous', 'month')"
+                              @request-focus-year="requestSelectorColumnFocus('previous', 'year')"
+                              @update-month="(month) => onSelectorMonthUpdate('previous', month)"
+                              @scroll-month="(month) => onSelectorMonthUpdate('previous', month)"
+                            />
+                          </div>
+                          <div
+                            class="rounded-md border p-1 min-w-0"
+                            :class="getSelectorColumnClass('year')"
+                          >
+                            <VtdYear
+                              :years="selectorYears"
+                              selector-mode
+                              :selected-month="getPanelSelectedMonth('previous')"
+                              :selected-year="getPanelSelectedYear('previous')"
+                              :selector-focus="selectorFocus"
+                              :year-scroll-mode="props.selectorYearScrollMode"
+                              :home-jump="props.selectorYearHomeJump"
+                              :end-jump="props.selectorYearEndJump"
+                              :page-jump="props.selectorYearPageJump"
+                              :page-shift-jump="props.selectorYearPageShiftJump"
+                              @focus-year="onSelectorColumnFocus('previous', 'year')"
+                              @request-focus-month="requestSelectorColumnFocus('previous', 'month')"
+                              @update-year="(year) => onSelectorYearUpdate('previous', year)"
+                              @scroll-year="(year) => onSelectorYearUpdate('previous', year)"
+                            />
+                          </div>
+                        </div>
+                      </template>
+                      <template v-else>
+                        <VtdMonth v-show="panel.previous.month" :months="months"
+                          @update-month="calendar.previous.setMonth" />
+                        <VtdYear v-show="panel.previous.year" :years="calendar.previous.years()"
+                          @update-year="calendar.previous.setYear" />
+                        <div v-show="panel.previous.calendar">
+                          <VtdWeek :weeks="weeks" />
+                          <VtdCalendar :calendar="calendar.previous" :weeks="weeks" :as-range="asRange()"
+                            :week-number="weekNumber" @update-date="(date) => setDate(date, close)" />
+                        </div>
+                      </template>
                     </div>
                   </div>
 
                   <div v-if="asRange() && !props.asSingle"
-                    class="relative w-full md:w-1/2 lg:w-80 overflow-hidden mt-3 sm:mt-0 sm:ml-2">
-                    <VtdHeader as-prev-or-next :panel="panel.next" :calendar="calendar.next" />
+                    data-vtd-selector-panel="next"
+                    class="relative w-full md:w-1/2 lg:w-80 mt-3 sm:mt-0 sm:ml-2"
+                    :class="{
+                      'overflow-visible': isSelectorPanel('next'),
+                      'overflow-hidden': !isSelectorPanel('next'),
+                    }">
+                    <VtdHeader
+                      as-prev-or-next
+                      :panel="panel.next"
+                      :calendar="calendar.next"
+                      panel-name="next"
+                      :selector-mode="props.selectorMode"
+                      :selector-focus="selectorFocus"
+                      :picker-view-mode="getPanelPickerViewMode('next')"
+                      @enter-selector-mode="enterSelectorMode"
+                      @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
+                      @step-month="onHeaderMonthStep"
+                    />
                     <div class="px-0.5 sm:px-2">
-                      <VtdMonth v-show="panel.next.month" :months="months" @update-month="calendar.next.setMonth" />
-                      <VtdYear v-show="panel.next.year" as-prev-or-next :years="calendar.next.years()"
-                        @update-year="calendar.next.setYear" />
-                      <div v-show="panel.next.calendar">
-                        <VtdWeek :weeks="weeks" />
-                        <VtdCalendar as-prev-or-next :calendar="calendar.next" :weeks="weeks" :as-range="asRange()"
-                          :week-number="weekNumber" @update-date="(date) => setDate(date, close)" />
-                      </div>
+                      <template v-if="isSelectorPanel('next')">
+                        <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
+                          <div
+                            class="rounded-md border p-1 min-w-0"
+                            :class="getSelectorColumnClass('month')"
+                          >
+                            <VtdMonth
+                              :ref="setNextSelectorMonthWheelRef"
+                              :months="months"
+                              selector-mode
+                              :selected-month="getPanelSelectedMonth('next')"
+                              :selected-year="getPanelSelectedYear('next')"
+                              :selector-focus="selectorFocus"
+                              @focus-month="onSelectorColumnFocus('next', 'month')"
+                              @request-focus-year="requestSelectorColumnFocus('next', 'year')"
+                              @update-month="(month) => onSelectorMonthUpdate('next', month)"
+                              @scroll-month="(month) => onSelectorMonthUpdate('next', month)"
+                            />
+                          </div>
+                          <div
+                            class="rounded-md border p-1 min-w-0"
+                            :class="getSelectorColumnClass('year')"
+                          >
+                            <VtdYear
+                              as-prev-or-next
+                              :years="selectorYears"
+                              selector-mode
+                              :selected-month="getPanelSelectedMonth('next')"
+                              :selected-year="getPanelSelectedYear('next')"
+                              :selector-focus="selectorFocus"
+                              :year-scroll-mode="props.selectorYearScrollMode"
+                              :home-jump="props.selectorYearHomeJump"
+                              :end-jump="props.selectorYearEndJump"
+                              :page-jump="props.selectorYearPageJump"
+                              :page-shift-jump="props.selectorYearPageShiftJump"
+                              @focus-year="onSelectorColumnFocus('next', 'year')"
+                              @request-focus-month="requestSelectorColumnFocus('next', 'month')"
+                              @update-year="(year) => onSelectorYearUpdate('next', year)"
+                              @scroll-year="(year) => onSelectorYearUpdate('next', year)"
+                            />
+                          </div>
+                        </div>
+                      </template>
+                      <template v-else>
+                        <VtdMonth v-show="panel.next.month" :months="months" @update-month="calendar.next.setMonth" />
+                        <VtdYear v-show="panel.next.year" as-prev-or-next :years="calendar.next.years()"
+                          @update-year="calendar.next.setYear" />
+                        <div v-show="panel.next.calendar">
+                          <VtdWeek :weeks="weeks" />
+                          <VtdCalendar as-prev-or-next :calendar="calendar.next" :weeks="weeks" :as-range="asRange()"
+                            :week-number="weekNumber" @update-date="(date) => setDate(date, close)" />
+                        </div>
+                      </template>
                     </div>
                   </div>
                 </div>
@@ -1552,43 +2440,164 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
   </Popover>
   <div v-else-if="displayDatepicker" class="flex">
     <div
-      class="bg-white rounded-lg shadow-sm border border-black/[.1] px-3 py-3 sm:px-4 sm:py-4 dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700/[1]">
-      <div class="flex flex-wrap lg:flex-nowrap">
+      ref="VtdStaticRef"
+      class="bg-white rounded-lg shadow-sm border border-black/[.1] px-3 py-3 sm:px-4 sm:py-4 dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700/[1]"
+      :class="props.selectorMode && props.asSingle ? 'sm:w-[28.5rem] sm:h-[23.5rem]' : ''"
+      @keydown.capture="onPickerPanelKeydown">
+      <div class="flex flex-wrap lg:flex-nowrap" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
         <VtdShortcut v-if="props.shortcuts" :shortcuts="props.shortcuts" :as-range="asRange()" :as-single="props.asSingle"
           :i18n="props.options.shortcuts" />
-        <div class="relative flex flex-wrap sm:flex-nowrap p-1 w-full">
+        <div class="relative flex flex-wrap sm:flex-nowrap p-1 w-full" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
           <div v-if="asRange() && !props.asSingle"
             class="hidden h-full absolute inset-0 sm:flex justify-center items-center">
             <div class="h-full border-r border-black/[.1] dark:border-vtd-secondary-700/[1]" />
           </div>
-          <div class="relative w-full lg:w-80 overflow-hidden" :class="{
+          <div class="relative w-full lg:w-80" data-vtd-selector-panel="previous" :class="{
             'mb-3 sm:mb-0 sm:mr-2 md:w-1/2': asRange() && !props.asSingle,
+            'sm:h-full': props.selectorMode && props.asSingle,
+            'overflow-visible': isSelectorPanel('previous'),
+            'overflow-hidden': !isSelectorPanel('previous'),
           }">
-            <VtdHeader :panel="panel.previous" :calendar="calendar.previous" />
+            <VtdHeader
+              :panel="panel.previous"
+              :calendar="calendar.previous"
+              panel-name="previous"
+              :selector-mode="props.selectorMode"
+              :selector-focus="selectorFocus"
+              :picker-view-mode="getPanelPickerViewMode('previous')"
+              @enter-selector-mode="enterSelectorMode"
+              @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
+              @step-month="onHeaderMonthStep"
+            />
             <div class="px-0.5 sm:px-2">
-              <VtdMonth v-show="panel.previous.month" :months="months" @update-month="calendar.previous.setMonth" />
-              <VtdYear v-show="panel.previous.year" :years="calendar.previous.years()"
-                @update-year="calendar.previous.setYear" />
-              <div v-show="panel.previous.calendar">
-                <VtdWeek :weeks="weeks" />
-                <VtdCalendar :calendar="calendar.previous" :weeks="weeks" :as-range="asRange()" :week-number="weekNumber"
-                  @update-date="(date) => setDate(date)" />
-              </div>
+              <template v-if="isSelectorPanel('previous')">
+                <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
+                  <div
+                    class="rounded-md border p-1 min-w-0"
+                    :class="getSelectorColumnClass('month')"
+                  >
+                    <VtdMonth
+                      :ref="setPreviousSelectorMonthWheelRef"
+                      :months="months"
+                      selector-mode
+                      :selected-month="getPanelSelectedMonth('previous')"
+                      :selected-year="getPanelSelectedYear('previous')"
+                      :selector-focus="selectorFocus"
+                      @focus-month="onSelectorColumnFocus('previous', 'month')"
+                      @request-focus-year="requestSelectorColumnFocus('previous', 'year')"
+                      @update-month="(month) => onSelectorMonthUpdate('previous', month)"
+                      @scroll-month="(month) => onSelectorMonthUpdate('previous', month)"
+                    />
+                  </div>
+                  <div
+                    class="rounded-md border p-1 min-w-0"
+                    :class="getSelectorColumnClass('year')"
+                  >
+                    <VtdYear
+                      :years="selectorYears"
+                      selector-mode
+                      :selected-month="getPanelSelectedMonth('previous')"
+                      :selected-year="getPanelSelectedYear('previous')"
+                      :selector-focus="selectorFocus"
+                      :year-scroll-mode="props.selectorYearScrollMode"
+                      :home-jump="props.selectorYearHomeJump"
+                      :end-jump="props.selectorYearEndJump"
+                      :page-jump="props.selectorYearPageJump"
+                      :page-shift-jump="props.selectorYearPageShiftJump"
+                      @focus-year="onSelectorColumnFocus('previous', 'year')"
+                      @request-focus-month="requestSelectorColumnFocus('previous', 'month')"
+                      @update-year="(year) => onSelectorYearUpdate('previous', year)"
+                      @scroll-year="(year) => onSelectorYearUpdate('previous', year)"
+                    />
+                  </div>
+                </div>
+              </template>
+              <template v-else>
+                <VtdMonth v-show="panel.previous.month" :months="months" @update-month="calendar.previous.setMonth" />
+                <VtdYear v-show="panel.previous.year" :years="calendar.previous.years()"
+                  @update-year="calendar.previous.setYear" />
+                <div v-show="panel.previous.calendar">
+                  <VtdWeek :weeks="weeks" />
+                  <VtdCalendar :calendar="calendar.previous" :weeks="weeks" :as-range="asRange()" :week-number="weekNumber"
+                    @update-date="(date) => setDate(date)" />
+                </div>
+              </template>
             </div>
           </div>
 
           <div v-if="asRange() && !props.asSingle"
-            class="relative w-full md:w-1/2 lg:w-80 overflow-hidden mt-3 sm:mt-0 sm:ml-2">
-            <VtdHeader as-prev-or-next :panel="panel.next" :calendar="calendar.next" />
+            data-vtd-selector-panel="next"
+            class="relative w-full md:w-1/2 lg:w-80 mt-3 sm:mt-0 sm:ml-2"
+            :class="{
+              'overflow-visible': isSelectorPanel('next'),
+              'overflow-hidden': !isSelectorPanel('next'),
+            }">
+            <VtdHeader
+              as-prev-or-next
+              :panel="panel.next"
+              :calendar="calendar.next"
+              panel-name="next"
+              :selector-mode="props.selectorMode"
+              :selector-focus="selectorFocus"
+              :picker-view-mode="getPanelPickerViewMode('next')"
+              @enter-selector-mode="enterSelectorMode"
+              @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
+              @step-month="onHeaderMonthStep"
+            />
             <div class="px-0.5 sm:px-2">
-              <VtdMonth v-show="panel.next.month" :months="months" @update-month="calendar.next.setMonth" />
-              <VtdYear v-show="panel.next.year" as-prev-or-next :years="calendar.next.years()"
-                @update-year="calendar.next.setYear" />
-              <div v-show="panel.next.calendar">
-                <VtdWeek :weeks="weeks" />
-                <VtdCalendar as-prev-or-next :calendar="calendar.next" :weeks="weeks" :as-range="asRange()"
-                  :week-number="weekNumber" @update-date="(date) => setDate(date)" />
-              </div>
+              <template v-if="isSelectorPanel('next')">
+                <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
+                  <div
+                    class="rounded-md border p-1 min-w-0"
+                    :class="getSelectorColumnClass('month')"
+                  >
+                    <VtdMonth
+                      :ref="setNextSelectorMonthWheelRef"
+                      :months="months"
+                      selector-mode
+                      :selected-month="getPanelSelectedMonth('next')"
+                      :selected-year="getPanelSelectedYear('next')"
+                      :selector-focus="selectorFocus"
+                      @focus-month="onSelectorColumnFocus('next', 'month')"
+                      @request-focus-year="requestSelectorColumnFocus('next', 'year')"
+                      @update-month="(month) => onSelectorMonthUpdate('next', month)"
+                      @scroll-month="(month) => onSelectorMonthUpdate('next', month)"
+                    />
+                  </div>
+                  <div
+                    class="rounded-md border p-1 min-w-0"
+                    :class="getSelectorColumnClass('year')"
+                  >
+                    <VtdYear
+                      as-prev-or-next
+                      :years="selectorYears"
+                      selector-mode
+                      :selected-month="getPanelSelectedMonth('next')"
+                      :selected-year="getPanelSelectedYear('next')"
+                      :selector-focus="selectorFocus"
+                      :year-scroll-mode="props.selectorYearScrollMode"
+                      :home-jump="props.selectorYearHomeJump"
+                      :end-jump="props.selectorYearEndJump"
+                      :page-jump="props.selectorYearPageJump"
+                      :page-shift-jump="props.selectorYearPageShiftJump"
+                      @focus-year="onSelectorColumnFocus('next', 'year')"
+                      @request-focus-month="requestSelectorColumnFocus('next', 'month')"
+                      @update-year="(year) => onSelectorYearUpdate('next', year)"
+                      @scroll-year="(year) => onSelectorYearUpdate('next', year)"
+                    />
+                  </div>
+                </div>
+              </template>
+              <template v-else>
+                <VtdMonth v-show="panel.next.month" :months="months" @update-month="calendar.next.setMonth" />
+                <VtdYear v-show="panel.next.year" as-prev-or-next :years="calendar.next.years()"
+                  @update-year="calendar.next.setYear" />
+                <div v-show="panel.next.calendar">
+                  <VtdWeek :weeks="weeks" />
+                  <VtdCalendar as-prev-or-next :calendar="calendar.next" :weeks="weeks" :as-range="asRange()"
+                    :week-number="weekNumber" @update-date="(date) => setDate(date)" />
+                </div>
+              </template>
             </div>
           </div>
         </div>

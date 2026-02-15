@@ -1,0 +1,113 @@
+# Contract: Selector Mode Interface and Behavior
+
+## Scope
+
+Public and internal behavior contract for native-like month/year selector mode.
+
+## Public Component Contract
+
+### New Prop
+
+- Name: `selectorMode`
+- Type: `boolean`
+- Default: `false`
+- Behavior:
+  - `false`: existing month/year panel behavior remains unchanged.
+  - `true`: header interaction toggles between calendar and selector views.
+
+### Additional Selector Props
+
+- Name: `selectorFocusTint`
+- Type: `boolean`
+- Default: `true`
+- Behavior:
+  - `true`: active selector column can apply focus tint/background accent.
+  - `false`: selector columns keep neutral container styling while functional focus/selection remains unchanged.
+
+- Name: `selectorYearScrollMode`
+- Type: `'boundary' | 'fractional'`
+- Default: `'boundary'`
+- Behavior:
+  - `boundary`: year wheel moves discretely when year changes.
+  - `fractional`: year wheel position drifts continuously with month progress (June-centered anchor) while selected year semantics remain discrete.
+
+### Selector Styling Surface
+
+- Month and year wheels expose CSS variable-based styling hooks on `.vtd-datepicker`.
+- Required customizable groups:
+  - typography (font family, size, weight)
+  - default/hover/selected text colors
+  - default/hover/selected background and border colors
+  - wheel cell sizing (`--vtd-selector-wheel-cell-height`)
+- Year wheel additionally exposes canvas tuning hooks:
+  - `--vtd-selector-year-canvas-border-width-scale`
+  - `--vtd-selector-year-canvas-dpr`
+  - `--vtd-selector-year-text-offset-y`
+
+## Toggle Behavior Contract
+
+1. Enter selector mode
+- Trigger: click month or year label in header while calendar view is active.
+- Result:
+  - view switches to selector mode.
+  - focus target is month/year column based on click target.
+  - selector-mode header is presented as a single combined month+year toggle button.
+  - side month navigation arrows remain available as quick actions with reduced visual prominence.
+
+2. Exit selector mode
+- Trigger: header toggle action from selector view.
+- Result:
+  - view switches back to calendar mode.
+  - selected month/year remains applied.
+
+3. Month/year selection
+- Trigger: selecting month or year item in selector mode.
+- Result:
+  - updates calendar month/year for current `SelectionContext`.
+  - does not force-close popover; user remains in selector until toggled back.
+  - clicked item is centered in its wheel/list, with smooth centering where applicable.
+
+4. Header quick month navigation (selector mode)
+- Trigger: clicking left/right header arrows while selector view is active.
+- Result:
+  - action routes through month-wheel stepping semantics.
+  - month wheel uses smooth motion and does not introduce snap-back/rubber-band behavior.
+  - selector view remains open.
+
+5. Wheel step controls
+- Trigger: clicking up/down step controls on month or year wheel.
+- Result:
+  - target wheel advances by one logical step.
+  - smooth motion is preserved on repeated clicks.
+  - focus remains keyboard-operable without unintended focus jumps.
+
+## Range-Context Semantics
+
+### Single-panel range (`use-range` + `as-single`)
+
+- Selector applies month/year updates to displayed context only.
+- Existing range endpoint selection behavior remains unchanged.
+
+### Double-panel range
+
+- Selector applies month/year updates only to clicked panel context:
+  - left header -> `previousPanel`
+  - right header -> `nextPanel`
+- Both selector panels may be open at the same time.
+- Opening/toggling one panel must not mutate the opposite panel's selected month/year state.
+
+## Year Virtualization Contract
+
+- Year choices are conceptually unbounded.
+- Implementation may render a moving window around `anchorYear`.
+- Scrolling must not require pre-rendering the full integer range.
+
+## Accessibility Contract
+
+- Selector mode remains keyboard reachable.
+- Focus transition on enter/exit is deterministic.
+- Existing escape/cancel semantics for popover remain intact.
+
+## Visual Stability Contract
+
+- In selector mode, calendar and selector toggles should not introduce noticeable container width/height jitter for the same picker configuration.

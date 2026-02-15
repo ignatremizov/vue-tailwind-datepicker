@@ -8,9 +8,35 @@ const dateValue = ref({
   startDate: dayjs().format('YYYY-MM-DD HH:mm:ss'),
   endDate: dayjs().format('YYYY-MM-DD HH:mm:ss'),
 })
+const selectorModeValue = ref({
+  startDate: dayjs().subtract(3, 'month').format('YYYY-MM-DD HH:mm:ss'),
+  endDate: dayjs().add(3, 'month').format('YYYY-MM-DD HH:mm:ss'),
+})
+const selectorSingleRangeValue = ref({
+  startDate: dayjs().subtract(10, 'day').format('YYYY-MM-DD HH:mm:ss'),
+  endDate: dayjs().add(10, 'day').format('YYYY-MM-DD HH:mm:ss'),
+})
+const selectorSingleRangeFractionalValue = ref({
+  startDate: dayjs().subtract(10, 'day').format('YYYY-MM-DD HH:mm:ss'),
+  endDate: dayjs().add(10, 'day').format('YYYY-MM-DD HH:mm:ss'),
+})
+const selectorDisabledValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
+const selectorEmptyModelValue = ref('')
+const selectorInvalidModelValue = ref('not-a-date ~ not-a-date')
+const singleDateValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
 
-const currentLocale = ref('es')
-const locales = ['en', 'es', 'de']
+const currentLocale = ref('en')
+const localeOptions = [
+  { code: 'en', flag: '🇺🇸' },
+  { code: 'es', flag: '🇪🇸' },
+  { code: 'de', flag: '🇩🇪' },
+]
+const isDark = ref(false)
+
+function disableWeekendDates(date: Date) {
+  const day = dayjs(date).day()
+  return day === 0 || day === 6
+}
 
 function onClickSomething(e: Dayjs) {
   console.log(e)
@@ -22,24 +48,146 @@ function onSelectSomething(e: Dayjs) {
 </script>
 
 <template>
-  <div class="p-10 bg-sky-50 min-h-screen">
-    <label>
-      Choose one locale
-      <select v-model="currentLocale" name="language" class="mb-6">
-        <option v-for="locale in locales" :key="locale" :value="locale">
-          {{ locale }}
-        </option>
+  <div :class="[isDark ? 'dark bg-slate-950' : 'bg-sky-50', 'min-h-screen px-10 pt-10 pb-[28rem]']">
+    <div class="mb-3">
+      <span class="text-sm text-slate-700 dark:text-slate-200">Choose one locale</span>
+      <div class="mt-2 flex flex-wrap gap-2">
+        <button
+          v-for="locale in localeOptions"
+          :key="locale.code"
+          type="button"
+          :aria-pressed="currentLocale === locale.code"
+          :class="[
+            'inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors',
+            currentLocale === locale.code
+              ? 'border-sky-400 bg-sky-50 text-sky-700 dark:border-sky-500 dark:bg-sky-900/30 dark:text-sky-200'
+              : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800',
+          ]"
+          @click="currentLocale = locale.code"
         >
-      </select>
-    </label>
-    <div class="grid grid-rows-2 gap-4">
-      <VueTailwindDatePicker v-model="dateValue" :i18n="currentLocale" @select-month="onSelectSomething($event)"
-        @select-year="onSelectSomething($event)" @select-right-month="onSelectSomething($event)"
-        @select-right-year="onSelectSomething($event)" @click-prev="onClickSomething($event)"
-        @click-next="onClickSomething($event)" @click-right-prev="onClickSomething($event)"
-        @click-right-next="onClickSomething($event)" />
+          <span aria-hidden="true" class="text-base leading-none">{{ locale.flag }}</span>
+          <span class="uppercase">{{ locale.code }}</span>
+        </button>
+      </div>
+    </div>
 
-      <VueTailwindDatePicker v-model="dateValue.startDate" as-single :i18n="currentLocale" />
+    <label class="mb-6 inline-flex cursor-pointer items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+      <input v-model="isDark" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-900">
+      <span>Dark Theme</span>
+    </label>
+
+    <div class="grid gap-4">
+      <div class="rounded-lg border border-slate-200 bg-white p-4">
+        <p class="mb-3 text-sm font-medium text-slate-700">
+          Legacy behavior (`selectorMode=false`, default)
+        </p>
+        <VueTailwindDatePicker
+          v-model="dateValue"
+          :i18n="currentLocale"
+          @select-month="onSelectSomething($event)"
+          @select-year="onSelectSomething($event)"
+          @select-right-month="onSelectSomething($event)"
+          @select-right-year="onSelectSomething($event)"
+          @click-prev="onClickSomething($event)"
+          @click-next="onClickSomething($event)"
+          @click-right-prev="onClickSomething($event)"
+          @click-right-next="onClickSomething($event)"
+        />
+      </div>
+
+      <div class="rounded-lg border border-slate-200 bg-white p-4">
+        <p class="mb-3 text-sm font-medium text-slate-700">
+          Legacy single-date mode (`asSingle`)
+        </p>
+        <VueTailwindDatePicker v-model="singleDateValue" as-single :i18n="currentLocale" />
+      </div>
+
+      <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+        <p class="mb-3 text-sm font-medium text-emerald-900">
+          Opt-in selector mode demo (`:selector-mode=&quot;true&quot;`)
+        </p>
+        <VueTailwindDatePicker
+          v-model="selectorModeValue"
+          :selector-mode="true"
+          :selector-focus-tint="false"
+          :i18n="currentLocale"
+          @select-month="onSelectSomething($event)"
+          @select-year="onSelectSomething($event)"
+          @select-right-month="onSelectSomething($event)"
+          @select-right-year="onSelectSomething($event)"
+          @click-prev="onClickSomething($event)"
+          @click-next="onClickSomething($event)"
+          @click-right-prev="onClickSomething($event)"
+          @click-right-next="onClickSomething($event)"
+        />
+      </div>
+
+      <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <p class="mb-3 text-sm font-medium text-amber-900">
+          Selector mode single-panel range (`useRange` + `asSingle`, year scroll: `boundary`)
+        </p>
+        <VueTailwindDatePicker
+          v-model="selectorSingleRangeValue"
+          use-range
+          as-single
+          :selector-mode="true"
+          :selector-focus-tint="false"
+          selector-year-scroll-mode="boundary"
+          :i18n="currentLocale"
+        />
+      </div>
+
+      <div class="rounded-lg border border-violet-200 bg-violet-50 p-4">
+        <p class="mb-3 text-sm font-medium text-violet-900">
+          Selector mode single-panel range (`useRange` + `asSingle`, year scroll: `fractional`)
+        </p>
+        <VueTailwindDatePicker
+          v-model="selectorSingleRangeFractionalValue"
+          use-range
+          as-single
+          :selector-mode="true"
+          :selector-focus-tint="false"
+          selector-year-scroll-mode="fractional"
+          :i18n="currentLocale"
+        />
+      </div>
+
+      <div class="rounded-lg border border-rose-200 bg-rose-50 p-4">
+        <p class="mb-3 text-sm font-medium text-rose-900">
+          Selector mode with disabled-date constraints (`disableDate` weekends)
+        </p>
+        <VueTailwindDatePicker
+          v-model="selectorDisabledValue"
+          as-single
+          :selector-mode="true"
+          :selector-focus-tint="false"
+          :disable-date="disableWeekendDates"
+          :i18n="currentLocale"
+        />
+      </div>
+
+      <div class="rounded-lg border border-cyan-200 bg-cyan-50 p-4">
+        <p class="mb-3 text-sm font-medium text-cyan-900">
+          Selector mode with empty/invalid model value seeds
+        </p>
+        <div class="grid gap-4 md:grid-cols-2">
+          <VueTailwindDatePicker
+            v-model="selectorEmptyModelValue"
+            as-single
+            :selector-mode="true"
+            :selector-focus-tint="false"
+            :i18n="currentLocale"
+            placeholder="Empty string model"
+          />
+          <VueTailwindDatePicker
+            v-model="selectorInvalidModelValue"
+            :selector-mode="true"
+            :selector-focus-tint="false"
+            :i18n="currentLocale"
+            placeholder="Invalid range model"
+          />
+        </div>
+      </div>
     </div>
   </div>
 </template>
