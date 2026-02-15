@@ -320,6 +320,8 @@ const dateValue = ref([])
 Control whether popover mode closes immediately after selecting the second date in range mode.
 Default is `true`.
 
+When using `selector-mode`, set this to `false` if you want a fully native-like keep-open flow after second-date selection.
+
 In `no-input` static mode this prop is a no-op because there is no popover to close.
 
 ```vue

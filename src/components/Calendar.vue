@@ -197,6 +197,7 @@ function onDateKeydown(event: KeyboardEvent, date: any) {
   if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
     event.preventDefault()
     emit('updateDate', date)
+    return
   }
 
 }

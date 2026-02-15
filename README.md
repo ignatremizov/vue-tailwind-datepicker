@@ -99,6 +99,7 @@ const rangeDate = ref({
 - `:selector-year-page-shift-jump="100"`: Shift+PageUp/Shift+PageDown jump size (years).
 - `:selector-focus-tint="false"`: keeps selector containers neutral while preserving functionality.
 - `:close-on-range-selection="false"`: keeps the popover open after selecting the second range date.
+  Recommended with `selector-mode` when you want a fully native-like keep-open flow.
   In `no-input` static mode this option is a no-op because there is no popover to close.
 
 ```vue

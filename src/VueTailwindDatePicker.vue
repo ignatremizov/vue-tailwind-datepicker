@@ -797,6 +797,19 @@ function shouldReanchorSelectorYearWindow(year: number) {
     || year >= lastYear - SELECTOR_YEAR_REANCHOR_THRESHOLD
 }
 
+function ensureSelectorYearInWindow(year: number) {
+  const years = selectorYears.value
+  if (years.length === 0) {
+    anchorSelectorYearWindow(year)
+    return
+  }
+
+  const firstYear = years[0]
+  const lastYear = years[years.length - 1]
+  if (year < firstYear || year > lastYear)
+    anchorSelectorYearWindow(year)
+}
+
 function isSelectorPanel(panelName: SelectionPanel) {
   if (!props.selectorMode || pickerViewMode.value !== 'selector')
     return false
@@ -958,6 +971,11 @@ function onSelectorYearUpdate(panelName: SelectionPanel, year: number) {
     return
   const context = resolveSelectionContext(panelName)
   selectionContext.value = context
+
+  // Keyboard jumps can target a year beyond the current virtual window.
+  // Anchor first so the requested year is renderable in the next selector paint.
+  ensureSelectorYearInWindow(year)
+
   if (resolveContextDate(context).year() === year) {
     syncSelectorState(context, { syncAnchor: false })
     if (shouldReanchorSelectorYearWindow(selectorState.selectedYear))

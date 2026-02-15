@@ -106,6 +106,7 @@ describe('Selector wheel keyboard behavior', () => {
     expect(wrapper.emitted('requestFocusYear')).toHaveLength(2)
   })
 
+
   it('navigates year wheel and requests month focus with keyboard keys', async () => {
     const years = Array.from({ length: 401 }, (_, index) => 1900 + index)
     const wrapper = mount(Year, {
