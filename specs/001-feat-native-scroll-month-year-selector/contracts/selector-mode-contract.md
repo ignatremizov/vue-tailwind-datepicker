@@ -52,7 +52,7 @@ Public and internal behavior contract for native-like month/year selector mode.
   - view switches to selector mode.
   - focus target is month/year column based on click target.
   - selector-mode header is presented as a single combined month+year toggle button.
-  - side month navigation arrows are hidden while selector mode is enabled.
+  - side month navigation arrows remain available as quick actions with reduced visual prominence.
 
 2. Exit selector mode
 - Trigger: header toggle action from selector view.
@@ -67,6 +67,20 @@ Public and internal behavior contract for native-like month/year selector mode.
   - does not force-close popover; user remains in selector until toggled back.
   - clicked item is centered in its wheel/list, with smooth centering where applicable.
 
+4. Header quick month navigation (selector mode)
+- Trigger: clicking left/right header arrows while selector view is active.
+- Result:
+  - action routes through month-wheel stepping semantics.
+  - month wheel uses smooth motion and does not introduce snap-back/rubber-band behavior.
+  - selector view remains open.
+
+5. Wheel step controls
+- Trigger: clicking up/down step controls on month or year wheel.
+- Result:
+  - target wheel advances by one logical step.
+  - smooth motion is preserved on repeated clicks.
+  - focus remains keyboard-operable without unintended focus jumps.
+
 ## Range-Context Semantics
 
 ### Single-panel range (`use-range` + `as-single`)
@@ -79,7 +93,8 @@ Public and internal behavior contract for native-like month/year selector mode.
 - Selector applies month/year updates only to clicked panel context:
   - left header -> `previousPanel`
   - right header -> `nextPanel`
-- Cross-panel switching inside selector is out of scope for v1.
+- Both selector panels may be open at the same time.
+- Opening/toggling one panel must not mutate the opposite panel's selected month/year state.
 
 ## Year Virtualization Contract
 

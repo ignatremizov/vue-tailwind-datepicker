@@ -100,7 +100,7 @@
 - [x] T024 [US4] Ensure emitted behavior and exposed API remain unchanged unless `selectorMode` is enabled in `src/VueTailwindDatePicker.vue` [FR-008]
 - [x] T030 [US4] Add configurable selector year scroll mode (`boundary` default, `fractional` experimental) in `src/VueTailwindDatePicker.vue` and `src/components/Year.vue` [FR-008, FR-011]
 - [x] T031 [US4] Add both selector year-scroll variants in `src/App.vue` for side-by-side UX validation [SC-004]
-- [x] T032 [US1] Update selector-mode header to a single combined month+year toggle and hide side arrows in selector mode in `src/components/Header.vue` [FR-001, FR-018]
+- [x] T032 [US1] Update selector-mode header to a single combined month+year toggle and tuned selector-mode side-arrow behavior in `src/components/Header.vue` [FR-001, FR-018]
 - [x] T033 [US2] Ensure selector item click recenters wheel/list with smooth motion in `src/components/Month.vue` and `src/components/Year.vue` [FR-015, FR-016]
 - [x] T034 [US2] Stabilize selector-mode container dimensions across view toggles in `src/VueTailwindDatePicker.vue` [FR-014]
 - [x] T035 [US4] Add configurable selector focus tint behavior in `src/VueTailwindDatePicker.vue` and demo usage in `src/App.vue` [FR-013]
@@ -121,6 +121,10 @@
 - [x] T028 [Shared] Verify and document SC-002 interaction-count criterion (<=2 direct interactions after selector open, excluding scroll distance) using `src/App.vue` scenarios [SC-002]
 - [x] T029 [Shared] Execute and document edge-case matrix checks (far-year offsets, small screens, disabled-date constraints, invalid/empty model, double-panel clicked-context) in `specs/001-feat-native-scroll-month-year-selector/quickstart.md` [FR-004, FR-006, FR-007, FR-010, FR-011, SC-004]
 - [x] T038 [Shared] Update quickstart QA evidence after selector sync fixes (`boundary` + `fractional`) in `specs/001-feat-native-scroll-month-year-selector/quickstart.md` [SC-004]
+- [x] T039 [Shared] Re-introduce selector-mode header month quick-nav arrows with smooth wheel-step routing in `src/components/Header.vue` and `src/VueTailwindDatePicker.vue` [FR-019]
+- [x] T040 [Shared] Add reusable selector wheel step controls for month and year wheels in `src/components/SelectorWheelStepButton.vue`, `src/components/Month.vue`, and `src/components/Year.vue` [FR-020]
+- [x] T041 [Shared] Support simultaneous dual-panel selector visibility with independent per-panel selection bindings in `src/VueTailwindDatePicker.vue` [FR-021, FR-006]
+- [x] T042 [Shared] Add regression unit coverage for selector quick-nav arrows, wheel step controls, repeated smooth stepping, and dual-panel independence in `tests/unit/*.spec.ts` [SC-003, SC-004]
 
 ---
 

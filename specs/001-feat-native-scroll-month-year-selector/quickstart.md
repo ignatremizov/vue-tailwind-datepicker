@@ -45,14 +45,18 @@ Optional experimental variant:
 6. `selector-year-scroll-mode="boundary"` keeps year movement discrete and clarity-first.
 7. `selector-year-scroll-mode="fractional"` keeps year wheel in continuous month-synced drift.
 8. Selector-mode header is a single combined month+year toggle with explicit button affordance.
-9. Clicking month/year selector items recenters the wheel/list to the clicked item.
-10. Selector-mode container size remains visually stable across calendar <-> selector toggles.
+9. Selector-mode header side arrows remain available for quick month stepping and use smooth wheel motion semantics.
+10. Month/year wheels expose explicit up/down step controls and repeated clicks remain smooth.
+11. Clicking month/year selector items recenters the wheel/list to the clicked item.
+12. In double-panel range mode, opening the second selector does not reset or mutate the first selector panel state.
+13. Selector-mode container size remains visually stable across calendar <-> selector toggles.
 
 ## 4. Verify non-regression behaviors
 
 1. `selector-mode` omitted (`false`) keeps legacy month/year panels.
 2. `autoApply` and manual apply still behave as before.
 3. Keyboard navigation/focus remains usable.
+4. Double-panel selector mode keeps per-panel month/year state independent.
 
 ## 5. Verify SC-002 interaction-count criterion
 
@@ -81,6 +85,7 @@ Record each manual run to make success criteria auditable.
 | 2026-02-11 | Codex | T029 disabled-date constraints (`disableDate` weekend function) | fail (non-picker favicon 404 only) | pass | Weekend cells remained disabled after selector-mode month change and return to calendar |
 | 2026-02-11 | Codex | T029 invalid/empty model seeds (`''`, `not-a-date ~ not-a-date`) | fail (non-picker favicon 404 only) | pass | Popovers opened without runtime exceptions; both scenarios anchored to stable calendar months (Feb/Mar 2026) |
 | 2026-02-12 | Codex | T029 far-year offsets + small-screen 375x812 + selector sync modes | fail (non-picker favicon 404 only) | pass | Year list remained virtually unbounded under boundary/fractional modes; mobile viewport stayed operable; prior year/header drift issue was resolved |
+| 2026-02-15 | Codex | Selector header quick-nav + wheel step controls + dual-panel simultaneous selectors | fail (non-picker favicon 404 only) | pass | Header arrows remained available in selector mode with smooth month stepping; month/year wheel step buttons were functional; opening right selector kept left selector month/year unchanged |
 
 Checklist per run:
 1. Open browser devtools console and confirm no errors during calendar -> selector -> calendar transitions.

@@ -38,10 +38,11 @@
 
 ## Decision 6: Selector Header Affordance
 
-- Decision: In selector mode, use a single combined month+year toggle button with explicit affordance styling; hide side month arrows.
-- Rationale: Better aligns with native-like toggle mental model and removes conflicting pagination affordances.
+- Decision: In selector mode, use a single combined month+year toggle button with explicit affordance styling; keep side month arrows as subdued quick-navigation actions.
+- Rationale: Retains native-like toggle clarity while restoring low-friction month stepping for keyboard/mouse users without forcing wheel scrolling.
 - Alternatives considered:
   - Keep split month/year header buttons in selector mode: rejected due to weaker toggle clarity.
+  - Hide side month arrows completely: rejected after UX review due to discoverability loss for simple month stepping.
 
 ## Decision 7: Selector Styling Controls
 
@@ -56,6 +57,13 @@
 - Rationale: `boundary` is clearer for most users; `fractional` offers a native-like continuous feel for advanced adopters.
 - Alternatives considered:
   - Single fixed behavior only: rejected due to unresolved UX preference tradeoff.
+
+## Decision 9: Dual-Panel Selector Visibility
+
+- Decision: Allow both selector panels to remain open simultaneously in double-panel range mode.
+- Rationale: Improves side-by-side comparison and avoids collapsing the first panel when opening the second.
+- Alternatives considered:
+  - Single-active selector panel only: rejected after UX review because it hides context and causes panel-state churn.
 
 ## Risks and Mitigations
 

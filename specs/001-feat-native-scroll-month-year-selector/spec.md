@@ -25,7 +25,8 @@ As a date picker user, I can click the header in calendar view and toggle into a
 1. **Given** the picker is open in calendar view, **When** the user clicks the month label in the header, **Then** the picker transitions to the selector view focused on month selection while showing year selection context.
 2. **Given** the picker is open in calendar view, **When** the user clicks the year label in the header, **Then** the picker transitions to the selector view focused on year selection while showing month selection context.
 3. **Given** selector view is open, **When** the user toggles back to calendar view from the header control, **Then** the picker returns to calendar view with the selected month/year applied.
-4. **Given** selector mode is enabled, **When** the header renders, **Then** month and year are shown as a single explicit toggle button and side month-navigation arrows are hidden.
+4. **Given** selector mode is enabled, **When** the header renders, **Then** month and year are shown as a single explicit toggle button and side month quick-navigation arrows remain available with reduced visual prominence.
+5. **Given** double-panel range selector view is active, **When** the user opens selector view on the opposite panel, **Then** both selector panels can remain open and each panel keeps its own month/year selection state.
 
 ---
 
@@ -42,6 +43,7 @@ As a date picker user, I can scroll month and year lists with native-like behavi
 1. **Given** selector view is open, **When** the user scrolls month or year lists, **Then** scrolling remains smooth and values remain readable and selectable according to the SC-004 verification checklist.
 2. **Given** selector view is open, **When** the user selects a month and/or year, **Then** the selected values become active and update the calendar period.
 3. **Given** selector view is open, **When** the user confirms selection via direct selection behavior, **Then** the picker returns to calendar mode with correct month/year.
+4. **Given** selector view is open, **When** the user clicks wheel up/down step controls for month or year, **Then** the corresponding wheel advances smoothly and keeps focus behavior consistent with keyboard navigation.
 
 ---
 
@@ -104,6 +106,9 @@ As a library consumer, I can enable or configure native-like selector behavior w
 - **FR-016**: System MUST support wheel-like continuous month scrolling behavior that mimics native calendar selectors while keeping selected month/year semantics correct.
 - **FR-017**: System MUST expose a selector year-scroll mode option with `boundary` (clarity-first default) and `fractional` (continuous drift) variants.
 - **FR-018**: System MUST present selector-mode header control styling that clearly communicates clickability/toggle intent.
+- **FR-019**: System MUST keep header month quick-navigation arrows available in selector mode and route their actions through smooth month wheel stepping semantics.
+- **FR-020**: System MUST support selector wheel up/down step controls for both month and year wheels with smooth repeated motion behavior.
+- **FR-021**: System MUST allow both selector panels to remain open in double-panel range mode while preserving independent month/year selection state per panel.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -127,7 +132,9 @@ As a library consumer, I can enable or configure native-like selector behavior w
 - [RESOLVED 2026-02-11] In single-panel range mode (`use-range` + `as-single`), selector edits the currently displayed month/year context only.
 - [RESOLVED 2026-02-11] Selector flow mimics native picker toggle behavior between calendar and selector views.
 - [RESOLVED 2026-02-11] Year selector should be virtually unbounded.
-- [RESOLVED 2026-02-12] Selector-mode header uses a combined month+year toggle button and hides side month arrows in selector mode.
+- [RESOLVED 2026-02-12] Selector-mode header uses a combined month+year toggle button.
 - [RESOLVED 2026-02-12] Selector focus tinting is configurable and can be disabled for custom visual systems.
 - [RESOLVED 2026-02-12] Selector mode supports two year wheel sync variants: `boundary` (default) and `fractional` (experimental/continuous).
 - [RESOLVED 2026-02-12] Selector wheel month/year visual styling is exposed via CSS variables (including typography, hover/selected states, and year-canvas tuning hooks).
+- [RESOLVED 2026-02-15] Selector mode re-enables subdued header month quick-navigation arrows and adds explicit wheel step controls for month and year.
+- [RESOLVED 2026-02-15] Double-panel range selector mode supports both panels open simultaneously while preserving per-panel month/year independence.

@@ -7,14 +7,14 @@
 
 Add an opt-in selector mode for `vue-tailwind-datepicker` that toggles between calendar view and native-like month/year scrolling selectors. The implementation must preserve existing single/range behavior, support single-panel range (`use-range` + `as-single`) and double-panel range (per-panel selector context), and keep the existing default behavior unchanged unless explicitly enabled.
 
-Current UX scope also includes: explicit selector-header toggle affordance, configurable selector focus tinting, selector container size stability across view toggles, click-to-center selector behavior, and selectable year scroll sync variants (`boundary` and `fractional`).
+Current UX scope also includes: explicit selector-header toggle affordance, selector-mode month quick-nav header arrows, month/year wheel step controls, configurable selector focus tinting, selector container size stability across view toggles, click-to-center selector behavior, dual-panel simultaneous selector visibility with per-panel independence, and selectable year scroll sync variants (`boundary` and `fractional`).
 
 ## Technical Context
 
 **Language/Version**: TypeScript 5.9, Vue 3.5 SFCs  
 **Primary Dependencies**: Vue 3, dayjs, headlessui/vue, tailwindcss  
 **Storage**: N/A (component-local state only)  
-**Testing**: `vue-tsc --noEmit`, `vite build`, manual demo verification in local app and consumer usage  
+**Testing**: `vue-tsc --noEmit`, `vitest`, `vite build`, manual demo verification in local app and consumer usage  
 **Target Platform**: Browser (desktop + mobile), Vue 3 library consumers  
 **Project Type**: Single frontend component library  
 **Performance Goals**: Keep interactions smooth and maintain 60fps scroll/animation during selector use  
@@ -57,6 +57,7 @@ src/
 │   ├── Header.vue
 │   ├── Month.vue
 │   ├── Year.vue
+│   ├── SelectorWheelStepButton.vue
 │   └── Calendar.vue
 ├── types.ts
 └── App.vue
@@ -79,6 +80,8 @@ See `research.md`.
 5. Preserve model update behavior and auto-apply/manual apply semantics.
 6. Provide stable visual container geometry and clear selector-toggle affordance.
 7. Support both clarity-first and continuous year-wheel sync variants via prop.
+8. Keep header quick month navigation available in selector mode and route it to smooth wheel-step behavior.
+9. In double-panel range, support both selectors open simultaneously while preserving per-panel state independence.
 
 Detailed entities and transitions are in `data-model.md` and `contracts/selector-mode-contract.md`.
 
