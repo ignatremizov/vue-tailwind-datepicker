@@ -26,7 +26,11 @@ const selectorInvalidModelValue = ref('not-a-date ~ not-a-date')
 const singleDateValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
 
 const currentLocale = ref('en')
-const locales = ['en', 'es', 'de']
+const localeOptions = [
+  { code: 'en', flag: '🇺🇸' },
+  { code: 'es', flag: '🇪🇸' },
+  { code: 'de', flag: '🇩🇪' },
+]
 const isDark = ref(false)
 
 function disableWeekendDates(date: Date) {
@@ -45,18 +49,27 @@ function onSelectSomething(e: Dayjs) {
 
 <template>
   <div :class="[isDark ? 'dark bg-slate-950' : 'bg-sky-50', 'min-h-screen px-10 pt-10 pb-[28rem]']">
-    <label class="block">
+    <div class="mb-3">
       <span class="text-sm text-slate-700 dark:text-slate-200">Choose one locale</span>
-      <select
-        v-model="currentLocale"
-        name="language"
-        class="mb-3 mt-2 block rounded border border-slate-300 bg-white px-3 py-1.5 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-      >
-        <option v-for="locale in locales" :key="locale" :value="locale">
-          {{ locale }}
-        </option>
-      </select>
-    </label>
+      <div class="mt-2 flex flex-wrap gap-2">
+        <button
+          v-for="locale in localeOptions"
+          :key="locale.code"
+          type="button"
+          :aria-pressed="currentLocale === locale.code"
+          :class="[
+            'inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors',
+            currentLocale === locale.code
+              ? 'border-sky-400 bg-sky-50 text-sky-700 dark:border-sky-500 dark:bg-sky-900/30 dark:text-sky-200'
+              : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800',
+          ]"
+          @click="currentLocale = locale.code"
+        >
+          <span aria-hidden="true" class="text-base leading-none">{{ locale.flag }}</span>
+          <span class="uppercase">{{ locale.code }}</span>
+        </button>
+      </div>
+    </div>
 
     <label class="mb-6 inline-flex cursor-pointer items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
       <input v-model="isDark" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-900">
