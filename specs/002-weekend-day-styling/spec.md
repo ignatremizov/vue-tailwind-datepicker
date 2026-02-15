@@ -2,7 +2,7 @@
 
 **Feature Branch**: `002-weekend-day-styling`  
 **Created**: 2026-02-12  
-**Status**: Draft  
+**Status**: Approved  
 **Input**: User description: "Add reliable weekend styling support (Saturday/Sunday) for `vue-tailwind-datepicker` so host apps can render weekend days with custom tinting (e.g., red) without fragile CSS overrides."
 
 ## Reference Assets

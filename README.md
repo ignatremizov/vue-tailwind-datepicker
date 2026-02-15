@@ -143,6 +143,20 @@ Day cells now expose stable weekend hooks so host apps can apply weekend tinting
 }
 ```
 
+Hooks are stable across locales and also apply when `selector-mode` is enabled:
+
+```vue
+<vue-tailwind-datepicker v-model="rangeEn" use-range i18n="en" />
+<vue-tailwind-datepicker v-model="rangeDe" use-range i18n="de" />
+<vue-tailwind-datepicker
+  v-model="rangeSelector"
+  use-range
+  as-single
+  :selector-mode="true"
+  i18n="en"
+/>
+```
+
 Hooks are additive: selected/range/disabled/today semantics remain unchanged unless your host CSS explicitly overrides them.
 
 ## Theming options

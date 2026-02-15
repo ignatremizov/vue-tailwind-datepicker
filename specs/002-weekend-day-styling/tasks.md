@@ -86,6 +86,8 @@
 - [x] T020 Reconcile the QA matrix and requirement evidence log against FR-001..FR-008 in `specs/002-weekend-day-styling/quickstart.md`
 - [x] T021 Execute explicit weekday non-regression checks (non-weekend cells unchanged in single/range flows) and capture evidence in `specs/002-weekend-day-styling/quickstart.md`
 - [x] T022 Run month-navigation responsiveness sanity checks and record observations in `specs/002-weekend-day-styling/quickstart.md`
+- [x] T023 [US1] Add locale-parity unit coverage (`en`, `de`) for deterministic weekend hook assignment in `tests/unit/weekend-day-styling.spec.ts`
+- [x] T024 [US2] Expand weekend host-style demos to cover multiple locales and selector-wheel mode in `src/App.vue`
 
 ---
 
@@ -115,7 +117,7 @@
 - FR-005: T005, T017, T021
 - FR-006: T014, T015, T016
 - FR-007: T010, T011, T017
-- FR-008: T003, T004, T006, T007
-- SC-001: T009, T020
-- SC-002: T010, T011, T012, T013, T020
+- FR-008: T003, T004, T006, T007, T023
+- SC-001: T009, T020, T023
+- SC-002: T010, T011, T012, T013, T020, T024
 - SC-003: T001, T002, T015, T016, T018, T019, T020, T021

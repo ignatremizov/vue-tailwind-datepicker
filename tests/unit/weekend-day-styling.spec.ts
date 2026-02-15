@@ -55,7 +55,7 @@ async function mountSinglePicker(extraProps: Record<string, unknown> = {}) {
       asSingle: true,
       shortcuts: false,
       autoApply: true,
-      startFrom: new Date('2025-06-01T00:00:00.000Z'),
+      startFrom: new Date(2025, 5, 1),
       modelValue: '2025-06-15 00:00:00',
       ...pickerProps,
     },
@@ -67,22 +67,33 @@ async function mountSinglePicker(extraProps: Record<string, unknown> = {}) {
   return wrapper
 }
 
+async function assertWeekendContractForLocale(locale: string) {
+  const wrapper = await mountSinglePicker({ i18n: locale })
+  const buttons = wrapper.findAll('button.vtd-datepicker-date')
+  assertWeekendHookContract(buttons)
+  wrapper.unmount()
+}
+
 describe('weekend day styling hooks', () => {
   it('applies weekend hook classes to all weekend cells including off-month cells', async () => {
     const wrapper = await mountSinglePicker()
-    const buttons = wrapper.findAll('button.vtd-datepicker-date')
-    assertWeekendHookContract(buttons)
+    try {
+      const buttons = wrapper.findAll('button.vtd-datepicker-date')
+      assertWeekendHookContract(buttons)
 
-    let offMonthWeekendCount = 0
+      let offMonthWeekendCount = 0
 
-    for (const button of buttons) {
-      const date = dayjs(getDateKeyFromButton(button))
-      const classes = button.classes()
-      if ((date.day() === 0 || date.day() === 6) && classes.includes('text-vtd-secondary-400'))
-        offMonthWeekendCount += 1
+      for (const button of buttons) {
+        const date = dayjs(getDateKeyFromButton(button))
+        const classes = button.classes()
+        if ((date.day() === 0 || date.day() === 6) && classes.includes('text-vtd-secondary-400'))
+          offMonthWeekendCount += 1
+      }
+
+      expect(offMonthWeekendCount).toBeGreaterThan(0)
+    } finally {
+      wrapper.unmount()
     }
-
-    expect(offMonthWeekendCount).toBeGreaterThan(0)
   })
 
   it('keeps weekend hooks additive with selected/range/disabled semantics', async () => {
@@ -93,46 +104,59 @@ describe('weekend day styling hooks', () => {
         endDate: '2025-06-08 00:00:00',
       },
     })
+    let disabledWrapper: VueWrapper | undefined
 
-    const rangeEnd = findButtonByDate(rangeWrapper, '2025-06-08')
-    expect(rangeEnd).toBeTruthy()
-    expect(rangeEnd?.classes()).toContain('vtd-weekend')
-    expect(rangeEnd?.classes()).toContain('vtd-sunday')
-    expect(rangeEnd?.classes()).toContain('vtd-datepicker-date-selected')
+    try {
+      const rangeEnd = findButtonByDate(rangeWrapper, '2025-06-08')
+      expect(rangeEnd).toBeTruthy()
+      expect(rangeEnd?.classes()).toContain('vtd-weekend')
+      expect(rangeEnd?.classes()).toContain('vtd-sunday')
+      expect(rangeEnd?.classes()).toContain('vtd-datepicker-date-selected')
 
-    const inRangeSaturday = findButtonByDate(rangeWrapper, '2025-06-07')
-    expect(inRangeSaturday).toBeTruthy()
-    expect(inRangeSaturday?.classes()).toContain('vtd-weekend')
-    expect(inRangeSaturday?.classes()).toContain('vtd-saturday')
+      const inRangeSaturday = findButtonByDate(rangeWrapper, '2025-06-07')
+      expect(inRangeSaturday).toBeTruthy()
+      expect(inRangeSaturday?.classes()).toContain('vtd-weekend')
+      expect(inRangeSaturday?.classes()).toContain('vtd-saturday')
 
-    rangeWrapper.unmount()
+      disabledWrapper = await mountSinglePicker({
+        disableDate: (date: Date) => {
+          const day = dayjs(date).day()
+          return day === 0 || day === 6
+        },
+      })
 
-    const disabledWrapper = await mountSinglePicker({
-      disableDate: (date: Date) => {
-        const day = dayjs(date).day()
-        return day === 0 || day === 6
-      },
-    })
-
-    const disabledSaturday = findButtonByDate(disabledWrapper, '2025-06-07')
-    expect(disabledSaturday).toBeTruthy()
-    expect(disabledSaturday?.classes()).toContain('vtd-weekend')
-    expect(disabledSaturday?.classes()).toContain('vtd-saturday')
-    expect(disabledSaturday?.attributes('disabled')).not.toBeUndefined()
+      const disabledSaturday = findButtonByDate(disabledWrapper, '2025-06-07')
+      expect(disabledSaturday).toBeTruthy()
+      expect(disabledSaturday?.classes()).toContain('vtd-weekend')
+      expect(disabledSaturday?.classes()).toContain('vtd-saturday')
+      expect(disabledSaturday?.attributes('disabled')).not.toBeUndefined()
+    } finally {
+      disabledWrapper?.unmount()
+      rangeWrapper.unmount()
+    }
   })
-  
+
   it('keeps weekend hook assignment stable after month navigation', async () => {
     const wrapper = await mountSinglePicker()
-    const vm = wrapper.vm as unknown as { calendar: { previous: { onNext: () => void } } }
-    const initialKeys = wrapper.findAll('button.vtd-datepicker-date').map(button => getDateKeyFromButton(button))
+    try {
+      const vm = wrapper.vm as unknown as { calendar: { previous: { onNext: () => void } } }
+      const initialKeys = wrapper.findAll('button.vtd-datepicker-date').map(button => getDateKeyFromButton(button))
 
-    vm.calendar.previous.onNext()
-    await nextTick()
+      vm.calendar.previous.onNext()
+      await nextTick()
 
-    const nextMonthButtons = wrapper.findAll('button.vtd-datepicker-date')
-    const nextKeys = nextMonthButtons.map(button => getDateKeyFromButton(button))
+      const nextMonthButtons = wrapper.findAll('button.vtd-datepicker-date')
+      const nextKeys = nextMonthButtons.map(button => getDateKeyFromButton(button))
 
-    expect(nextKeys).not.toEqual(initialKeys)
-    assertWeekendHookContract(nextMonthButtons)
+      expect(nextKeys).not.toEqual(initialKeys)
+      assertWeekendHookContract(nextMonthButtons)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('keeps weekend hook assignment deterministic across locales', async () => {
+    await assertWeekendContractForLocale('en')
+    await assertWeekendContractForLocale('de')
   })
 })

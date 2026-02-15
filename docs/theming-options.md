@@ -118,5 +118,7 @@ Weekend day-cell theming is available through stable hooks:
 }
 ```
 
+These classes remain stable across locales and in selector mode (`:selector-mode="true"`), so the same host CSS can be reused for default and wheel-selector flows.
+
 These hooks are additive selectors layered on top of existing day states.
 Selected/range/disabled/today semantics remain the base behavior unless host CSS intentionally overrides them.
