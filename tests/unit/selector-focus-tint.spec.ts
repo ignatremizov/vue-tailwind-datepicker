@@ -1,6 +1,7 @@
 import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import Month from '../../src/components/Month.vue'
 import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
 
 afterEach(() => {
@@ -73,6 +74,24 @@ describe('selectorFocusTint behavior', () => {
     expect(yearColumn.classes()).toContain('border-vtd-primary-300')
     expect(yearColumn.classes()).not.toContain('bg-vtd-primary-50/40')
     expect(yearColumn.classes()).not.toContain('ring-2')
+
+    wrapper.unmount()
+  })
+
+  it('keeps year focus styling when month scroll updates while year stays focused', async () => {
+    const wrapper = await mountSelectorPicker(true)
+
+    await wrapper.get('[aria-label="Year selector"]').trigger('focus')
+    await nextTick()
+
+    const monthComponent = wrapper.findComponent(Month)
+    monthComponent.vm.$emit('scrollMonth', { month: 2, year: 2025 })
+    await nextTick()
+
+    const [monthColumn, yearColumn] = getSelectorColumns(wrapper)
+    expect(yearColumn.classes()).toContain('bg-vtd-primary-50/40')
+    expect(yearColumn.classes()).toContain('ring-2')
+    expect(monthColumn.classes()).not.toContain('bg-vtd-primary-50/40')
 
     wrapper.unmount()
   })

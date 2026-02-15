@@ -462,9 +462,23 @@ interface SelectorState {
   anchorYear: number
 }
 
+interface SelectorPanelState {
+  previous: boolean
+  next: boolean
+}
+
 interface HeaderInteractionPayload {
   panel: SelectionPanel
   focus: SelectorFocus
+}
+
+interface HeaderMonthStepPayload {
+  panel: SelectionPanel
+  delta: -1 | 1
+}
+
+interface SelectorMonthWheelHandle {
+  stepBy: (delta: -1 | 1) => void
 }
 
 interface TogglePickerViewOptions {
@@ -483,6 +497,20 @@ const selectorState = reactive<SelectorState>({
   selectedYear: datepicker.value.previous.year(),
   anchorYear: datepicker.value.previous.year(),
 })
+const selectorPanels = reactive<SelectorPanelState>({
+  previous: false,
+  next: false,
+})
+const previousSelectorMonthWheelRef = ref<SelectorMonthWheelHandle | null>(null)
+const nextSelectorMonthWheelRef = ref<SelectorMonthWheelHandle | null>(null)
+
+function setPreviousSelectorMonthWheelRef(instance: unknown) {
+  previousSelectorMonthWheelRef.value = instance as SelectorMonthWheelHandle | null
+}
+
+function setNextSelectorMonthWheelRef(instance: unknown) {
+  nextSelectorMonthWheelRef.value = instance as SelectorMonthWheelHandle | null
+}
 
 function generateSelectorYears(anchorYear: number) {
   const startYear = anchorYear - SELECTOR_YEAR_WINDOW_RADIUS
@@ -510,6 +538,10 @@ function resolveSelectionContext(panel: SelectionPanel): SelectionContext {
   return panel === 'next' ? 'nextPanel' : 'previousPanel'
 }
 
+function isDualPanelRangeMode() {
+  return asRange() && !props.asSingle
+}
+
 function resolveContextDate(context: SelectionContext): Dayjs {
   if (context === 'nextPanel')
     return datepicker.value.next
@@ -518,6 +550,14 @@ function resolveContextDate(context: SelectionContext): Dayjs {
 
 function resolveContextPanel(context: SelectionContext): SelectionPanel {
   return context === 'nextPanel' ? 'next' : 'previous'
+}
+
+function getPanelSelectedMonth(panel: SelectionPanel) {
+  return resolveContextDate(resolveSelectionContext(panel)).month()
+}
+
+function getPanelSelectedYear(panel: SelectionPanel) {
+  return resolveContextDate(resolveSelectionContext(panel)).year()
 }
 
 function getPickerQueryRoot() {
@@ -752,7 +792,13 @@ function shouldReanchorSelectorYearWindow(year: number) {
 function isSelectorPanel(panelName: SelectionPanel) {
   if (!props.selectorMode || pickerViewMode.value !== 'selector')
     return false
+  if (isDualPanelRangeMode())
+    return selectorPanels[panelName]
   return selectionContext.value === resolveSelectionContext(panelName)
+}
+
+function getPanelPickerViewMode(panelName: SelectionPanel): PickerViewMode {
+  return isSelectorPanel(panelName) ? 'selector' : 'calendar'
 }
 
 function getSelectorColumnClass(focus: SelectorFocus) {
@@ -793,6 +839,8 @@ function enterSelectorMode(payload: HeaderInteractionPayload) {
 
   selectorFocus.value = focus
   selectionContext.value = resolveSelectionContext(panel)
+  if (isDualPanelRangeMode())
+    selectorPanels[panel] = true
   syncSelectorState(selectionContext.value)
   pickerViewMode.value = 'selector'
   closeLegacyPanels()
@@ -815,6 +863,39 @@ function togglePickerViewMode(
 
   selectorFocus.value = focus
   selectionContext.value = resolveSelectionContext(panel)
+  const isDualPanel = isDualPanelRangeMode()
+
+  if (isDualPanel) {
+    const nextOpenState = !selectorPanels[panel]
+    selectorPanels[panel] = nextOpenState
+
+    if (!selectorPanels.previous && !selectorPanels.next) {
+      pickerViewMode.value = 'calendar'
+      closeLegacyPanels()
+      if (restoreFocus)
+        nextTick(() => focusHeaderValue(panel, focus))
+      return
+    }
+
+    pickerViewMode.value = 'selector'
+    closeLegacyPanels()
+    if (nextOpenState) {
+      syncSelectorState(selectionContext.value)
+      nextTick(() => {
+        if (pickerViewMode.value === 'selector') {
+          closeLegacyPanels()
+          focusSelectorModeTargetDeferred(selectionContext.value, selectorFocus.value)
+        }
+      })
+      return
+    }
+
+    if (!selectorPanels[panel]) {
+      selectionContext.value = selectorPanels.previous ? 'previousPanel' : 'nextPanel'
+    }
+    return
+  }
+
   if (pickerViewMode.value === 'selector') {
     pickerViewMode.value = 'calendar'
     closeLegacyPanels()
@@ -836,7 +917,6 @@ function togglePickerViewMode(
 function onSelectorMonthUpdate(panelName: SelectionPanel, payload: SelectorMonthPayload) {
   if (!props.selectorMode)
     return
-  selectorFocus.value = 'month'
   const context = resolveSelectionContext(panelName)
   selectionContext.value = context
   const targetMonth = typeof payload === 'number' ? payload : payload.month
@@ -868,7 +948,6 @@ function onSelectorMonthUpdate(panelName: SelectionPanel, payload: SelectorMonth
 function onSelectorYearUpdate(panelName: SelectionPanel, year: number) {
   if (!props.selectorMode)
     return
-  selectorFocus.value = 'year'
   const context = resolveSelectionContext(panelName)
   selectionContext.value = context
   if (resolveContextDate(context).year() === year) {
@@ -885,8 +964,34 @@ function onSelectorYearUpdate(panelName: SelectionPanel, year: number) {
   closeLegacyPanels()
 }
 
+function onHeaderMonthStep(payload: HeaderMonthStepPayload) {
+  if (!props.selectorMode || pickerViewMode.value !== 'selector')
+    return
+
+  const wheel = payload.panel === 'next'
+    ? nextSelectorMonthWheelRef.value
+    : previousSelectorMonthWheelRef.value
+  if (wheel) {
+    selectionContext.value = resolveSelectionContext(payload.panel)
+    wheel.stepBy(payload.delta)
+    closeLegacyPanels()
+    return
+  }
+
+  const context = resolveSelectionContext(payload.panel)
+  selectionContext.value = context
+  const nextDate = resolveContextDate(context).add(payload.delta, 'month')
+  applySelectorMonth(context, nextDate.month(), nextDate.year())
+  syncSelectorState(context, { syncAnchor: false })
+  if (shouldReanchorSelectorYearWindow(selectorState.selectedYear))
+    anchorSelectorYearWindow(selectorState.selectedYear)
+  closeLegacyPanels()
+}
+
 function resetPickerViewMode() {
   pickerViewMode.value = 'calendar'
+  selectorPanels.previous = false
+  selectorPanels.next = false
   if (props.selectorMode)
     closeLegacyPanels()
 }
@@ -1051,7 +1156,7 @@ watch(
   () => props.selectorMode,
   (enabled) => {
     if (!enabled)
-      pickerViewMode.value = 'calendar'
+      resetPickerViewMode()
   },
 )
 
@@ -2120,11 +2225,13 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                     class="hidden h-full absolute inset-0 sm:flex justify-center items-center">
                     <div class="h-full border-r border-black/[.1] dark:border-vtd-secondary-700/[1]" />
                   </div>
-                  <div class="relative w-full overflow-hidden" data-vtd-selector-panel="previous" :class="{
+                  <div class="relative w-full" data-vtd-selector-panel="previous" :class="{
                     'mb-3 sm:mb-0 sm:mr-2 w-full md:w-1/2 lg:w-80':
                       asRange() && !props.asSingle,
                     'w-full': !asRange() && props.asSingle,
                     'sm:h-full': props.selectorMode && props.asSingle,
+                    'overflow-visible': isSelectorPanel('previous'),
+                    'overflow-hidden': !isSelectorPanel('previous'),
                   }">
                     <VtdHeader
                       :panel="panel.previous"
@@ -2132,22 +2239,24 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                       panel-name="previous"
                       :selector-mode="props.selectorMode"
                       :selector-focus="selectorFocus"
-                      :picker-view-mode="pickerViewMode"
+                      :picker-view-mode="getPanelPickerViewMode('previous')"
                       @enter-selector-mode="enterSelectorMode"
                       @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
+                      @step-month="onHeaderMonthStep"
                     />
                     <div class="px-0.5 sm:px-2">
                       <template v-if="isSelectorPanel('previous')">
-                        <div class="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
+                        <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
                           <div
                             class="rounded-md border p-1 min-w-0"
                             :class="getSelectorColumnClass('month')"
                           >
                             <VtdMonth
+                              :ref="setPreviousSelectorMonthWheelRef"
                               :months="months"
                               selector-mode
-                              :selected-month="selectorState.selectedMonth"
-                              :selected-year="selectorState.selectedYear"
+                              :selected-month="getPanelSelectedMonth('previous')"
+                              :selected-year="getPanelSelectedYear('previous')"
                               :selector-focus="selectorFocus"
                               @focus-month="onSelectorColumnFocus('previous', 'month')"
                               @request-focus-year="requestSelectorColumnFocus('previous', 'year')"
@@ -2162,8 +2271,8 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                             <VtdYear
                               :years="selectorYears"
                               selector-mode
-                              :selected-month="selectorState.selectedMonth"
-                              :selected-year="selectorState.selectedYear"
+                              :selected-month="getPanelSelectedMonth('previous')"
+                              :selected-year="getPanelSelectedYear('previous')"
                               :selector-focus="selectorFocus"
                               :year-scroll-mode="props.selectorYearScrollMode"
                               @focus-year="onSelectorColumnFocus('previous', 'year')"
@@ -2190,7 +2299,11 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
 
                   <div v-if="asRange() && !props.asSingle"
                     data-vtd-selector-panel="next"
-                    class="relative w-full md:w-1/2 lg:w-80 overflow-hidden mt-3 sm:mt-0 sm:ml-2">
+                    class="relative w-full md:w-1/2 lg:w-80 mt-3 sm:mt-0 sm:ml-2"
+                    :class="{
+                      'overflow-visible': isSelectorPanel('next'),
+                      'overflow-hidden': !isSelectorPanel('next'),
+                    }">
                     <VtdHeader
                       as-prev-or-next
                       :panel="panel.next"
@@ -2198,22 +2311,24 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                       panel-name="next"
                       :selector-mode="props.selectorMode"
                       :selector-focus="selectorFocus"
-                      :picker-view-mode="pickerViewMode"
+                      :picker-view-mode="getPanelPickerViewMode('next')"
                       @enter-selector-mode="enterSelectorMode"
                       @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
+                      @step-month="onHeaderMonthStep"
                     />
                     <div class="px-0.5 sm:px-2">
                       <template v-if="isSelectorPanel('next')">
-                        <div class="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
+                        <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
                           <div
                             class="rounded-md border p-1 min-w-0"
                             :class="getSelectorColumnClass('month')"
                           >
                             <VtdMonth
+                              :ref="setNextSelectorMonthWheelRef"
                               :months="months"
                               selector-mode
-                              :selected-month="selectorState.selectedMonth"
-                              :selected-year="selectorState.selectedYear"
+                              :selected-month="getPanelSelectedMonth('next')"
+                              :selected-year="getPanelSelectedYear('next')"
                               :selector-focus="selectorFocus"
                               @focus-month="onSelectorColumnFocus('next', 'month')"
                               @request-focus-year="requestSelectorColumnFocus('next', 'year')"
@@ -2229,8 +2344,8 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                               as-prev-or-next
                               :years="selectorYears"
                               selector-mode
-                              :selected-month="selectorState.selectedMonth"
-                              :selected-year="selectorState.selectedYear"
+                              :selected-month="getPanelSelectedMonth('next')"
+                              :selected-year="getPanelSelectedYear('next')"
                               :selector-focus="selectorFocus"
                               :year-scroll-mode="props.selectorYearScrollMode"
                               @focus-year="onSelectorColumnFocus('next', 'year')"
@@ -2299,9 +2414,11 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
             class="hidden h-full absolute inset-0 sm:flex justify-center items-center">
             <div class="h-full border-r border-black/[.1] dark:border-vtd-secondary-700/[1]" />
           </div>
-          <div class="relative w-full lg:w-80 overflow-hidden" data-vtd-selector-panel="previous" :class="{
+          <div class="relative w-full lg:w-80" data-vtd-selector-panel="previous" :class="{
             'mb-3 sm:mb-0 sm:mr-2 md:w-1/2': asRange() && !props.asSingle,
             'sm:h-full': props.selectorMode && props.asSingle,
+            'overflow-visible': isSelectorPanel('previous'),
+            'overflow-hidden': !isSelectorPanel('previous'),
           }">
             <VtdHeader
               :panel="panel.previous"
@@ -2309,22 +2426,24 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
               panel-name="previous"
               :selector-mode="props.selectorMode"
               :selector-focus="selectorFocus"
-              :picker-view-mode="pickerViewMode"
+              :picker-view-mode="getPanelPickerViewMode('previous')"
               @enter-selector-mode="enterSelectorMode"
               @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
+              @step-month="onHeaderMonthStep"
             />
             <div class="px-0.5 sm:px-2">
               <template v-if="isSelectorPanel('previous')">
-                <div class="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
+                <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
                   <div
                     class="rounded-md border p-1 min-w-0"
                     :class="getSelectorColumnClass('month')"
                   >
                     <VtdMonth
+                      :ref="setPreviousSelectorMonthWheelRef"
                       :months="months"
                       selector-mode
-                      :selected-month="selectorState.selectedMonth"
-                      :selected-year="selectorState.selectedYear"
+                      :selected-month="getPanelSelectedMonth('previous')"
+                      :selected-year="getPanelSelectedYear('previous')"
                       :selector-focus="selectorFocus"
                       @focus-month="onSelectorColumnFocus('previous', 'month')"
                       @request-focus-year="requestSelectorColumnFocus('previous', 'year')"
@@ -2339,8 +2458,8 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                     <VtdYear
                       :years="selectorYears"
                       selector-mode
-                      :selected-month="selectorState.selectedMonth"
-                      :selected-year="selectorState.selectedYear"
+                      :selected-month="getPanelSelectedMonth('previous')"
+                      :selected-year="getPanelSelectedYear('previous')"
                       :selector-focus="selectorFocus"
                       :year-scroll-mode="props.selectorYearScrollMode"
                       @focus-year="onSelectorColumnFocus('previous', 'year')"
@@ -2366,7 +2485,11 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
 
           <div v-if="asRange() && !props.asSingle"
             data-vtd-selector-panel="next"
-            class="relative w-full md:w-1/2 lg:w-80 overflow-hidden mt-3 sm:mt-0 sm:ml-2">
+            class="relative w-full md:w-1/2 lg:w-80 mt-3 sm:mt-0 sm:ml-2"
+            :class="{
+              'overflow-visible': isSelectorPanel('next'),
+              'overflow-hidden': !isSelectorPanel('next'),
+            }">
             <VtdHeader
               as-prev-or-next
               :panel="panel.next"
@@ -2374,22 +2497,24 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
               panel-name="next"
               :selector-mode="props.selectorMode"
               :selector-focus="selectorFocus"
-              :picker-view-mode="pickerViewMode"
+              :picker-view-mode="getPanelPickerViewMode('next')"
               @enter-selector-mode="enterSelectorMode"
               @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
+              @step-month="onHeaderMonthStep"
             />
             <div class="px-0.5 sm:px-2">
               <template v-if="isSelectorPanel('next')">
-                <div class="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
+                <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
                   <div
                     class="rounded-md border p-1 min-w-0"
                     :class="getSelectorColumnClass('month')"
                   >
                     <VtdMonth
+                      :ref="setNextSelectorMonthWheelRef"
                       :months="months"
                       selector-mode
-                      :selected-month="selectorState.selectedMonth"
-                      :selected-year="selectorState.selectedYear"
+                      :selected-month="getPanelSelectedMonth('next')"
+                      :selected-year="getPanelSelectedYear('next')"
                       :selector-focus="selectorFocus"
                       @focus-month="onSelectorColumnFocus('next', 'month')"
                       @request-focus-year="requestSelectorColumnFocus('next', 'year')"
@@ -2405,8 +2530,8 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                       as-prev-or-next
                       :years="selectorYears"
                       selector-mode
-                      :selected-month="selectorState.selectedMonth"
-                      :selected-year="selectorState.selectedYear"
+                      :selected-month="getPanelSelectedMonth('next')"
+                      :selected-year="getPanelSelectedYear('next')"
                       :selector-focus="selectorFocus"
                       :year-scroll-mode="props.selectorYearScrollMode"
                       @focus-year="onSelectorColumnFocus('next', 'year')"

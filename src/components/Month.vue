@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import type { LengthArray } from '../types'
+import VtdSelectorWheelStepButton from './SelectorWheelStepButton.vue'
 
 type SelectorFocus = 'month' | 'year'
 
@@ -67,6 +68,10 @@ function normalizeMonthYear(rawMonth: number, rawYear: number): SelectorMonthPay
 
 function addMonths(month: number, year: number, delta: number): SelectorMonthPayload {
   return normalizeMonthYear(month + delta, year)
+}
+
+function totalMonths(month: number, year: number) {
+  return (year * 12) + month
 }
 
 function monthKey(month: number, year: number) {
@@ -217,7 +222,7 @@ function rebaseWindowAround(item: SelectorMonthItem) {
   })
 }
 
-function syncSelectorToSelected(force = false) {
+function syncSelectorToSelected(force = false, behavior: ScrollBehavior = 'auto') {
   if (!props.selectorMode || props.selectedMonth === null || props.selectedYear === null)
     return
 
@@ -228,9 +233,9 @@ function syncSelectorToSelected(force = false) {
   lastEmittedScrollKey = monthKey(props.selectedMonth, props.selectedYear)
 
   nextTick(() => {
-    markProgrammaticScrollSync()
+    markProgrammaticScrollSync(behavior === 'smooth' ? SMOOTH_SCROLL_SYNC_MS : PROGRAMMATIC_SCROLL_SYNC_MS)
     updateSelectorMetrics()
-    scrollToIndex(SELECTOR_CENTER_INDEX)
+    scrollToIndex(SELECTOR_CENTER_INDEX, behavior)
   })
 }
 
@@ -360,6 +365,22 @@ function onMonthClick(item: SelectorMonthItem) {
   selectorContainerRef.value?.focus({ preventScroll: true })
 }
 
+function onSelectorStepClick(delta: number) {
+  if (!props.selectorMode)
+    return
+
+  applyKeyboardMonthDelta(delta)
+  selectorContainerRef.value?.focus({ preventScroll: true })
+}
+
+function stepBy(delta: number) {
+  if (!props.selectorMode)
+    return
+
+  applyKeyboardMonthDelta(delta)
+  selectorContainerRef.value?.focus({ preventScroll: true })
+}
+
 function onSelectorFocus() {
   emit('focusMonth')
 }
@@ -378,6 +399,10 @@ watch(
     const monthChanged = selectedMonth !== previous?.selectedMonth
     const yearChanged = selectedYear !== previous?.selectedYear
     const shouldForceSync = !wasSelectorMode
+    const selectedKey = monthKey(selectedMonth, selectedYear)
+    const isScrollDrivenUpdate
+      = selectedKey === lastEmittedScrollKey
+        && (isUserScrolling.value || isProgrammaticScrollSync.value)
 
     if (shouldForceSync) {
       syncSelectorToSelected(true)
@@ -387,12 +412,53 @@ watch(
     if (!monthChanged && !yearChanged)
       return
 
-    const selectedKey = monthKey(selectedMonth, selectedYear)
-    const isScrollDrivenUpdate = selectedKey === lastEmittedScrollKey
+    // When only year changes (from year wheel), keep current scroll position
+    // but shift the month window's tuple year so subsequent month scroll emits
+    // the updated year rather than stale pre-change values.
+    if (yearChanged && !monthChanged) {
+      const previousYear = previous?.selectedYear
+      if (typeof previousYear === 'number') {
+        const yearDelta = selectedYear - previousYear
+        if (yearDelta !== 0) {
+          anchorSelection.value = {
+            month: anchorSelection.value.month,
+            year: anchorSelection.value.year + yearDelta,
+          }
+        }
+      }
+      else {
+        anchorSelection.value = { month: selectedMonth, year: selectedYear }
+      }
+      lastEmittedScrollKey = monthKey(selectedMonth, selectedYear)
+      return
+    }
+
+    if (monthChanged) {
+      if (isScrollDrivenUpdate)
+        return
+
+      const previousMonth = previous?.selectedMonth
+      const previousYear = previous?.selectedYear
+      if (typeof previousMonth === 'number' && typeof previousYear === 'number') {
+        const delta = totalMonths(selectedMonth, selectedYear) - totalMonths(previousMonth, previousYear)
+        if (delta !== 0 && Math.abs(delta) <= 2) {
+          lastEmittedScrollKey = monthKey(selectedMonth, selectedYear)
+          nextTick(() => {
+            markProgrammaticScrollSync(SMOOTH_SCROLL_SYNC_MS)
+            updateSelectorMetrics()
+            scrollToIndex(SELECTOR_CENTER_INDEX + delta, 'smooth')
+          })
+          return
+        }
+      }
+    }
+
     if (isScrollDrivenUpdate)
       return
 
-    syncSelectorToSelected()
+    // Month changes initiated outside the wheel (for example header prev/next)
+    // should animate the wheel position update.
+    syncSelectorToSelected(false, monthChanged ? 'smooth' : 'auto')
   },
   { immediate: true },
 )
@@ -404,6 +470,10 @@ onBeforeUnmount(() => {
     clearTimeout(scrollIdleTimeoutId)
   if (programmaticSyncTimeoutId !== null)
     clearTimeout(programmaticSyncTimeoutId)
+})
+
+defineExpose({
+  stepBy,
 })
 </script>
 
@@ -420,8 +490,13 @@ onBeforeUnmount(() => {
     </div>
   </div>
 
-  <div v-else class="mt-1.5 h-64 w-full min-w-0">
-    <div class="relative h-full w-full min-w-0 overflow-hidden rounded-md">
+  <div v-else class="h-64 w-full min-w-0">
+    <div class="relative h-full w-full min-w-0 overflow-visible rounded-md">
+      <VtdSelectorWheelStepButton
+        direction="up"
+        label="Select previous month"
+        @click="onSelectorStepClick(-1)"
+      />
       <div
         ref="selectorContainerRef"
         class="h-full w-full min-w-0 overflow-y-auto px-0.5 py-1 select-none focus:outline-none focus-visible:outline-none"
@@ -458,6 +533,11 @@ onBeforeUnmount(() => {
           />
         </div>
       </div>
+      <VtdSelectorWheelStepButton
+        direction="down"
+        label="Select next month"
+        @click="onSelectorStepClick(1)"
+      />
     </div>
   </div>
 </template>

@@ -105,4 +105,43 @@ describe('Selector year scroll mode', () => {
 
     expect(tallCellHeightYear).toBeLessThan(defaultCellHeightYear)
   })
+
+  it('keeps smooth motion on repeated year step-button clicks', async () => {
+    const scrollSpy = vi.spyOn(HTMLElement.prototype, 'scrollTo')
+    let wrapper: ReturnType<typeof mount>
+    wrapper = mount(Year, {
+      props: {
+        years,
+        selectorMode: true,
+        selectedYear: 2025,
+        selectedMonth: 5,
+        yearScrollMode: 'boundary',
+        onUpdateYear: (value: number) => {
+          wrapper.setProps({ selectedYear: value })
+        },
+      },
+    })
+    await flushTicks()
+
+    const nextButton = wrapper.get('[aria-label="Select next year"]')
+
+    scrollSpy.mockClear()
+    await nextButton.trigger('click')
+    await flushTicks()
+    const firstBehaviors = scrollSpy.mock.calls
+      .map((call: any[]) => (call[0] as ScrollToOptions | undefined)?.behavior)
+      .filter((behavior): behavior is ScrollBehavior => typeof behavior === 'string')
+
+    scrollSpy.mockClear()
+    await nextButton.trigger('click')
+    await flushTicks()
+    const secondBehaviors = scrollSpy.mock.calls
+      .map((call: any[]) => (call[0] as ScrollToOptions | undefined)?.behavior)
+      .filter((behavior): behavior is ScrollBehavior => typeof behavior === 'string')
+
+    expect(firstBehaviors).toContain('smooth')
+    expect(firstBehaviors).not.toContain('auto')
+    expect(secondBehaviors).toContain('smooth')
+    expect(secondBehaviors).not.toContain('auto')
+  })
 })

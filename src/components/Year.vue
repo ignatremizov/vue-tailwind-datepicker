@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import VtdSelectorWheelStepButton from './SelectorWheelStepButton.vue'
 
 type SelectorFocus = 'month' | 'year'
 
@@ -59,6 +60,8 @@ const REANCHOR_SCROLL_DEADZONE_PX = 0.75
 const EDGE_GUARD_ROWS = 140
 const PREANCHOR_EDGE_ROWS = 90
 const PREANCHOR_EMIT_COOLDOWN_MS = 90
+const STEP_BUTTON_FOCUS_SUPPRESS_MS = 650
+let suppressFocusAutoCenterUntil = 0
 
 const yearAriaAnnouncement = computed(() => {
   if (props.selectedYear === null)
@@ -177,6 +180,10 @@ function getYearFractionalOffset() {
 
 function shouldSuppressSelectedYearSync() {
   return Date.now() < suppressSelectedYearSyncUntil
+}
+
+function shouldSuppressFocusAutoCenter() {
+  return Date.now() < suppressFocusAutoCenterUntil
 }
 
 function getCenteredIndexFloat() {
@@ -799,6 +806,11 @@ function onSelectorFocus() {
   if (!props.selectorMode || props.selectedYear === null)
     return
 
+  if (shouldSuppressFocusAutoCenter()) {
+    queueCanvasDraw()
+    return
+  }
+
   // Browsers can nudge scroll position on focus/tab. Keep the wheel anchored
   // to the selected year and treat the resulting scroll as programmatic.
   markProgrammaticScrollSync(120)
@@ -807,6 +819,15 @@ function onSelectorFocus() {
     includeFractionalOffset: props.yearScrollMode === 'fractional',
   })
   queueCanvasDraw()
+}
+
+function onSelectorStepClick(delta: number) {
+  if (!props.selectorMode)
+    return
+
+  suppressFocusAutoCenterUntil = Date.now() + STEP_BUTTON_FOCUS_SUPPRESS_MS
+  applyKeyboardYearDelta(delta)
+  selectorContainerRef.value?.focus({ preventScroll: true })
 }
 
 watch(
@@ -987,9 +1008,15 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div :class="props.selectorMode ? 'mt-1.5 w-full min-w-0' : 'flex flex-wrap'">
+  <div :class="props.selectorMode ? 'w-full min-w-0' : 'flex flex-wrap'">
     <template v-if="props.selectorMode">
       <div class="relative h-64 w-full min-w-0">
+        <VtdSelectorWheelStepButton
+          z-class="z-30"
+          direction="up"
+          label="Select previous year"
+          @click="onSelectorStepClick(-1)"
+        />
         <div
           ref="selectorContainerRef"
           class="h-full w-full min-w-0 overflow-y-scroll px-0.5 py-1 focus:outline-none focus-visible:outline-none"
@@ -1014,6 +1041,12 @@ onBeforeUnmount(() => {
           ref="selectorCanvasRef"
           class="pointer-events-none absolute inset-0 z-10 block"
           aria-hidden="true"
+        />
+        <VtdSelectorWheelStepButton
+          z-class="z-30"
+          direction="down"
+          label="Select next year"
+          @click="onSelectorStepClick(1)"
         />
         <span class="sr-only" aria-live="polite">{{ yearAriaAnnouncement }}</span>
       </div>
