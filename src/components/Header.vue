@@ -151,7 +151,7 @@ function onSideNextClick() {
 </script>
 
 <template>
-  <div class="flex justify-between items-center px-2 py-1.5">
+  <div class="flex min-h-[3.25rem] justify-between items-center px-2 py-1.5">
     <div class="shrink-0">
       <span
         v-show="panel.calendar || panel.year"

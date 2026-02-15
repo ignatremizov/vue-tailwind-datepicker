@@ -2448,6 +2448,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                     'mb-3 sm:mb-0 sm:mr-2 md:w-1/2 lg:w-80':
                       asRange() && !props.asSingle,
                     'lg:w-80': props.asSingle && !!props.shortcuts,
+                    'sm:min-h-[21.625rem]': props.asSingle && !props.selectorMode,
                     'sm:h-full': props.selectorMode && props.asSingle,
                     'overflow-visible': isSelectorPanel('previous'),
                     'overflow-hidden': !isSelectorPanel('previous'),
@@ -2463,7 +2464,9 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                       @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
                       @step-month="onHeaderMonthStep"
                     />
-                    <div class="px-0.5 sm:px-2">
+                    <div class="px-0.5 sm:px-2" :class="{
+                      'sm:min-h-[17.625rem]': props.selectorMode,
+                    }">
                       <template v-if="isSelectorPanel('previous')">
                         <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
                           <div
@@ -2539,7 +2542,9 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                       @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
                       @step-month="onHeaderMonthStep"
                     />
-                    <div class="px-0.5 sm:px-2">
+                    <div class="px-0.5 sm:px-2" :class="{
+                      'sm:min-h-[17.625rem]': props.selectorMode,
+                    }">
                       <template v-if="isSelectorPanel('next')">
                         <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
                           <div
@@ -2648,6 +2653,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
           <div class="relative w-full" data-vtd-selector-panel="previous" :class="{
             'mb-3 sm:mb-0 sm:mr-2 md:w-1/2 lg:w-80': asRange() && !props.asSingle,
             'lg:w-80': props.asSingle && !!props.shortcuts,
+            'sm:min-h-[21.625rem]': props.asSingle && !props.selectorMode,
             'sm:h-full': props.selectorMode && props.asSingle,
             'overflow-visible': isSelectorPanel('previous'),
             'overflow-hidden': !isSelectorPanel('previous'),
@@ -2663,7 +2669,9 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
               @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
               @step-month="onHeaderMonthStep"
             />
-            <div class="px-0.5 sm:px-2">
+            <div class="px-0.5 sm:px-2" :class="{
+              'sm:min-h-[17.625rem]': props.selectorMode,
+            }">
               <template v-if="isSelectorPanel('previous')">
                 <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
                   <div
@@ -2738,7 +2746,9 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
               @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
               @step-month="onHeaderMonthStep"
             />
-            <div class="px-0.5 sm:px-2">
+            <div class="px-0.5 sm:px-2" :class="{
+              'sm:min-h-[17.625rem]': props.selectorMode,
+            }">
               <template v-if="isSelectorPanel('next')">
                 <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
                   <div
