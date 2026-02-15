@@ -212,6 +212,17 @@ const datepicker = ref({
 })
 const weeks = computed(() => datepicker.value.weeks)
 const months = computed(() => datepicker.value.months)
+
+function classifyWeekend(date: Dayjs) {
+  const saturday = date.day() === 6
+  const sunday = date.day() === 0
+  return {
+    saturday,
+    sunday,
+    weekend: saturday || sunday,
+  }
+}
+
 const calendar = computed(() => {
   const { previous, next, year } = unref(datepicker)
   return {
@@ -221,11 +232,14 @@ const calendar = computed(() => {
           .concat(useCurrentDate(previous))
           .concat(useNextDate(previous))
           .map((v) => {
+            const { saturday, sunday, weekend } = classifyWeekend(v)
             Object.assign(v, {
               today: v.isToday(),
               active: previous.month() === v.month(),
               off: previous.month() !== v.month(),
-              sunday: v.day() === 0,
+              saturday,
+              sunday,
+              weekend,
               disabled: useDisableDate(v, props) && !inRangeDate(v),
               inRange: () => {
                 if (props.asSingle && !props.useRange)
@@ -337,11 +351,14 @@ const calendar = computed(() => {
           .concat(useCurrentDate(next))
           .concat(useNextDate(next))
           .map((v) => {
+            const { saturday, sunday, weekend } = classifyWeekend(v)
             Object.assign(v, {
               today: v.isToday(),
               active: next.month() === v.month(),
               off: next.month() !== v.month(),
-              sunday: v.day() === 0,
+              saturday,
+              sunday,
+              weekend,
               disabled: useDisableDate(v, props) && !inRangeDate(v),
               inRange: () => {
                 if (props.asSingle && !props.useRange)

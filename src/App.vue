@@ -24,6 +24,17 @@ const selectorDisabledValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
 const selectorEmptyModelValue = ref('')
 const selectorInvalidModelValue = ref('not-a-date ~ not-a-date')
 const singleDateValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
+function monthRangeValue(offsetMonths = 0) {
+  const current = dayjs().add(offsetMonths, 'month')
+  return {
+    startDate: current.startOf('month').format('YYYY-MM-DD HH:mm:ss'),
+    endDate: current.endOf('month').format('YYYY-MM-DD HH:mm:ss'),
+  }
+}
+
+const weekendTintEnValue = ref(monthRangeValue(0))
+const weekendTintDeValue = ref(monthRangeValue(1))
+const weekendSelectorTintValue = ref(monthRangeValue(0))
 
 const currentLocale = ref('en')
 const localeOptions = [
@@ -166,6 +177,53 @@ function onSelectSomething(e: Dayjs) {
         />
       </div>
 
+      <div class="weekend-tint-demo rounded-lg border border-red-200 bg-red-50 p-4">
+        <p class="mb-3 text-sm font-medium text-red-900">
+          Host CSS weekend tint demos (`vtd-weekend`, `vtd-saturday`, `vtd-sunday`)
+        </p>
+        <div class="grid gap-4 xl:grid-cols-3">
+          <div class="rounded-md border border-red-200/70 bg-white p-3">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-red-700">
+              Locale EN
+            </p>
+            <VueTailwindDatePicker
+              v-model="weekendTintEnValue"
+              use-range
+              i18n="en"
+            />
+          </div>
+
+          <div class="rounded-md border border-red-200/70 bg-white p-3">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-red-700">
+              Locale DE
+            </p>
+            <VueTailwindDatePicker
+              v-model="weekendTintDeValue"
+              use-range
+              i18n="de"
+            />
+          </div>
+
+          <div class="rounded-md border border-red-200/70 bg-white p-3">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-red-700">
+              Selector wheel + weekend hooks
+            </p>
+            <VueTailwindDatePicker
+              v-model="weekendSelectorTintValue"
+              use-range
+              as-single
+              :selector-mode="true"
+              :selector-focus-tint="false"
+              selector-year-scroll-mode="boundary"
+              i18n="en"
+            />
+          </div>
+        </div>
+        <p class="mt-3 text-xs text-red-800">
+          Verify weekend tint parity across locales and selector mode while selected/range/disabled states stay behaviorally unchanged.
+        </p>
+      </div>
+
       <div class="rounded-lg border border-cyan-200 bg-cyan-50 p-4">
         <p class="mb-3 text-sm font-medium text-cyan-900">
           Selector mode with empty/invalid model value seeds
@@ -191,3 +249,17 @@ function onSelectSomething(e: Dayjs) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.weekend-tint-demo :deep(.vtd-datepicker-date.vtd-weekend:not(.vtd-datepicker-date-selected):not(:disabled)) {
+  color: rgb(220 38 38 / 100%);
+}
+
+.weekend-tint-demo :deep(.vtd-datepicker-date.vtd-saturday:not(.vtd-datepicker-date-selected):not(:disabled)) {
+  color: rgb(234 88 12 / 100%);
+}
+
+.weekend-tint-demo :deep(.vtd-datepicker-date.vtd-sunday:not(.vtd-datepicker-date-selected):not(:disabled)) {
+  color: rgb(185 28 28 / 100%);
+}
+</style>

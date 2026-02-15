@@ -14,7 +14,9 @@ export interface DatePickerDay extends Dayjs {
   today: boolean
   active: boolean
   off: boolean
+  saturday: boolean
   sunday: boolean
+  weekend: boolean
   disabled: boolean
   inRange: boolean | undefined
   hovered: boolean
