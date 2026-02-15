@@ -7,6 +7,7 @@ import { injectStrict } from '../utils'
 import {
   type BuiltInShortcutId,
   activateShortcutKey,
+  getShortcutDisabledStateKey,
 } from '../keys'
 
 const props = defineProps<{
@@ -18,18 +19,27 @@ const props = defineProps<{
 }>()
 
 const activateShortcut = injectStrict(activateShortcutKey)
-// TODO(shortcut-disabled-state): Keep slot contract stable until per-shortcut disabled-state is implemented.
-const SLOT_SHORTCUT_DISABLED = false
+const getShortcutDisabledState = injectStrict(getShortcutDisabledStateKey)
 
 defineSlots<{
   'shortcut-item': (props: {
     id: string
     label: string
     isDisabled: boolean
+    disabledReason: 'explicit' | 'blocked-date' | null
     meta?: Record<string, unknown>
     activate: () => void
   }) => unknown
 }>()
+
+interface RenderShortcutItem {
+  id: string
+  label: string
+  isDisabled: boolean
+  disabledReason: 'explicit' | 'blocked-date' | null
+  meta?: Record<string, unknown>
+  activate: () => void
+}
 
 const withShortcut = computed(() => {
   if (typeof props.shortcuts === 'function')
@@ -47,6 +57,28 @@ function resolveCustomShortcutId(item: ShortcutDefinition, index: number) {
 
   return legacyShortcutFallbackId(item.label, index)
 }
+
+const customShortcutItems = computed<RenderShortcutItem[]>(() => {
+  if (!withShortcut.value)
+    return []
+
+  return withShortcut.value.map((item, index) => ({
+    ...getShortcutDisabledState(item, index),
+    id: resolveCustomShortcutId(item, index),
+    label: item.label,
+    meta: 'meta' in item ? item.meta : undefined,
+    activate: () => activateShortcut(item, props.close, index),
+  }))
+})
+
+const builtInShortcutItems = computed<RenderShortcutItem[]>(() => {
+  return props.builtInShortcuts.map(item => ({
+    ...getShortcutDisabledState(item.id),
+    id: item.id,
+    label: item.label,
+    activate: () => activateShortcut(item.id, props.close),
+  }))
+})
 </script>
 
 <template>
@@ -56,27 +88,22 @@ function resolveCustomShortcutId(item: ShortcutDefinition, index: number) {
     class="relative w-full border-t border-b-0 sm:border-t-0 sm:border-b lg:border-b-0 lg:border-r border-black/10 order-last sm:order-0 dark:border-vtd-secondary-700 sm:mt-1 lg:mr-1 sm:mb-1 lg:mb-0 sm:mx-1 lg:mx-0 sm:w-auto"
   >
     <ol
-      v-if="withShortcut"
-      class="grid grid-cols-2 sm:grid-cols-3 gap-1 lg:block w-full pr-5 sm:pr-6 mt-1.5 sm:mt-0 sm:mb-1.5 lg:mb-0"
+      v-if="customShortcutItems.length > 0"
+      class="grid grid-cols-2 sm:grid-cols-3 gap-1 lg:block w-full lg:w-auto pr-5 sm:pr-6 mt-1.5 sm:mt-0 sm:mb-1.5 lg:mb-0"
     >
-      <li v-for="(item, i) in withShortcut" :key="i">
+      <li v-for="item in customShortcutItems" :key="item.id">
         <slot
           name="shortcut-item"
-          v-bind="{
-            id: resolveCustomShortcutId(item, i),
-            label: item.label,
-            isDisabled: SLOT_SHORTCUT_DISABLED,
-            meta: 'meta' in item ? item.meta : undefined,
-            activate: () => activateShortcut(item, close, i),
-          }"
+          v-bind="item"
         >
           <button
             type="button"
+            :disabled="item.isDisabled"
             :aria-label="item.label"
-            class="vtd-shortcuts block text-sm lg:text-xs px-2 py-2 sm:leading-4 whitespace-nowrap font-medium rounded-sm text-vtd-primary-600 hover:text-vtd-primary-700 transition-colors hover:bg-vtd-secondary-100 focus:bg-vtd-secondary-100 focus:text-vtd-primary-600 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-primary-300 dark:text-vtd-primary-400 dark:focus:bg-vtd-secondary-700 dark:focus:text-vtd-primary-300"
-            @click="activateShortcut(item, close, i)"
-            @keydown.enter.prevent="activateShortcut(item, close, i)"
-            @keydown.space.prevent="activateShortcut(item, close, i)"
+            class="vtd-shortcuts block text-sm lg:text-xs px-2 py-2 sm:leading-4 whitespace-nowrap font-medium rounded-sm text-vtd-primary-600 hover:text-vtd-primary-700 transition-colors hover:bg-vtd-secondary-100 focus:bg-vtd-secondary-100 focus:text-vtd-primary-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-vtd-primary-600 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-primary-300 dark:text-vtd-primary-400 dark:focus:bg-vtd-secondary-700 dark:focus:text-vtd-primary-300 dark:disabled:hover:bg-transparent dark:disabled:hover:text-vtd-primary-400"
+            @click="item.activate"
+            @keydown.enter.prevent="item.activate"
+            @keydown.space.prevent="item.activate"
             v-text="item.label"
           />
         </slot>
@@ -84,26 +111,21 @@ function resolveCustomShortcutId(item: ShortcutDefinition, index: number) {
     </ol>
     <ol
       v-else
-      class="grid grid-cols-2 sm:grid-cols-3 gap-1 lg:block w-full pr-5 sm:pr-6 mt-1.5 sm:mt-0 sm:mb-1.5 lg:mb-0"
+      class="grid grid-cols-2 sm:grid-cols-3 gap-1 lg:block w-full lg:w-auto pr-5 sm:pr-6 mt-1.5 sm:mt-0 sm:mb-1.5 lg:mb-0"
     >
-      <li v-for="item in props.builtInShortcuts" :key="item.id">
+      <li v-for="item in builtInShortcutItems" :key="item.id">
         <slot
           name="shortcut-item"
-          v-bind="{
-            id: item.id,
-            label: item.label,
-            isDisabled: SLOT_SHORTCUT_DISABLED,
-            meta: undefined,
-            activate: () => activateShortcut(item.id, close),
-          }"
+          v-bind="item"
         >
           <button
             type="button"
+            :disabled="item.isDisabled"
             :aria-label="item.label"
-            class="vtd-shortcuts block text-sm lg:text-xs px-2 py-2 sm:leading-4 whitespace-nowrap font-medium rounded-sm text-vtd-primary-600 hover:text-vtd-primary-700 transition-colors hover:bg-vtd-secondary-100 focus:bg-vtd-secondary-100 focus:text-vtd-primary-600 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-primary-300 dark:text-vtd-primary-400 dark:focus:bg-vtd-secondary-700 dark:focus:text-vtd-primary-300"
-            @click="activateShortcut(item.id, close)"
-            @keydown.enter.prevent="activateShortcut(item.id, close)"
-            @keydown.space.prevent="activateShortcut(item.id, close)"
+            class="vtd-shortcuts block text-sm lg:text-xs px-2 py-2 sm:leading-4 whitespace-nowrap font-medium rounded-sm text-vtd-primary-600 hover:text-vtd-primary-700 transition-colors hover:bg-vtd-secondary-100 focus:bg-vtd-secondary-100 focus:text-vtd-primary-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-vtd-primary-600 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-primary-300 dark:text-vtd-primary-400 dark:focus:bg-vtd-secondary-700 dark:focus:text-vtd-primary-300 dark:disabled:hover:bg-transparent dark:disabled:hover:text-vtd-primary-400"
+            @click="item.activate"
+            @keydown.enter.prevent="item.activate"
+            @keydown.space.prevent="item.activate"
           >
             {{ item.label }}
           </button>

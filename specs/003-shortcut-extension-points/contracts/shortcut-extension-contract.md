@@ -33,6 +33,7 @@ Defines public API additions and behavioral guarantees for in-panel shortcut pre
 interface LegacyShortcutDefinition {
   id?: string
   label: string
+  disabled?: boolean | ((context: ShortcutResolverContext) => boolean)
   atClick: () => Date[]
 }
 ```
@@ -52,6 +53,7 @@ type ShortcutResolverContext = {
 interface TypedShortcutDefinition {
   id: string
   label: string
+  disabled?: boolean | ((context: ShortcutResolverContext) => boolean)
   resolver: (context: ShortcutResolverContext) => Date | [Date, Date]
   atClick?: () => Date[]
   meta?: Record<string, unknown>
@@ -96,6 +98,7 @@ type ShortcutRenderPayload = {
 
 - `activate()` is the only supported mutation trigger.
 - Library owns selection mutation, validation, and event emission side effects.
+- `isDisabled` is derived from custom shortcut `disabled` rules and built-in blocked-date checks.
 
 ## Events
 

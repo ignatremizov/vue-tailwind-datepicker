@@ -25,6 +25,12 @@ export type BuiltInShortcutId
     | 'next-month'
 
 export type ShortcutActivationTarget = ShortcutDefinition | BuiltInShortcutId
+export type ShortcutDisabledReason = 'explicit' | 'blocked-date' | null
+
+export interface ShortcutDisabledState {
+  isDisabled: boolean
+  disabledReason: ShortcutDisabledReason
+}
 
 const activateShortcutKey: InjectionKey<
   (
@@ -34,10 +40,26 @@ const activateShortcutKey: InjectionKey<
   ) => void
 > = Symbol('activateShortcut')
 
+const isShortcutDisabledKey: InjectionKey<
+  (
+    target: ShortcutActivationTarget,
+    index?: number,
+  ) => boolean
+> = Symbol('isShortcutDisabled')
+
+const getShortcutDisabledStateKey: InjectionKey<
+  (
+    target: ShortcutActivationTarget,
+    index?: number,
+  ) => ShortcutDisabledState
+> = Symbol('getShortcutDisabledState')
+
 export {
   isBetweenRangeKey,
   betweenRangeClassesKey,
   datepickerClassesKey,
   atMouseOverKey,
   activateShortcutKey,
+  isShortcutDisabledKey,
+  getShortcutDisabledStateKey,
 }

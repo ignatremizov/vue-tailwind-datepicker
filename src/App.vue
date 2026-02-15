@@ -36,7 +36,13 @@ function monthRangeValue(offsetMonths = 0) {
 const weekendTintEnValue = ref(monthRangeValue(0))
 const weekendTintDeValue = ref(monthRangeValue(1))
 const weekendSelectorTintValue = ref(monthRangeValue(0))
-const shortcutDemoValue = ref(
+const shortcutSuccessDemoValue = ref(
+  `${dayjs().format('YYYY-MM-DD HH:mm:ss')} ~ ${dayjs().format('YYYY-MM-DD HH:mm:ss')}`,
+)
+const shortcutInvalidDemoValue = ref(
+  `${dayjs().format('YYYY-MM-DD HH:mm:ss')} ~ ${dayjs().format('YYYY-MM-DD HH:mm:ss')}`,
+)
+const shortcutDisabledDemoValue = ref(
   `${dayjs().format('YYYY-MM-DD HH:mm:ss')} ~ ${dayjs().format('YYYY-MM-DD HH:mm:ss')}`,
 )
 const shortcutFailureLog = ref<string[]>([])
@@ -49,7 +55,7 @@ const localeOptions = [
 ]
 const isDark = ref(false)
 
-const shortcutDemoShortcuts = [
+const shortcutSuccessDemoShortcuts = [
   {
     id: 'next-3-business-days',
     label: 'Next 3 business days',
@@ -66,11 +72,45 @@ const shortcutDemoShortcuts = [
       return date
     },
   },
+]
+
+const shortcutInvalidDemoShortcuts = [
   {
     id: 'typed-range-invalid-single',
     label: 'Trigger invalid result',
     meta: { hint: 'invalid demo' },
     resolver: () => null as unknown as Date,
+  },
+]
+
+const shortcutDisabledDemoShortcuts = [
+  {
+    id: 'always-disabled',
+    label: 'Always disabled',
+    disabled: true,
+    resolver: ({ now }: { now: Date }) => new Date(now),
+  },
+  {
+    id: 'next-saturday-blocked',
+    label: 'Next Saturday (blocked)',
+    resolver: ({ now }: { now: Date }) => {
+      const date = new Date(now)
+      const weekday = date.getDay()
+      const delta = ((6 - weekday + 7) % 7) || 7
+      date.setDate(date.getDate() + delta)
+      return date
+    },
+  },
+  {
+    id: 'next-business-day',
+    label: 'Next business day',
+    resolver: ({ now }: { now: Date }) => {
+      const date = new Date(now)
+      do {
+        date.setDate(date.getDate() + 1)
+      } while ([0, 6].includes(date.getDay()))
+      return date
+    },
   },
 ]
 
@@ -286,20 +326,20 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
 
       <div class="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
         <p class="mb-3 text-sm font-medium text-indigo-900">
-          Custom shortcut + render extension (`activate()` flow)
+          Custom shortcut success showcase (`activate()` flow)
         </p>
         <VueTailwindDatePicker
-          v-model="shortcutDemoValue"
+          v-model="shortcutSuccessDemoValue"
           as-single
           use-range
-          :shortcuts="shortcutDemoShortcuts"
+          :shortcuts="shortcutSuccessDemoShortcuts"
           shortcut-preset="modern"
-          @invalid-shortcut="onInvalidShortcut"
         >
-          <template #shortcut-item="{ id, label, meta, activate }">
+          <template #shortcut-item="{ id, label, isDisabled, meta, activate }">
             <button
               type="button"
-              class="vtd-shortcuts mb-1 w-full rounded border border-indigo-300 bg-white px-2 py-1.5 text-left text-sm text-indigo-900 hover:bg-indigo-100"
+              :disabled="isDisabled"
+              class="vtd-shortcuts mb-1 w-[10.5rem] rounded border border-indigo-300 bg-white px-2 py-1.5 text-left text-sm text-indigo-900 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
               :data-shortcut-id="id"
               @click="activate"
             >
@@ -308,7 +348,73 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
           </template>
         </VueTailwindDatePicker>
         <p class="mt-3 text-xs text-indigo-800">
+          Contains only successful typed shortcuts.
+        </p>
+      </div>
+
+      <div class="rounded-lg border border-fuchsia-200 bg-fuchsia-50 p-4">
+        <p class="mb-3 text-sm font-medium text-fuchsia-900">
+          Custom shortcut invalid showcase (`invalid-shortcut` flow)
+        </p>
+        <VueTailwindDatePicker
+          v-model="shortcutInvalidDemoValue"
+          as-single
+          use-range
+          :shortcuts="shortcutInvalidDemoShortcuts"
+          shortcut-preset="modern"
+          @invalid-shortcut="onInvalidShortcut"
+        >
+          <template #shortcut-item="{ id, label, isDisabled, meta, activate }">
+            <button
+              type="button"
+              :disabled="isDisabled"
+              class="vtd-shortcuts mb-1 w-[10.5rem] rounded border border-fuchsia-300 bg-white px-2 py-1.5 text-left text-sm text-fuchsia-900 hover:bg-fuchsia-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
+              :data-shortcut-id="id"
+              @click="activate"
+            >
+              {{ label }} <span v-if="meta?.hint" class="text-xs text-fuchsia-600">({{ meta.hint }})</span>
+            </button>
+          </template>
+        </VueTailwindDatePicker>
+        <p class="mt-3 text-xs text-fuchsia-800">
           Recent invalid-shortcut payloads: {{ shortcutFailureLog.join(' | ') || 'none' }}
+        </p>
+      </div>
+
+      <div class="rounded-lg border border-teal-200 bg-teal-50 p-4">
+        <p class="mb-3 text-sm font-medium text-teal-900">
+          Custom shortcut disabled-state showcase (`shortcut-item` `isDisabled`)
+        </p>
+        <VueTailwindDatePicker
+          v-model="shortcutDisabledDemoValue"
+          as-single
+          use-range
+          :disable-date="disableWeekendDates"
+          :shortcuts="shortcutDisabledDemoShortcuts"
+          shortcut-preset="modern"
+        >
+          <template #shortcut-item="{ id, label, isDisabled, disabledReason, activate }">
+            <button
+              type="button"
+              :disabled="isDisabled"
+              class="vtd-shortcuts mb-1 inline-flex w-[12.25rem] items-center justify-between rounded border border-teal-300 bg-white px-2 py-1.5 text-left text-sm text-teal-900 hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-white"
+              :data-shortcut-id="id"
+              @click="activate"
+            >
+              <span>{{ label }}</span>
+              <span
+                class="ml-2 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                :class="isDisabled
+                  ? (disabledReason === 'blocked-date' ? 'bg-amber-100 text-amber-700' : 'bg-teal-100 text-teal-700')
+                  : 'bg-teal-600 text-white'"
+              >
+                {{ isDisabled ? (disabledReason === 'blocked-date' ? 'Blocked' : 'Disabled') : 'Active' }}
+              </span>
+            </button>
+          </template>
+        </VueTailwindDatePicker>
+        <p class="mt-3 text-xs text-teal-800">
+          Shows both explicit disabled shortcuts and shortcuts disabled by current `disableDate` constraints.
         </p>
       </div>
     </div>

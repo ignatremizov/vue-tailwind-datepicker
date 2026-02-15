@@ -41,7 +41,34 @@ function getLastInvalidPayload(wrapper: ReturnType<typeof mount>) {
 }
 
 describe.sequential('invalid-shortcut event contract', () => {
-  it('emits blocked-date with no model update when constraints reject output', async () => {
+  it('treats explicit disabled shortcuts as blocked-date failures', () => {
+    const { activateShortcut } = useShortcut()
+    const now = SHORTCUT_EDGE_FIXTURES.monthBoundary.now
+    const result = activateShortcut({
+      item: {
+        id: 'typed-disabled',
+        label: 'Typed disabled',
+        disabled: true,
+        resolver: () => now,
+      },
+      mode: 'range',
+      currentValue: now,
+      now,
+      constraints: {
+        isDateBlocked: () => false,
+      },
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.payload.id).toBe('typed-disabled')
+      expect(result.payload.reason).toBe('blocked-date')
+      expect(result.payload.mode).toBe('range')
+      expect(result.payload.resolvedValue).toBeNull()
+    }
+  })
+
+  it('marks typed shortcuts disabled when constraints reject resolver output', async () => {
     await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
       const wrapper = await mountPicker({
         useRange: true,
@@ -58,14 +85,11 @@ describe.sequential('invalid-shortcut event contract', () => {
 
       const button = getShortcutButton(wrapper, 'Blocked typed')
       expect(button).toBeTruthy()
+      expect(button!.attributes('disabled')).toBeDefined()
       await button!.trigger('click')
       await nextTick()
 
-      const payload = getLastInvalidPayload(wrapper)
-      expect(payload.id).toBe('typed-blocked')
-      expect(payload.reason).toBe('blocked-date')
-      expect(payload.mode).toBe('range')
-      expect(payload.resolvedValue).toBeTruthy()
+      expect(wrapper.emitted('invalid-shortcut')).toBeFalsy()
       expectNoModelUpdate(wrapper)
       wrapper.unmount()
     })
@@ -170,6 +194,65 @@ describe.sequential('invalid-shortcut event contract', () => {
       expect(payload.id).toBe('legacy-0-last-15-days')
       expect(payload.reason).toBe('invalid-result')
       expectNoModelUpdate(wrapper)
+      wrapper.unmount()
+    })
+  })
+
+  it('marks custom shortcut buttons disabled when disabled(context) resolves true', async () => {
+    await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
+      const wrapper = await mountPicker({
+        shortcuts: [
+          {
+            id: 'typed-disabled-flag',
+            label: 'Disabled via context',
+            disabled: () => true,
+            resolver: ({ now }: { now: Date }) => now,
+          },
+        ],
+      })
+
+      const button = getShortcutButton(wrapper, 'Disabled via context')
+      expect(button).toBeTruthy()
+      expect(button!.attributes('disabled')).toBeDefined()
+      wrapper.unmount()
+    })
+  })
+
+  it('marks typed custom shortcuts disabled when resolver output is blocked by disableDate', async () => {
+    await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
+      const wrapper = await mountPicker({
+        shortcuts: [
+          {
+            id: 'typed-saturday',
+            label: 'Typed Saturday',
+            resolver: ({ now }: { now: Date }) => {
+              const date = new Date(now)
+              date.setDate(date.getDate() + ((6 - date.getDay() + 7) % 7 || 7))
+              return date
+            },
+          },
+        ],
+        disableDate: (date: Date) => [0, 6].includes(date.getDay()),
+      })
+
+      const button = getShortcutButton(wrapper, 'Typed Saturday')
+      expect(button).toBeTruthy()
+      expect(button!.attributes('disabled')).toBeDefined()
+      wrapper.unmount()
+    })
+  })
+
+  it('marks built-in buttons disabled when disableDate blocks their resolved values', async () => {
+    await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
+      const wrapper = await mountPicker({
+        shortcuts: true,
+        shortcutPreset: 'modern',
+        disableDate: () => true,
+      })
+
+      const buttons = wrapper.findAll('button.vtd-shortcuts')
+      expect(buttons.length).toBeGreaterThan(0)
+      expect(buttons.every(button => button.attributes('disabled') !== undefined)).toBe(true)
       wrapper.unmount()
     })
   })

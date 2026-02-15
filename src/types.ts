@@ -46,15 +46,19 @@ export interface ShortcutResolverContext {
   constraints: ShortcutConstraints
 }
 
+export type ShortcutDisabledPredicate = (context: ShortcutResolverContext) => boolean
+
 export interface LegacyShortcutDefinition {
   id?: string
   label: string
+  disabled?: boolean | ShortcutDisabledPredicate
   atClick: () => Date[]
 }
 
 export interface TypedShortcutDefinition {
   id: string
   label: string
+  disabled?: boolean | ShortcutDisabledPredicate
   resolver: (context: ShortcutResolverContext) => ShortcutResolvedValue
   atClick?: () => Date[]
   meta?: Record<string, unknown>

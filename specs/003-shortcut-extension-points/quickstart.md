@@ -49,6 +49,7 @@ const customShortcuts = [
   {
     id: 'next-billing-cycle',
     label: 'Next billing cycle',
+    disabled: ({ constraints, now }) => constraints.isDateBlocked(now),
     resolver: ({ now }) => {
       const next = new Date(now)
       next.setMonth(next.getMonth() + 1)
@@ -108,6 +109,8 @@ Use the `shortcut-item` slot payload and trigger activation only via `activate()
   </vue-tailwind-datepicker>
 </template>
 ```
+
+`isDisabled` is derived from each custom shortcut's optional `disabled` rule and from built-in blocked-date checks.
 
 See executable example in `src/App.vue`.
 

@@ -52,7 +52,9 @@ import {
   atMouseOverKey,
   betweenRangeClassesKey,
   datepickerClassesKey,
+  getShortcutDisabledStateKey,
   isBetweenRangeKey,
+  isShortcutDisabledKey,
 } from './keys'
 
 export interface Props {
@@ -178,7 +180,10 @@ const {
 } = useDate()
 
 const { useVisibleViewport } = useDom()
-const { activateShortcut: activateShortcutByDefinition } = useShortcut()
+const {
+  activateShortcut: activateShortcutByDefinition,
+  isShortcutDisabled: isShortcutDisabledByDefinition,
+} = useShortcut()
 
 dayjs.extend(localeData)
 dayjs.extend(localizedFormat)
@@ -1868,6 +1873,12 @@ function betweenRangeClasses(date: Dayjs) {
   const endDate = dayjs.isDayjs(e) && e.isValid() ? e : null
 
   if (startDate && endDate) {
+    // Single-day ranges should rely on the selected-day button styling.
+    // Rendering range preview edges here stretches to full grid-cell width in wide layouts,
+    // which visually turns the selected circle into a pill.
+    if (startDate.isSame(endDate, 'date'))
+      return classes
+
     const isWithinRange
       = date.isBetween(startDate, endDate, 'date', '[]')
         || date.isBetween(endDate, startDate, 'date', '[]')
@@ -2081,23 +2092,85 @@ function applyShortcutResolvedValue(value: Date | [Date, Date]) {
   emitShortcut(s, e)
 }
 
-function activateShortcut(
-  target: ShortcutActivationTarget,
-  close?: (ref?: Ref | HTMLElement) => void,
-  index?: number,
-) {
+function getShortcutActivationState(target: ShortcutActivationTarget, index?: number) {
   const item = typeof target === 'string' ? getBuiltInShortcut(target) : target
   const mode = asRange() ? 'range' : 'single'
-  const activation = activateShortcutByDefinition({
+  const now = new Date()
+  return activateShortcutByDefinition({
     item,
     mode,
     currentValue: props.modelValue,
-    now: new Date(),
+    now,
     index,
     constraints: {
       isDateBlocked: (date: Date) => useDisableDate(dayjs(date), props),
     },
   })
+}
+
+function isTypedShortcutDefinition(target: ShortcutActivationTarget): target is TypedShortcutDefinition {
+  return typeof target !== 'string' && 'resolver' in target && typeof target.resolver === 'function'
+}
+
+function getShortcutDisabledState(target: ShortcutActivationTarget, index?: number) {
+  if (typeof target === 'string') {
+    const activation = getShortcutActivationState(target, index)
+    if (!activation.ok && activation.payload.reason === 'blocked-date') {
+      return {
+        isDisabled: true,
+        disabledReason: 'blocked-date' as const,
+      }
+    }
+
+    return {
+      isDisabled: false,
+      disabledReason: null,
+    }
+  }
+
+  const explicitlyDisabled = isShortcutDisabledByDefinition({
+    item: target,
+    mode: asRange() ? 'range' : 'single',
+    currentValue: props.modelValue,
+    now: new Date(),
+    constraints: {
+      isDateBlocked: (date: Date) => useDisableDate(dayjs(date), props),
+    },
+  })
+
+  if (explicitlyDisabled) {
+    return {
+      isDisabled: true,
+      disabledReason: 'explicit' as const,
+    }
+  }
+
+  if (isTypedShortcutDefinition(target)) {
+    const activation = getShortcutActivationState(target, index)
+    if (!activation.ok && activation.payload.reason === 'blocked-date') {
+      return {
+        isDisabled: true,
+        disabledReason: 'blocked-date' as const,
+      }
+    }
+  }
+
+  return {
+    isDisabled: false,
+    disabledReason: null,
+  }
+}
+
+function isShortcutDisabled(target: ShortcutActivationTarget, index?: number) {
+  return getShortcutDisabledState(target, index).isDisabled
+}
+
+function activateShortcut(
+  target: ShortcutActivationTarget,
+  close?: (ref?: Ref | HTMLElement) => void,
+  index?: number,
+) {
+  const activation = getShortcutActivationState(target, index)
 
   if (!activation.ok) {
     emitInvalidShortcut(activation.payload)
@@ -2306,6 +2379,8 @@ provide(betweenRangeClassesKey, betweenRangeClasses)
 provide(datepickerClassesKey, datepickerClasses)
 provide(atMouseOverKey, atMouseOver)
 provide(activateShortcutKey, activateShortcut)
+provide(isShortcutDisabledKey, isShortcutDisabled)
+provide(getShortcutDisabledStateKey, getShortcutDisabledState)
 </script>
 
 <template>
@@ -2354,8 +2429,8 @@ provide(activateShortcutKey, activateShortcut)
           <div ref="VtdRef"
             class="fixed inset-0 z-50 overflow-y-auto sm:overflow-visible sm:static sm:z-auto bg-white dark:bg-vtd-secondary-800 sm:rounded-lg shadow-sm">
             <div
-              class="vtd-datepicker static sm:relative w-full bg-white sm:rounded-lg sm:shadow-sm border-0 sm:border border-black/[.1] px-3 py-3 sm:px-4 sm:py-4 dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700/[1]"
-              :class="[getAbsoluteClass(open), props.selectorMode && props.asSingle ? 'sm:w-[28.5rem] sm:h-[23.5rem]' : '']"
+              class="vtd-datepicker static sm:relative w-full sm:w-fit bg-white sm:rounded-lg sm:shadow-sm border-0 sm:border border-black/[.1] px-3 py-3 sm:px-4 sm:py-4 dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700/[1]"
+              :class="[getAbsoluteClass(open), props.selectorMode && props.asSingle ? 'sm:min-h-[23.5rem]' : '']"
               @keydown.capture="(event) => onPickerPanelKeydown(event, close)">
               <div class="flex flex-wrap lg:flex-nowrap" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
                 <VtdShortcut v-if="props.shortcuts" :shortcuts="props.shortcuts" :as-range="asRange()"
@@ -2364,15 +2439,15 @@ provide(activateShortcutKey, activateShortcut)
                     <slot name="shortcut-item" v-bind="slotProps" />
                   </template>
                 </VtdShortcut>
-                <div class="relative flex flex-wrap sm:flex-nowrap p-1 w-full" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
+                <div class="relative flex flex-wrap sm:flex-nowrap p-1 w-full sm:w-auto" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
                   <div v-if="asRange() && !props.asSingle"
                     class="hidden h-full absolute inset-0 sm:flex justify-center items-center">
                     <div class="h-full border-r border-black/[.1] dark:border-vtd-secondary-700/[1]" />
                   </div>
                   <div class="relative w-full" data-vtd-selector-panel="previous" :class="{
-                    'mb-3 sm:mb-0 sm:mr-2 w-full md:w-1/2 lg:w-80':
+                    'mb-3 sm:mb-0 sm:mr-2 md:w-1/2 lg:w-80':
                       asRange() && !props.asSingle,
-                    'w-full': !asRange() && props.asSingle,
+                    'lg:w-80': props.asSingle && !!props.shortcuts,
                     'sm:h-full': props.selectorMode && props.asSingle,
                     'overflow-visible': isSelectorPanel('previous'),
                     'overflow-hidden': !isSelectorPanel('previous'),
@@ -2556,7 +2631,7 @@ provide(activateShortcutKey, activateShortcut)
     <div
       ref="VtdStaticRef"
       class="bg-white rounded-lg shadow-sm border border-black/[.1] px-3 py-3 sm:px-4 sm:py-4 dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700/[1]"
-      :class="props.selectorMode && props.asSingle ? 'sm:w-[28.5rem] sm:h-[23.5rem]' : ''"
+      :class="props.selectorMode && props.asSingle ? 'sm:min-h-[23.5rem]' : ''"
       @keydown.capture="onPickerPanelKeydown">
       <div class="flex flex-wrap lg:flex-nowrap" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
         <VtdShortcut v-if="props.shortcuts" :shortcuts="props.shortcuts" :as-range="asRange()" :as-single="props.asSingle"
@@ -2565,13 +2640,14 @@ provide(activateShortcutKey, activateShortcut)
             <slot name="shortcut-item" v-bind="slotProps" />
           </template>
         </VtdShortcut>
-        <div class="relative flex flex-wrap sm:flex-nowrap p-1 w-full" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
+        <div class="relative flex flex-wrap sm:flex-nowrap p-1 w-full sm:w-auto" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
           <div v-if="asRange() && !props.asSingle"
             class="hidden h-full absolute inset-0 sm:flex justify-center items-center">
             <div class="h-full border-r border-black/[.1] dark:border-vtd-secondary-700/[1]" />
           </div>
-          <div class="relative w-full lg:w-80" data-vtd-selector-panel="previous" :class="{
-            'mb-3 sm:mb-0 sm:mr-2 md:w-1/2': asRange() && !props.asSingle,
+          <div class="relative w-full" data-vtd-selector-panel="previous" :class="{
+            'mb-3 sm:mb-0 sm:mr-2 md:w-1/2 lg:w-80': asRange() && !props.asSingle,
+            'lg:w-80': props.asSingle && !!props.shortcuts,
             'sm:h-full': props.selectorMode && props.asSingle,
             'overflow-visible': isSelectorPanel('previous'),
             'overflow-hidden': !isSelectorPanel('previous'),

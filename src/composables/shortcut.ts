@@ -34,6 +34,14 @@ interface ActivateShortcutParams {
   index?: number
 }
 
+interface ResolveShortcutDisabledParams {
+  item: ShortcutDefinition
+  mode: ShortcutMode
+  currentValue: unknown
+  now: Date
+  constraints: ShortcutConstraints
+}
+
 function isTypedShortcutDefinition(
   item: ShortcutDefinition,
 ): item is TypedShortcutDefinition {
@@ -171,6 +179,35 @@ export function resolveModernBuiltInDate(
 }
 
 export default function useShortcut() {
+  const isShortcutDisabled = ({
+    item,
+    mode,
+    currentValue,
+    now,
+    constraints,
+  }: ResolveShortcutDisabledParams): boolean => {
+    const disabled = item.disabled
+    if (typeof disabled === 'boolean')
+      return disabled
+
+    if (typeof disabled === 'function') {
+      try {
+        const context: ShortcutResolverContext = {
+          currentValue,
+          mode,
+          now,
+          constraints,
+        }
+        return Boolean(disabled(context))
+      }
+      catch {
+        return false
+      }
+    }
+
+    return false
+  }
+
   const activateShortcut = ({
     item,
     mode,
@@ -187,16 +224,20 @@ export default function useShortcut() {
     if (isTyped && id.length === 0)
       return createInvalidPayload(`typed-missing-id-${index ?? 0}`, 'invalid-result', mode, null)
 
+    const context: ShortcutResolverContext = {
+      currentValue,
+      mode,
+      now,
+      constraints,
+    }
+
+    if (isShortcutDisabled({ item, mode, currentValue, now, constraints }))
+      return createInvalidPayload(id, 'blocked-date', mode, null)
+
     let rawResolvedValue: unknown = null
 
     if (isTyped) {
       try {
-        const context: ShortcutResolverContext = {
-          currentValue,
-          mode,
-          now,
-          constraints,
-        }
         rawResolvedValue = item.resolver(context)
       }
       catch {
@@ -233,6 +274,7 @@ export default function useShortcut() {
 
   return {
     activateShortcut,
+    isShortcutDisabled,
     resolveLegacyShortcutId,
   }
 }
