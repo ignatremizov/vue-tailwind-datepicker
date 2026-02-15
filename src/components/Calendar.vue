@@ -219,7 +219,7 @@ watch(
         </div>
         <div class="relative" :class="{ 'vtd-tooltip': asRange && date.duration() }" :data-tooltip="`${date.duration()}`">
           <span
-            class="vtd-datepicker-range-preview absolute"
+            class="vtd-datepicker-range-preview absolute bg-vtd-primary-100/60 dark:bg-vtd-secondary-700/50"
             :class="getRangePreviewClass(date)"
           />
           <transition
@@ -232,7 +232,7 @@ watch(
           >
             <span
               v-if="getRangePreviewEdgeClass(date)"
-              class="vtd-datepicker-range-preview absolute"
+              class="vtd-datepicker-range-preview absolute bg-vtd-primary-100/60 dark:bg-vtd-secondary-700/50"
               :class="getRangePreviewEdgeClass(date)"
             />
           </transition>

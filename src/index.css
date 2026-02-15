@@ -43,8 +43,6 @@
 
 @layer components {
     .vtd-datepicker {
-        --vtd-calendar-range-preview-bg: rgb(14 165 233 / 60%);
-        --vtd-calendar-range-preview-bg-dark: rgb(51 65 85 / 50%);
         --vtd-calendar-range-preview-edge-bg: var(--vtd-calendar-day-selected-bg);
         --vtd-calendar-range-preview-edge-bg-dark: var(--vtd-calendar-day-selected-bg);
         --vtd-calendar-day-focus-shadow: inset 0 0 0 2px var(--color-vtd-primary-500);
@@ -110,12 +108,7 @@
     }
 
     .vtd-datepicker .vtd-datepicker-range-preview {
-        background-color: var(--vtd-calendar-range-preview-bg);
         transition: opacity 120ms ease-out, background-color 140ms ease-out;
-    }
-
-    .dark .vtd-datepicker .vtd-datepicker-range-preview {
-        background-color: var(--vtd-calendar-range-preview-bg-dark);
     }
 
     .vtd-datepicker .vtd-datepicker-range-preview-edge {

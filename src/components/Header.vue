@@ -43,7 +43,7 @@ const emit = defineEmits<{
 }>()
 
 const SIDE_NAV_BUTTON_CLASS
-  = 'p-1.5 rounded-full bg-white text-vtd-secondary-600 transition-colors border border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring-3 focus:ring-vtd-primary-500/10 focus:outline-hidden dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600/50 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-25'
+  = 'p-1.5 rounded-full bg-white text-vtd-secondary-600 transition-colors border border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring-3 focus:ring-vtd-primary-500/10 focus:outline-hidden dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600/50 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/25'
 
 const isSelectorWheelView = computed(() => {
   return props.selectorMode && props.pickerViewMode === 'selector'
@@ -187,7 +187,7 @@ function onSideNextClick() {
             type="button"
             :aria-expanded="props.pickerViewMode === 'selector'"
             aria-label="Toggle month and year selector"
-            class="group relative px-3 pl-8 pr-8 py-1.5 inline-flex items-center justify-center w-full leading-relaxed rounded-md text-xs 2xl:text-sm tracking-wide text-vtd-secondary-700 font-semibold sm:font-medium transition-colors border border-vtd-primary-300/65 bg-vtd-primary-50/45 hover:bg-vtd-primary-100/70 hover:text-vtd-secondary-900 focus:bg-vtd-primary-100/80 focus:text-vtd-secondary-900 focus:border-vtd-primary-400 focus:ring-3 focus:ring-vtd-primary-500/15 focus:outline-hidden uppercase truncate dark:bg-vtd-secondary-700/45 dark:text-vtd-secondary-100 dark:border-vtd-primary-500/35 dark:hover:bg-vtd-secondary-700/70 dark:focus:bg-vtd-secondary-700/75 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-25"
+            class="group relative px-3 pl-8 pr-8 py-1.5 inline-flex items-center justify-center w-full leading-relaxed rounded-md text-xs 2xl:text-sm tracking-wide text-vtd-secondary-700 font-semibold sm:font-medium transition-colors border border-vtd-primary-300/65 bg-vtd-primary-50/45 hover:bg-vtd-primary-100/70 hover:text-vtd-secondary-900 focus:bg-vtd-primary-100/80 focus:text-vtd-secondary-900 focus:border-vtd-primary-400 focus:ring-3 focus:ring-vtd-primary-500/15 focus:outline-hidden uppercase truncate dark:bg-vtd-secondary-700/45 dark:text-vtd-secondary-100 dark:border-vtd-primary-500/35 dark:hover:bg-vtd-secondary-700/70 dark:focus:bg-vtd-secondary-700/75 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/25"
             @click="onSelectorHeaderClickWithHeuristic"
           >
             <span class="inline-flex items-center gap-1.5 text-center">
@@ -211,7 +211,7 @@ function onSideNextClick() {
           <button
             :id="`vtd-header-${props.panelName}-month`"
             type="button"
-            class="px-3 py-1.5 block w-full leading-relaxed rounded-md bg-white text-xs 2xl:text-sm tracking-wide text-vtd-secondary-600 font-semibold sm:font-medium transition-colors border border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring-3 focus:ring-vtd-primary-500/10 focus:outline-hidden uppercase truncate dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600/50 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-25"
+            class="px-3 py-1.5 block w-full leading-relaxed rounded-md bg-white text-xs 2xl:text-sm tracking-wide text-vtd-secondary-600 font-semibold sm:font-medium transition-colors border border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring-3 focus:ring-vtd-primary-500/10 focus:outline-hidden uppercase truncate dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600/50 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/25"
             @click="onHeaderValueClick('month')" v-text="calendar.month"
           />
         </span>
@@ -219,7 +219,7 @@ function onSideNextClick() {
           <button
             :id="`vtd-header-${props.panelName}-year`"
             type="button"
-            class="px-3 py-1.5 block w-full leading-relaxed rounded-md bg-white text-xs 2xl:text-sm tracking-wide text-vtd-secondary-600 font-semibold sm:font-medium transition-colors border border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring-3 focus:ring-vtd-primary-500/10 focus:outline-hidden uppercase truncate dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600/50 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-25"
+            class="px-3 py-1.5 block w-full leading-relaxed rounded-md bg-white text-xs 2xl:text-sm tracking-wide text-vtd-secondary-600 font-semibold sm:font-medium transition-colors border border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring-3 focus:ring-vtd-primary-500/10 focus:outline-hidden uppercase truncate dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600/50 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/25"
             @click="onHeaderValueClick('year')" v-text="calendar.year"
           />
         </span>
