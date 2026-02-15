@@ -371,3 +371,52 @@ const onClickSomething = (newDate) => {
 ::: info
 The same works with `no-input` prop.
 :::
+
+## error
+
+Time-enabled blocked-apply event with structured payload.
+
+- Emitted only when Apply is attempted and blocked.
+- Not emitted on every keystroke/state change.
+- At most one event per blocked Apply attempt.
+
+```vue
+<script setup>
+import { ref } from 'vue'
+
+const value = ref('')
+
+function onDatepickerError(payload) {
+  console.log(payload)
+}
+</script>
+
+<template>
+  <vue-tailwind-datepicker
+    v-model="value"
+    as-single
+    time-picker-style="input"
+    :formatter="{ date: 'YYYY-MM-DD HH:mm', month: 'MMM' }"
+    @error="onDatepickerError"
+  />
+</template>
+```
+
+Payload shape:
+
+```ts
+{
+  type: 'configuration' | 'validation'
+  code: 'config-missing-time-token' | 'invalid-time-input' | 'dst-nonexistent-time' | 'range-end-before-start'
+  message: string
+  field: 'formatter' | 'time' | 'range'
+  endpoint: 'start' | 'end' | null
+}
+```
+
+Stable `code` values:
+
+- `config-missing-time-token`
+- `invalid-time-input`
+- `dst-nonexistent-time`
+- `range-end-before-start`

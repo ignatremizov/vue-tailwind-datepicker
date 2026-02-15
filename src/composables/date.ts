@@ -1,7 +1,107 @@
 import type { Dayjs } from 'dayjs'
 import type { DatePickerDay } from '~/types'
 
+interface LocalDateTimeParts {
+  year: number
+  month: number
+  day: number
+  hour: number
+  minute: number
+  second: number
+}
+
+interface LocalDateTimeValidationResult {
+  isValid: boolean
+  isDstNonexistent: boolean
+  isAmbiguous: boolean
+  resolvedDate: Date | null
+}
+
 export default function useDate() {
+  const useMatchesLocalDateParts = (
+    localDate: Date,
+    { year, month, day, hour, minute, second }: LocalDateTimeParts,
+  ) => {
+    return (
+      localDate.getFullYear() === year
+      && localDate.getMonth() === month - 1
+      && localDate.getDate() === day
+      && localDate.getHours() === hour
+      && localDate.getMinutes() === minute
+      && localDate.getSeconds() === second
+    )
+  }
+
+  const useValidateLocalDateTime = (
+    { year, month, day, hour, minute, second }: LocalDateTimeParts,
+  ): LocalDateTimeValidationResult => {
+    const resolvedDate = new Date(year, month - 1, day, hour, minute, second, 0)
+    const matchesInput = useMatchesLocalDateParts(resolvedDate, {
+      year,
+      month,
+      day,
+      hour,
+      minute,
+      second,
+    })
+
+    if (!matchesInput) {
+      return {
+        isValid: false,
+        isDstNonexistent: true,
+        isAmbiguous: false,
+        resolvedDate: null,
+      }
+    }
+
+    const maxHoursToSearch = 3
+    const stepMinutes = 15
+    let isAmbiguous = false
+
+    for (
+      let minutesAhead = stepMinutes;
+      minutesAhead <= maxHoursToSearch * 60;
+      minutesAhead += stepMinutes
+    ) {
+      const candidate = new Date(resolvedDate.getTime() + minutesAhead * 60 * 1000)
+      const matchesLocalParts = useMatchesLocalDateParts(candidate, {
+        year,
+        month,
+        day,
+        hour,
+        minute,
+        second,
+      })
+      if (
+        matchesLocalParts
+        && candidate.getTimezoneOffset() !== resolvedDate.getTimezoneOffset()
+      ) {
+        isAmbiguous = true
+        break
+      }
+    }
+
+    return {
+      isValid: true,
+      isDstNonexistent: false,
+      isAmbiguous,
+      resolvedDate,
+    }
+  }
+
+  const useValidateDayjsLocalDateTime = (
+    date: Dayjs,
+  ): LocalDateTimeValidationResult => {
+    return useValidateLocalDateTime({
+      year: date.year(),
+      month: date.month() + 1,
+      day: date.date(),
+      hour: date.hour(),
+      minute: date.minute(),
+      second: date.second(),
+    })
+  }
+
   const usePreviousDate = (date: Dayjs) => {
     const display = []
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -70,6 +170,8 @@ export default function useDate() {
     )}`
   }
   return {
+    useValidateLocalDateTime,
+    useValidateDayjsLocalDateTime,
     usePreviousDate,
     useCurrentDate,
     useNextDate,

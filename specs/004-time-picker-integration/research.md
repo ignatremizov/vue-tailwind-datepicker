@@ -1,60 +1,61 @@
 # Research: Integrated Time Selection for Date Picker
 
-## Decision 1: Datetime Mode Rollout and Commit Semantics
+## Decision 1: Time Mode Rollout and Commit Semantics
 
-- Decision: Keep datetime behavior opt-in and require explicit Apply for commits in datetime mode, even when `autoApply=true`.
-- Rationale: Preserves backward compatibility while preventing partial datetime commits during intermediate edits.
+- Decision: Use `timePickerStyle` as the feature switch (`none`, `input`, `wheel-inline`, `wheel-page`) and require explicit Apply for all non-`none` modes, even when `autoApply=true`.
+- Rationale: Preserves date-only compatibility while preventing partial datetime commits.
 - Alternatives considered:
-  - Respect `autoApply` in datetime mode: rejected because it conflicts with clarified explicit-commit contract.
+  - Boolean `datetime` prop + separate display prop: rejected as redundant and drift-prone.
 
 ## Decision 2: Formatter Contract as Single Source of Truth
 
-- Decision: Use `formatter.date` tokens as the canonical parse/format contract for datetime mode.
-- Rationale: Avoids divergent formatting rules and keeps consumer-facing output deterministic.
+- Decision: Use `formatter.date` tokens as canonical parse/format contract for all time modes.
+- Rationale: Keeps behavior deterministic and avoids dual-format conflicts.
 - Alternatives considered:
-  - Add separate datetime format prop: rejected because it introduces conflicting formatting sources.
+  - Separate datetime format prop: rejected due to conflicting contracts.
 
 ## Decision 3: Valid Token Policy and Apply Guard
 
-- Decision: Datetime mode requires valid time tokens in formatter (`HH:mm` or `HH:mm:ss`; `h:mm A`, `h:mm a`, `hh:mm A`, `hh:mm a`, with optional seconds variants); missing tokens block Apply.
-- Rationale: Prevents silent date-only output when datetime mode is explicitly enabled.
-- Alternatives considered:
-  - Permit datetime mode with date-only formatter: rejected due to ambiguous output and loss of time precision.
+- Decision: Time-enabled mode requires supported time tokens in `formatter.date`; missing tokens block Apply.
+- Rationale: Prevents silent date-only output in time-enabled flows.
 
-## Decision 4: Default-Time Input Flexibility with Internal Normalization
+## Decision 4: Default-Time Input Flexibility with Normalization
 
-- Decision: Accept `defaultTime`/`defaultEndTime` in either 24-hour or 12-hour forms, then normalize to active formatter contract before hydration/use.
-- Rationale: Keeps API ergonomic while ensuring one normalized internal representation.
-- Alternatives considered:
-  - Restrict defaults to formatter-matching input only: rejected because it is stricter than necessary and increases integration friction.
+- Decision: Accept `defaultTime`/`defaultEndTime` in 12-hour or 24-hour forms and normalize internally to formatter contract.
+- Rationale: Better consumer ergonomics with deterministic internals.
 
-## Decision 5: Range Editing Model
+## Decision 5: Style-Aware Range Endpoint UX
 
-- Decision: In datetime range mode, keep a single time input bound to explicit active endpoint (`start` or `end`) while maintaining independent stored endpoint times.
-- Rationale: Aligns with clarified UX and reduces panel complexity.
-- Alternatives considered:
-  - Simultaneous dual time inputs: rejected due to layout complexity and increased error risk in narrow widths.
+- Decision: Range endpoint UI depends on style:
+  - `input` in single-panel range: render both start/end inputs.
+  - wheel styles in single-panel range: one active endpoint at a time using Start/End toggle.
+- Rationale: Balances density, clarity, and wheel interaction ergonomics.
 
-## Decision 6: DST Semantics in Local Time
+## Decision 6: Wheel Carry and Boundary Stability
 
-- Decision: Parse and validate in local timezone only; reject nonexistent local times and resolve ambiguous fall-back times to first occurrence (earlier offset).
-- Rationale: Matches clarified deterministic timezone behavior and avoids hidden timezone conversions.
-- Alternatives considered:
-  - UTC normalization for all comparisons: rejected because it breaks local-time UX expectations.
-  - Prompt users on ambiguity: rejected for this iteration due to added interaction complexity.
+- Decision: Deduplicate rapid boundary carry triggers (minute/second/hour/meridiem) using step signatures/direction hints and scoped debounce.
+- Rationale: Prevents duplicate carry jumps under aggressive flicking.
 
-## Decision 7: Error Event Contract and Cadence
+## Decision 7: Error Lifecycle and Messaging
 
-- Decision: Emit one structured `error` event per blocked Apply attempt with payload fields `{ type, code, message, field, endpoint }`; do not emit this event on each keystroke/state change.
-- Rationale: Keeps telemetry deterministic and prevents event spam while preserving inline validation feedback.
-- Alternatives considered:
-  - Emit error event on every invalid edit: rejected because cadence becomes noisy and non-deterministic.
+- Decision: Keep range-order errors visible until corrected, not cleared by endpoint toggles; use human-friendly copy with start time context.
+- Rationale: Aligns user expectation with state validity and reduces confusion.
+
+## Decision 8: Layout Locking and Open-State Reconfiguration
+
+- Decision: Lock shell/panel dimensions in lockable modes and reset/re-measure on structural setting changes while open.
+- Rationale: Prevents stale clipping/oversized render artifacts when switching styles/positions.
+
+## Decision 9: Error Event Cadence
+
+- Decision: Emit one structured `error` event per blocked Apply attempt; do not emit per keystroke.
+- Rationale: Deterministic telemetry and low-noise integration behavior.
 
 ## Risks and Mitigations
 
-- Risk: Token parser edge cases for mixed 12-hour/24-hour defaults.
-  - Mitigation: Normalize defaults before validation and test cross-format combinations in quickstart matrix.
-- Risk: Range endpoint confusion while using one time input.
-  - Mitigation: Explicit endpoint toggle label and endpoint field in error payload.
-- Risk: DST handling regressions around locale/timezone boundaries.
-  - Mitigation: Add targeted manual checks for spring-forward and fall-back transitions.
+- Risk: Mode-switch layout artifacts during open popover.
+  - Mitigation: Explicit lock reset/re-measure watchers for style/position/range layout changes.
+- Risk: Carry drift under rapid wheel oscillation.
+  - Mitigation: Signature-based carry dedupe and deterministic endpoint-scoped carry resolution.
+- Risk: Hidden-endpoint errors in single-endpoint wheel views.
+  - Mitigation: panel-level error projection when errored endpoint is not active.

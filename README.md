@@ -54,6 +54,89 @@ const formatter = ref({
 </template>
 ```
 
+## Time Picker Modes
+
+Use `timePickerStyle` to control whether time is disabled, text input, or wheel UI.
+
+- `timePickerStyle="none"` (default): date-only mode.
+- `timePickerStyle="input"`: text input time under the calendar.
+- `timePickerStyle="wheel-inline"`: wheel controls always visible under the calendar.
+- `timePickerStyle="wheel-page"`: calendar and wheel shown as separate pages.
+- `timePageMode="toggle"` (default): manual page switching.
+- `timePageMode="after-date"`: automatically switch from calendar to time after date selection.
+- For any non-`none` mode, commit requires explicit **Apply** even when `autoApply=true`.
+- `formatter.date` remains the source of truth for date/time parse and format behavior.
+
+### Input mode
+
+```vue
+<script setup>
+import { ref } from "vue";
+
+const value = ref("");
+</script>
+
+<template>
+  <vue-tailwind-datepicker
+    v-model="value"
+    as-single
+    time-picker-style="input"
+    :auto-apply="true"
+    :formatter="{ date: 'YYYY-MM-DD HH:mm', month: 'MMM' }"
+  />
+</template>
+```
+
+### Range with defaults
+
+```vue
+<script setup>
+import { ref } from "vue";
+
+const value = ref({
+  startDate: "",
+  endDate: "",
+});
+</script>
+
+<template>
+  <vue-tailwind-datepicker
+    v-model="value"
+    use-range
+    as-single
+    time-picker-style="wheel-inline"
+    default-time="09:00"
+    default-end-time="17:00"
+    :formatter="{ date: 'YYYY-MM-DD h:mm A', month: 'MMM' }"
+  />
+</template>
+```
+
+### Notes
+
+- Existing date-only integrations do not need changes.
+- If you enable a time mode (`input`, `wheel-inline`, `wheel-page`), ensure `formatter.date` includes time tokens (`HH:mm`, `HH:mm:ss`, or 12-hour equivalents with meridiem).
+- If incoming model values do not include time, hydration uses `defaultTime` / `defaultEndTime` then falls back to `00:00[:00]`.
+
+### Wheel modes
+
+- `timePickerStyle="wheel-inline"`: native-like wheel selectors (`hh/mm[/ss]`, plus meridiem in 12-hour mode), always visible.
+- `timePickerStyle="wheel-page"` with `timePageMode="toggle"`: manual back-and-forth using the switch button.
+- `timePickerStyle="wheel-page"` with `timePageMode="after-date"`: flow is `calendar -> time -> apply`.
+- `timeWheelScrollMode="boundary"` (default): wheels snap discretely at each unit.
+- `timeWheelScrollMode="fractional"`: wheels drift continuously based on lower-order units (for example hour drift by minute progress).
+
+```vue
+<vue-tailwind-datepicker
+  v-model="value"
+  as-single
+  time-picker-style="wheel-page"
+  time-page-mode="after-date"
+  time-wheel-scroll-mode="fractional"
+  :formatter="{ date: 'YYYY-MM-DD HH:mm', month: 'MMM' }"
+/>
+```
+
 ## Native Scroll Selector Mode
 
 Enable native-like month/year scrolling with `selectorMode` (use `:selector-mode` in templates). Default is `false`.

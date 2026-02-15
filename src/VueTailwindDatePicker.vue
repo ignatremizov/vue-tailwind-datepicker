@@ -26,13 +26,19 @@ import {
   watch,
   watchEffect,
 } from 'vue'
-import { localesMap } from './utils'
+import {
+  analyzeFormatterTimeTokens,
+  localesMap,
+  maskDayjsEscapedLiterals,
+  normalizeDefaultTimeInput,
+} from './utils'
 import VtdHeader from './components/Header.vue'
 import VtdShortcut from './components/Shortcut.vue'
 import VtdCalendar from './components/Calendar.vue'
 import VtdYear from './components/Year.vue'
 import VtdWeek from './components/Week.vue'
 import VtdMonth from './components/Month.vue'
+import VtdTimeWheel from './components/TimeWheel.vue'
 import useDate from './composables/date'
 import useDom from './composables/dom'
 import useShortcut, {
@@ -40,9 +46,16 @@ import useShortcut, {
   resolveModernBuiltInDate,
 } from './composables/shortcut'
 import type {
+  ApplyGuardState,
   DatePickerDay,
+  DateTimeDraft,
+  DateTimeEndpointSelection,
+  DateTimeErrorCode,
+  DateTimeErrorEventPayload,
+  DateTimeModeConfig,
   InvalidShortcutEventPayload,
   LegacyShortcutDefinition,
+  RangeDraftState,
   ShortcutDefinition,
   ShortcutFactory,
   ShortcutPreset,
@@ -79,6 +92,14 @@ export interface Props {
     | ShortcutDefinition[]
     | ShortcutFactory<LegacyShortcutDefinition>
     | ShortcutFactory<TypedShortcutDefinition>
+  defaultTime?: string
+  defaultEndTime?: string
+  timePickerStyle?: 'none' | 'input' | 'wheel-inline' | 'wheel-page'
+  timeWheelHeight?: number
+  timeWheelPageHeight?: number
+  timeInlinePosition?: 'below' | 'right'
+  timePageMode?: 'toggle' | 'after-date'
+  timeWheelScrollMode?: 'boundary' | 'fractional'
   separator?: string
   formatter?: {
     date: string
@@ -130,6 +151,14 @@ const props = withDefaults(defineProps<Props>(), {
   disableDate: false,
   autoApply: true,
   shortcutPreset: 'legacy',
+  defaultTime: undefined,
+  defaultEndTime: undefined,
+  timePickerStyle: 'none',
+  timeWheelHeight: 176,
+  timeWheelPageHeight: 232,
+  timeInlinePosition: 'below',
+  timePageMode: 'toggle',
+  timeWheelScrollMode: 'boundary',
   shortcuts: true,
   separator: ' ~ ',
   formatter: () => ({
@@ -177,9 +206,11 @@ const emit = defineEmits<{
   (e: 'clickNext', value: Dayjs): void;
   (e: 'clickRightPrev', value: Dayjs): void;
   (e: 'clickRightNext', value: Dayjs): void;
+  (e: 'error', value: DateTimeErrorEventPayload): void;
 }>()
 
 const {
+  useValidateDayjsLocalDateTime,
   useCurrentDate,
   useDisableDate,
   useBetweenRange,
@@ -205,6 +236,7 @@ dayjs.extend(weekOfYear)
 
 const VtdRef = ref(null)
 const VtdStaticRef = ref<HTMLElement | null>(null)
+const VtdPanelContentRef = ref<HTMLElement | null>(null)
 const VtdInputRef = ref<HTMLInputElement | null>(null)
 const VtdPopoverButtonRef = ref<unknown>(null)
 const placement = ref<boolean | null>(null)
@@ -215,6 +247,1371 @@ const hoverValue = ref<Dayjs[]>([])
 const applyValue = ref<Dayjs[]>([])
 const previous = ref<Dayjs | null>(null)
 const next = ref<Dayjs | null>(null)
+
+interface ResolvedModelDateValue {
+  value: Dayjs | null
+  isHydrated: boolean
+}
+
+interface TimeWheelOption {
+  label: string
+  value: number | string
+}
+
+interface TimeWheelStepPayload {
+  value: number | string
+  previousValue: number | string | null
+  absoluteIndex: number
+  previousAbsoluteIndex: number | null
+  delta: number
+}
+
+type ResolvedTimePickerStyle = 'none' | 'input' | 'wheel-inline' | 'wheel-page'
+
+const DATE_TIME_TOKEN_PATTERN = /\s*(HH:mm(?::ss)?|h{1,2}:mm(?::ss)?\s*[Aa])/
+const TIME_WHEEL_STEP_DEDUP_WINDOW_MS = 90
+
+const resolvedTimePickerStyle = computed<ResolvedTimePickerStyle>(() => props.timePickerStyle)
+const isDateTimeEnabled = computed(() => resolvedTimePickerStyle.value !== 'none')
+const isInlineTimePickerStyle = computed(() => {
+  return resolvedTimePickerStyle.value === 'input' || resolvedTimePickerStyle.value === 'wheel-inline'
+})
+const isInputTimePickerStyle = computed(() => resolvedTimePickerStyle.value === 'input')
+const isPageTimePickerStyle = computed(() => resolvedTimePickerStyle.value === 'wheel-page')
+const isInlineRightPosition = computed(() => {
+  return resolvedTimePickerStyle.value === 'wheel-inline' && props.timeInlinePosition === 'right'
+})
+const isPageAutoSwitchMode = computed(() => props.timePageMode === 'after-date')
+
+const autoApplyEnabled = computed(() => props.autoApply && !isDateTimeEnabled.value)
+const showApplyFooter = computed(() => !autoApplyEnabled.value)
+const showMobileCancelFooter = computed(() => autoApplyEnabled.value)
+const formatterTimeTokens = computed(() => analyzeFormatterTimeTokens(props.formatter.date))
+const datetimeModeConfig = computed<DateTimeModeConfig>(() => ({
+  datetime: isDateTimeEnabled.value,
+  formatterDate: props.formatter.date,
+  uses12Hour: formatterTimeTokens.value.uses12Hour,
+  usesSeconds: formatterTimeTokens.value.usesSeconds,
+  defaultTimeNormalized: normalizeDefaultTimeInput(
+    props.defaultTime,
+    props.formatter.date,
+  ),
+  defaultEndTimeNormalized: normalizeDefaultTimeInput(
+    props.defaultEndTime,
+    props.formatter.date,
+  ),
+}))
+
+function createDateTimeDraft(): DateTimeDraft {
+  return {
+    datePart: null,
+    timeText: '',
+    hour: null,
+    minute: null,
+    second: null,
+    meridiem: null,
+    isHydrated: false,
+    isValid: true,
+    errorCode: null,
+  }
+}
+
+const datetimeDraftState = reactive<RangeDraftState>({
+  start: createDateTimeDraft(),
+  end: createDateTimeDraft(),
+  activeEndpoint: 'start',
+})
+const hourWheelStepDirection = reactive<Record<DateTimeEndpointSelection, -1 | 0 | 1>>({
+  start: 0,
+  end: 0,
+})
+const lastMinuteWheelStepSignature = reactive<Record<DateTimeEndpointSelection, { key: string; at: number }>>({
+  start: { key: '', at: 0 },
+  end: { key: '', at: 0 },
+})
+const lastSecondWheelStepSignature = reactive<Record<DateTimeEndpointSelection, { key: string; at: number }>>({
+  start: { key: '', at: 0 },
+  end: { key: '', at: 0 },
+})
+const meridiemWheelSyncDirection = reactive<Record<DateTimeEndpointSelection, -1 | 0 | 1>>({
+  start: 0,
+  end: 0,
+})
+const datetimeApplyError = ref<DateTimeErrorEventPayload | null>(null)
+
+const activeDateTimeEndpoint = computed<DateTimeEndpointSelection>(() => {
+  if (!asRange())
+    return 'start'
+  return datetimeDraftState.activeEndpoint
+})
+
+const formatterTimeTokenErrorMessage = computed(() => {
+  if (!datetimeModeConfig.value.datetime || formatterTimeTokens.value.isValid)
+    return null
+  return 'Datetime mode requires formatter.date to include supported time tokens (for example HH:mm or h:mm A).'
+})
+
+const dateTimeInputPlaceholder = computed(() => {
+  return formatterTimeTokens.value.normalizedTimeFormat ?? 'HH:mm'
+})
+
+const dateTimeFormatDescription = computed(() => {
+  if (!formatterTimeTokens.value.isValid)
+    return 'Unsupported formatter'
+  if (formatterTimeTokens.value.uses12Hour)
+    return formatterTimeTokens.value.usesSeconds ? '12-hour (hh:mm:ss AM)' : '12-hour (hh:mm AM)'
+  return formatterTimeTokens.value.usesSeconds ? '24-hour (HH:mm:ss)' : '24-hour (HH:mm)'
+})
+
+const timePickerPanelOpen = ref(isInlineTimePickerStyle.value)
+
+const isTimePickerWheelStyle = computed(() => {
+  return resolvedTimePickerStyle.value === 'wheel-inline'
+    || resolvedTimePickerStyle.value === 'wheel-page'
+})
+
+const shouldShowDatePanels = computed(() => {
+  if (!isDateTimeEnabled.value)
+    return true
+  if (isInlineTimePickerStyle.value)
+    return true
+  return !timePickerPanelOpen.value
+})
+
+const shouldShowDateTimeControls = computed(() => {
+  if (!isDateTimeEnabled.value)
+    return false
+
+  if (isInlineTimePickerStyle.value)
+    return true
+
+  return timePickerPanelOpen.value
+})
+
+const showPageTimePanelInline = computed(() => {
+  return isPageTimePickerStyle.value && timePickerPanelOpen.value
+})
+
+const showInlineTimePanelInline = computed(() => {
+  return isInlineRightPosition.value && shouldShowDateTimeControls.value
+})
+
+const showAnyInlineTimePanel = computed(() => {
+  return showPageTimePanelInline.value || showInlineTimePanelInline.value
+})
+
+const inlineRightHeightLockReady = ref(false)
+
+const shouldUseFillTimePanelLayout = computed(() => {
+  if (showInlineTimePanelInline.value)
+    return inlineRightHeightLockReady.value
+  return showPageTimePanelInline.value
+})
+
+const timePanelFillClass = computed(() => {
+  if (!shouldUseFillTimePanelLayout.value)
+    return ''
+  return 'vtd-time-panel-fill sm:mt-0 sm:h-full'
+})
+
+const hasMountedPageTimePanel = ref(false)
+
+const shouldRenderInlineTimePanels = computed(() => {
+  if (showPageTimePanelInline.value || showInlineTimePanelInline.value)
+    return true
+  return isPageTimePickerStyle.value
+    && showDualRangeTimePanels.value
+    && hasMountedPageTimePanel.value
+})
+
+const showStackedDateTimeControls = computed(() => {
+  return shouldShowDateTimeControls.value && !showAnyInlineTimePanel.value
+})
+
+const canToggleTimePanel = computed(() => {
+  return isDateTimeEnabled.value && isPageTimePickerStyle.value
+})
+
+const shouldShowTimePanelSwitchButton = computed(() => {
+  return canToggleTimePanel.value
+})
+
+const shouldShowHeaderTimePanelSwitchButton = computed(() => {
+  return shouldShowTimePanelSwitchButton.value
+    && !showApplyFooter.value
+    && !showMobileCancelFooter.value
+})
+
+const timePanelSwitchLabel = computed(() => {
+  return timePickerPanelOpen.value ? 'Calendar' : 'Time'
+})
+
+const timeWheelColumnCount = computed(() => {
+  let count = 2
+  if (formatterTimeTokens.value.usesSeconds)
+    count += 1
+  if (formatterTimeTokens.value.uses12Hour)
+    count += 1
+  return count
+})
+
+const timeWheelGridColumnClass = computed(() => {
+  switch (timeWheelColumnCount.value) {
+    case 2:
+      return 'grid-cols-2 sm:grid-cols-2'
+    case 3:
+      return 'grid-cols-3 sm:grid-cols-3'
+    default:
+      return 'grid-cols-2 sm:grid-cols-4'
+  }
+})
+
+const panelContentLockState = reactive({
+  shellWidth: 0,
+  width: 0,
+  height: 0,
+})
+
+const shouldLockPanelContentSize = computed(() => {
+  return isPageTimePickerStyle.value || isInlineRightPosition.value || isInputTimePickerStyle.value
+})
+
+const shouldFixPanelContentHeight = computed(() => {
+  return shouldLockPanelContentSize.value && showAnyInlineTimePanel.value
+})
+
+const panelContentLockStyle = computed(() => {
+  if (!shouldLockPanelContentSize.value)
+    return undefined
+
+  const style: Record<string, string> = {}
+  if (panelContentLockState.width > 0) {
+    const lockedWidth = `${panelContentLockState.width}px`
+    style.minWidth = lockedWidth
+    style.maxWidth = lockedWidth
+  }
+  if (panelContentLockState.height > 0) {
+    style.minHeight = `${panelContentLockState.height}px`
+    if (shouldFixPanelContentHeight.value) {
+      style.height = `${panelContentLockState.height}px`
+      style.maxHeight = `${panelContentLockState.height}px`
+    }
+  }
+  return style
+})
+
+const datepickerShellLockStyle = computed(() => {
+  if (!shouldLockPanelContentSize.value || panelContentLockState.shellWidth <= 0)
+    return undefined
+
+  const lockedWidth = `${panelContentLockState.shellWidth}px`
+  return {
+    minWidth: lockedWidth,
+    width: lockedWidth,
+    maxWidth: lockedWidth,
+  }
+})
+
+function resetPanelContentLockState() {
+  panelContentLockState.shellWidth = 0
+  panelContentLockState.width = 0
+  panelContentLockState.height = 0
+  inlineRightHeightLockReady.value = false
+}
+
+function measureAndLockPanelContentSize() {
+  if (!shouldLockPanelContentSize.value)
+    return
+  if (!shouldShowDatePanels.value)
+    return
+
+  const panelElement = VtdPanelContentRef.value
+  if (!panelElement)
+    return
+
+  const rect = panelElement.getBoundingClientRect()
+  if (!rect.width || !rect.height)
+    return
+
+  if (panelContentLockState.shellWidth <= 0) {
+    const shellElement = panelElement.closest<HTMLElement>('.vtd-datepicker')
+    const shellRect = shellElement?.getBoundingClientRect()
+    if (shellRect?.width)
+      panelContentLockState.shellWidth = Math.ceil(shellRect.width)
+  }
+
+  panelContentLockState.width = Math.max(panelContentLockState.width, Math.ceil(rect.width))
+  let measuredHeight = rect.height
+  if (showInlineTimePanelInline.value) {
+    const calendarPanels = Array.from(
+      panelElement.querySelectorAll<HTMLElement>('[data-vtd-selector-panel="previous"], [data-vtd-selector-panel="next"]'),
+    )
+    const calendarHeight = calendarPanels.reduce((maxHeight, el) => {
+      const panelStyle = getComputedStyle(el)
+      const panelPaddingTop = Number.parseFloat(panelStyle.paddingTop || '0') || 0
+      const panelPaddingBottom = Number.parseFloat(panelStyle.paddingBottom || '0') || 0
+      const visibleChildrenHeight = Array.from(el.children).reduce((sum, child) => {
+        if (!(child instanceof HTMLElement))
+          return sum
+
+        const childStyle = getComputedStyle(child)
+        if (childStyle.display === 'none' || childStyle.position === 'absolute')
+          return sum
+
+        const childRect = child.getBoundingClientRect()
+        if (!childRect.height)
+          return sum
+
+        const marginTop = Number.parseFloat(childStyle.marginTop || '0') || 0
+        const marginBottom = Number.parseFloat(childStyle.marginBottom || '0') || 0
+        return sum + childRect.height + marginTop + marginBottom
+      }, 0)
+
+      const intrinsicHeight = panelPaddingTop + visibleChildrenHeight + panelPaddingBottom
+      if (!intrinsicHeight)
+        return maxHeight
+
+      return Math.max(maxHeight, intrinsicHeight)
+    }, 0)
+
+    if (calendarHeight > 0)
+      measuredHeight = calendarHeight
+  }
+
+  panelContentLockState.height = Math.max(panelContentLockState.height, Math.ceil(measuredHeight))
+  if (showInlineTimePanelInline.value && panelContentLockState.height > 0)
+    inlineRightHeightLockReady.value = true
+}
+
+function queuePanelContentMeasurement() {
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      measureAndLockPanelContentSize()
+    })
+  })
+}
+
+function refreshPanelContentLockState() {
+  if (!shouldLockPanelContentSize.value) {
+    resetPanelContentLockState()
+    return
+  }
+
+  resetPanelContentLockState()
+  queuePanelContentMeasurement()
+}
+
+const showDualRangeTimePanels = computed(() => {
+  return asRange() && !props.asSingle
+})
+
+const collapseDualRangeInlineRightTimePanel = computed(() => {
+  return showDualRangeTimePanels.value && showInlineTimePanelInline.value
+})
+
+const showSingleRangeInputDualEndpointsUi = computed(() => {
+  return asRange()
+    && props.asSingle
+    && !isTimePickerWheelStyle.value
+    && shouldShowDateTimeControls.value
+})
+
+const showDualRangeTimePanelsUi = computed(() => {
+  return (
+    (showDualRangeTimePanels.value && !collapseDualRangeInlineRightTimePanel.value)
+    || showSingleRangeInputDualEndpointsUi.value
+  )
+})
+
+const timePanelEndpointLayoutClass = computed(() => {
+  const useCompactWheelLayout = isTimePickerWheelStyle.value && !shouldUseFillTimePanelLayout.value
+
+  if (showDualRangeTimePanelsUi.value) {
+    if (useCompactWheelLayout)
+      return 'grid min-h-0 w-full gap-2 sm:grid-cols-2'
+    return 'grid auto-rows-fr flex-1 min-h-0 w-full gap-2 sm:grid-cols-2'
+  }
+
+  if (isTimePickerWheelStyle.value) {
+    if (useCompactWheelLayout)
+      return 'flex min-h-0 w-full py-2 items-stretch justify-center'
+    return 'flex flex-1 min-h-0 w-full py-2 items-stretch justify-center'
+  }
+
+  return 'flex flex-1 min-h-0 w-full items-stretch justify-center'
+})
+
+const timePanelEndpointLayoutStyle = computed(() => {
+  if (!isTimePickerWheelStyle.value)
+    return undefined
+
+  const configuredHeight
+    = isPageTimePickerStyle.value ? props.timeWheelPageHeight : props.timeWheelHeight
+  if (!Number.isFinite(configuredHeight) || configuredHeight <= 0)
+    return undefined
+
+  const heightPx = `${configuredHeight}px`
+  if (shouldUseFillTimePanelLayout.value)
+    return { minHeight: heightPx }
+
+  return {
+    minHeight: heightPx,
+    height: heightPx,
+  }
+})
+
+const timePanelSingleEndpointTitle = computed(() => {
+  if (!asRange())
+    return 'Time'
+  return activeDateTimeEndpoint.value === 'start' ? 'Start time' : 'End time'
+})
+
+const timePanelHeaderActionsClass = computed(() => {
+  return [
+    'ml-auto flex items-center justify-end gap-2',
+    collapseDualRangeInlineRightTimePanel.value ? 'flex-nowrap min-w-0' : 'flex-wrap',
+  ]
+})
+
+const timePanelHeaderRowClass = computed(() => {
+  return [
+    'flex items-center gap-2',
+    showDualRangeTimePanelsUi.value || shouldCenterTimePanelEndpointToggle.value || shouldOverlayTimeFormatLabel.value
+      ? 'relative'
+      : 'justify-between',
+  ]
+})
+
+const shouldCenterTimePanelEndpointToggle = computed(() => {
+  return asRange()
+    && !showDualRangeTimePanelsUi.value
+    && showStackedDateTimeControls.value
+    && !showInlineTimePanelInline.value
+})
+
+const shouldShowInlineTimePanelEndpointToggle = computed(() => {
+  return asRange()
+    && !showDualRangeTimePanelsUi.value
+    && !shouldCenterTimePanelEndpointToggle.value
+})
+
+const shouldOverlayTimeFormatLabel = computed(() => {
+  if (shouldShowHeaderTimePanelSwitchButton.value)
+    return false
+  if (showInlineTimePanelInline.value)
+    return false
+  return showDualRangeTimePanelsUi.value || shouldCenterTimePanelEndpointToggle.value
+})
+
+const shouldShowInlineTimeFormatLabel = computed(() => {
+  return !shouldOverlayTimeFormatLabel.value
+})
+
+const timePanelCenteredToggleWrapperClass = 'pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 justify-center px-2'
+const timePanelDualEndpointLabelsClass = computed(() => {
+  return [
+    'grid min-w-0 flex-1 grid-cols-2 gap-2',
+  ]
+})
+const timePanelDualEndpointLabelTextClass = 'truncate pl-1 text-xs font-medium text-vtd-secondary-700 dark:text-vtd-secondary-200'
+
+const timePanelEndpointToggleGroupClass = 'pointer-events-auto inline-flex shrink-0 items-center gap-1 rounded-md border border-black/[.1] p-0.5 dark:border-vtd-secondary-700/[1]'
+const timePanelEndpointToggleButtonClass = 'rounded px-2 py-1 text-[11px] font-medium transition'
+const timePanelHeaderSwitchButtonClass = 'rounded-md border border-vtd-secondary-300 px-2 py-1 text-[11px] font-medium text-vtd-secondary-700 transition hover:bg-vtd-secondary-100 dark:border-vtd-secondary-700 dark:text-vtd-secondary-200 dark:hover:bg-vtd-secondary-700'
+const timePanelFormatLabelClass = 'text-[11px] whitespace-nowrap text-vtd-secondary-500 dark:text-vtd-secondary-400'
+
+function timePanelEndpointToggleButtonStateClass(endpoint: DateTimeEndpointSelection) {
+  return activeDateTimeEndpoint.value === endpoint
+    ? 'bg-vtd-primary-600 text-white'
+    : 'bg-white text-vtd-secondary-700 hover:bg-vtd-secondary-100 dark:bg-vtd-secondary-800 dark:text-vtd-secondary-200 dark:hover:bg-vtd-secondary-700'
+}
+
+const visibleTimeEndpoints = computed<DateTimeEndpointSelection[]>(() => {
+  if (showDualRangeTimePanelsUi.value)
+    return ['start', 'end']
+  return [activeDateTimeEndpoint.value]
+})
+
+const shouldShowPanelLevelDateTimeError = computed(() => {
+  const error = datetimeApplyError.value
+  if (!error)
+    return false
+  if (!error.endpoint)
+    return true
+  if (showDualRangeTimePanelsUi.value)
+    return false
+  return error.endpoint !== activeDateTimeEndpoint.value
+})
+
+const panelLevelDateTimeErrorMessage = computed(() => {
+  if (!shouldShowPanelLevelDateTimeError.value)
+    return null
+  return datetimeApplyError.value?.message ?? null
+})
+
+function getDateTimeDraftByEndpoint(endpoint: DateTimeEndpointSelection) {
+  return endpoint === 'end' ? datetimeDraftState.end : datetimeDraftState.start
+}
+
+function getDateTimeInputValue(endpoint: DateTimeEndpointSelection) {
+  return getDateTimeDraftByEndpoint(endpoint).timeText
+}
+
+function getDateTimeValidationMessage(endpoint: DateTimeEndpointSelection) {
+  const targetDraft = getDateTimeDraftByEndpoint(endpoint)
+  if (targetDraft.isValid || !targetDraft.errorCode)
+    return null
+  if (targetDraft.errorCode === 'range-end-before-start' && endpoint === 'end') {
+    return resolveDateTimeErrorMessage(targetDraft.errorCode, {
+      startDate: datetimeDraftState.start.datePart ?? applyValue.value[0] ?? null,
+    })
+  }
+  return resolveDateTimeErrorMessage(targetDraft.errorCode)
+}
+
+function isDateTimeDraftReady(endpoint: DateTimeEndpointSelection) {
+  const targetDraft = getDateTimeDraftByEndpoint(endpoint)
+  return !!(targetDraft.datePart ?? getApplyValueByEndpoint(endpoint))
+}
+
+function getDateTimeWheelSourceDate(endpoint: DateTimeEndpointSelection) {
+  const targetDraft = getDateTimeDraftByEndpoint(endpoint)
+  return targetDraft.datePart ?? getApplyValueByEndpoint(endpoint)
+}
+
+const hourWheelOptions = computed<TimeWheelOption[]>(() => {
+  if (formatterTimeTokens.value.uses12Hour) {
+    return Array.from({ length: 12 }, (_, index) => {
+      const hour = index + 1
+      return {
+        label: String(hour).padStart(2, '0'),
+        value: hour,
+      }
+    })
+  }
+
+  return Array.from({ length: 24 }, (_, index) => ({
+    label: String(index).padStart(2, '0'),
+    value: index,
+  }))
+})
+
+const minuteWheelOptions = computed<TimeWheelOption[]>(() => {
+  return Array.from({ length: 60 }, (_, index) => ({
+    label: String(index).padStart(2, '0'),
+    value: index,
+  }))
+})
+
+const secondWheelOptions = computed<TimeWheelOption[]>(() => {
+  return Array.from({ length: 60 }, (_, index) => ({
+    label: String(index).padStart(2, '0'),
+    value: index,
+  }))
+})
+
+const meridiemWheelOptions: TimeWheelOption[] = [
+  {
+    label: 'AM',
+    value: 'AM',
+  },
+  {
+    label: 'PM',
+    value: 'PM',
+  },
+]
+
+function getHourWheelValue(endpoint: DateTimeEndpointSelection) {
+  const targetDraft = getDateTimeDraftByEndpoint(endpoint)
+  const sourceDate = getDateTimeWheelSourceDate(endpoint)
+  const hour = targetDraft.hour ?? sourceDate?.hour() ?? 0
+  if (!formatterTimeTokens.value.uses12Hour)
+    return hour
+  const normalizedHour = hour % 12
+  return normalizedHour === 0 ? 12 : normalizedHour
+}
+
+function getMinuteWheelValue(endpoint: DateTimeEndpointSelection) {
+  const targetDraft = getDateTimeDraftByEndpoint(endpoint)
+  const sourceDate = getDateTimeWheelSourceDate(endpoint)
+  return targetDraft.minute ?? sourceDate?.minute() ?? 0
+}
+
+function getSecondWheelValue(endpoint: DateTimeEndpointSelection) {
+  const targetDraft = getDateTimeDraftByEndpoint(endpoint)
+  const sourceDate = getDateTimeWheelSourceDate(endpoint)
+  return targetDraft.second ?? sourceDate?.second() ?? 0
+}
+
+function getMeridiemWheelValue(endpoint: DateTimeEndpointSelection) {
+  const targetDraft = getDateTimeDraftByEndpoint(endpoint)
+  if (targetDraft.meridiem)
+    return targetDraft.meridiem
+  const sourceDate = getDateTimeWheelSourceDate(endpoint)
+  const hour = targetDraft.hour ?? sourceDate?.hour() ?? 0
+  return hour >= 12 ? 'PM' : 'AM'
+}
+
+function getHourWheelFractionalOffset(endpoint: DateTimeEndpointSelection) {
+  if (props.timeWheelScrollMode !== 'fractional')
+    return 0
+  const targetDraft = getDateTimeDraftByEndpoint(endpoint)
+  const sourceDate = getDateTimeWheelSourceDate(endpoint)
+  const minute = Math.min(Math.max(targetDraft.minute ?? sourceDate?.minute() ?? 0, 0), 59)
+  // Center the interpolation inside each minute cell and avoid exact half-row offsets.
+  return ((minute + 0.5) / 60) - 0.5
+}
+
+function getMinuteWheelFractionalOffset(endpoint: DateTimeEndpointSelection) {
+  if (props.timeWheelScrollMode !== 'fractional' || !formatterTimeTokens.value.usesSeconds)
+    return 0
+  const targetDraft = getDateTimeDraftByEndpoint(endpoint)
+  const sourceDate = getDateTimeWheelSourceDate(endpoint)
+  const second = Math.min(Math.max(targetDraft.second ?? sourceDate?.second() ?? 0, 0), 59)
+  // Center the interpolation inside each second cell and avoid exact half-row offsets.
+  return ((second + 0.5) / 60) - 0.5
+}
+
+function getMeridiemWheelFractionalOffset(endpoint: DateTimeEndpointSelection) {
+  if (props.timeWheelScrollMode !== 'fractional' || !formatterTimeTokens.value.uses12Hour)
+    return 0
+  const targetDraft = getDateTimeDraftByEndpoint(endpoint)
+  const sourceDate = getDateTimeWheelSourceDate(endpoint)
+  const hour = targetDraft.hour ?? sourceDate?.hour() ?? 0
+  const minute = Math.min(Math.max(targetDraft.minute ?? sourceDate?.minute() ?? 0, 0), 59)
+  // Same interpolation rule for AM/PM wheel to keep phase alignment with hour.
+  const halfDayProgress = ((hour % 12) + ((minute + 0.5) / 60)) / 12
+  return halfDayProgress - 0.5
+}
+
+function markActiveDateTimeEndpoint(endpoint: DateTimeEndpointSelection) {
+  if (asRange())
+    datetimeDraftState.activeEndpoint = endpoint
+}
+
+function normalizeDirection(value: number): -1 | 0 | 1 {
+  if (!Number.isFinite(value) || value === 0)
+    return 0
+  return value > 0 ? 1 : -1
+}
+
+function getHourWheelStepDirection(endpoint: DateTimeEndpointSelection) {
+  return hourWheelStepDirection[endpoint]
+}
+
+function setHourWheelStepDirection(endpoint: DateTimeEndpointSelection, direction: number) {
+  const normalizedDirection = normalizeDirection(direction)
+  if (normalizedDirection === 0)
+    return
+
+  hourWheelStepDirection[endpoint] = normalizedDirection
+  const directionSnapshot = normalizedDirection
+  nextTick(() => {
+    if (hourWheelStepDirection[endpoint] === directionSnapshot)
+      hourWheelStepDirection[endpoint] = 0
+  })
+}
+
+function getMeridiemWheelSyncDirection(endpoint: DateTimeEndpointSelection) {
+  return meridiemWheelSyncDirection[endpoint]
+}
+
+function setMeridiemWheelSyncDirection(endpoint: DateTimeEndpointSelection, direction: number) {
+  const normalizedDirection = normalizeDirection(direction)
+  if (normalizedDirection === 0)
+    return
+
+  meridiemWheelSyncDirection[endpoint] = normalizedDirection
+  const directionSnapshot = normalizedDirection
+  nextTick(() => {
+    if (meridiemWheelSyncDirection[endpoint] === directionSnapshot)
+      meridiemWheelSyncDirection[endpoint] = 0
+  })
+}
+
+function getCircularHourDelta(baseHour24: number, nextHour24: number) {
+  let delta = nextHour24 - baseHour24
+  if (delta > 12)
+    delta -= 24
+  if (delta < -12)
+    delta += 24
+  return delta
+}
+
+function resolveNearest24HourFromHour12(
+  hour12: number,
+  baseHour24: number,
+  directionHint = 0,
+) {
+  const targetHour12 = Math.min(Math.max(hour12, 1), 12)
+  const candidates = [
+    to24HourFrom12Hour(targetHour12, 'AM'),
+    to24HourFrom12Hour(targetHour12, 'PM'),
+  ]
+
+  let bestHour24 = candidates[0]
+  let bestDelta = getCircularHourDelta(baseHour24, bestHour24)
+  for (const candidate of candidates.slice(1)) {
+    const candidateDelta = getCircularHourDelta(baseHour24, candidate)
+    const candidateDistance = Math.abs(candidateDelta)
+    const bestDistance = Math.abs(bestDelta)
+    if (candidateDistance < bestDistance) {
+      bestHour24 = candidate
+      bestDelta = candidateDelta
+      continue
+    }
+
+    if (candidateDistance !== bestDistance)
+      continue
+
+    const normalizedHint = normalizeDirection(directionHint)
+    if (normalizedHint !== 0) {
+      const candidateMatchesHint = Math.sign(candidateDelta) === normalizedHint
+      const bestMatchesHint = Math.sign(bestDelta) === normalizedHint
+      if (candidateMatchesHint && !bestMatchesHint) {
+        bestHour24 = candidate
+        bestDelta = candidateDelta
+      }
+    }
+  }
+
+  return bestHour24
+}
+
+function extractDateOnlyFormatter(formatterDate: string) {
+  const trimmedFormatter = formatterDate.trim()
+  if (!trimmedFormatter)
+    return null
+
+  const formatWithoutEscapedLiterals = maskDayjsEscapedLiterals(trimmedFormatter)
+  const match = DATE_TIME_TOKEN_PATTERN.exec(formatWithoutEscapedLiterals)
+  if (!match)
+    return trimmedFormatter
+
+  let datePart = trimmedFormatter.slice(0, match.index)
+  datePart = datePart.replace(/(?:\[(?:[Tt\s.,:;/_-]*)\]|[\sT.,:;/_-])+$/u, '').trimEnd()
+  return datePart || null
+}
+
+function resolveHydrationTime(endpoint: DateTimeEndpointSelection) {
+  if (!datetimeModeConfig.value.datetime)
+    return null
+  const timeTokens = formatterTimeTokens.value
+  if (!timeTokens.isValid || !timeTokens.normalizedTimeFormat)
+    return null
+
+  const configuredTime = endpoint === 'end'
+    ? datetimeModeConfig.value.defaultEndTimeNormalized
+      ?? datetimeModeConfig.value.defaultTimeNormalized
+    : datetimeModeConfig.value.defaultTimeNormalized
+
+  if (configuredTime)
+    return configuredTime
+
+  const zeroTime = dayjs(
+    timeTokens.usesSeconds ? '00:00:00' : '00:00',
+    timeTokens.usesSeconds ? 'HH:mm:ss' : 'HH:mm',
+    true,
+  )
+
+  if (!zeroTime.isValid())
+    return null
+
+  return zeroTime.format(timeTokens.normalizedTimeFormat)
+}
+
+function applyHydratedTimeToDate(
+  dateValue: Dayjs,
+  endpoint: DateTimeEndpointSelection,
+): ResolvedModelDateValue {
+  const timeTokens = formatterTimeTokens.value
+  const hydrationTime = resolveHydrationTime(endpoint)
+  if (!timeTokens.normalizedTimeFormat || !hydrationTime) {
+    return {
+      value: dateValue,
+      isHydrated: false,
+    }
+  }
+
+  const parsedTime = dayjs(hydrationTime, timeTokens.normalizedTimeFormat, true)
+  if (!parsedTime.isValid()) {
+    return {
+      value: dateValue,
+      isHydrated: false,
+    }
+  }
+
+  return {
+    value: dateValue
+      .hour(parsedTime.hour())
+      .minute(parsedTime.minute())
+      .second(timeTokens.usesSeconds ? parsedTime.second() : 0)
+      .millisecond(0),
+    isHydrated: true,
+  }
+}
+
+function resolveModelDateValue(
+  rawValue: unknown,
+  endpoint: DateTimeEndpointSelection,
+): ResolvedModelDateValue {
+  if (rawValue === undefined || rawValue === null || rawValue === '') {
+    return {
+      value: null,
+      isHydrated: false,
+    }
+  }
+
+  if (rawValue instanceof Date || dayjs.isDayjs(rawValue)) {
+    const parsedDate = dayjs(rawValue)
+    return {
+      value: parsedDate.isValid() ? parsedDate : null,
+      isHydrated: false,
+    }
+  }
+
+  if (typeof rawValue === 'string') {
+    const trimmedValue = rawValue.trim()
+    if (!trimmedValue) {
+      return {
+        value: null,
+        isHydrated: false,
+      }
+    }
+
+    const strictDateTime = dayjs(trimmedValue, props.formatter.date, true)
+    if (strictDateTime.isValid()) {
+      return {
+        value: strictDateTime,
+        isHydrated: false,
+      }
+    }
+
+    if (datetimeModeConfig.value.datetime) {
+      const dateOnlyFormatter = extractDateOnlyFormatter(props.formatter.date)
+      if (dateOnlyFormatter) {
+        const parsedDateOnly = dayjs(trimmedValue, dateOnlyFormatter, true)
+        if (parsedDateOnly.isValid())
+          return applyHydratedTimeToDate(parsedDateOnly, endpoint)
+      }
+    }
+
+    return {
+      value: null,
+      isHydrated: false,
+    }
+  }
+
+  const fallbackParsedDate = dayjs(rawValue as Date | number | string)
+  return {
+    value: fallbackParsedDate.isValid() ? fallbackParsedDate : null,
+    isHydrated: false,
+  }
+}
+
+function assignDateTimeDraft(
+  endpoint: DateTimeEndpointSelection,
+  dateValue: Dayjs | null,
+  isHydrated = false,
+) {
+  const targetDraft
+    = endpoint === 'start' ? datetimeDraftState.start : datetimeDraftState.end
+
+  if (!dateValue || !dateValue.isValid()) {
+    targetDraft.datePart = null
+    targetDraft.timeText = ''
+    targetDraft.hour = null
+    targetDraft.minute = null
+    targetDraft.second = null
+    targetDraft.meridiem = null
+    targetDraft.isHydrated = false
+    targetDraft.isValid = true
+    targetDraft.errorCode = null
+    return
+  }
+
+  targetDraft.datePart = dateValue
+  targetDraft.hour = dateValue.hour()
+  targetDraft.minute = dateValue.minute()
+  targetDraft.second = dateValue.second()
+  targetDraft.meridiem = formatterTimeTokens.value.uses12Hour
+    ? (dateValue.format('A') as 'AM' | 'PM')
+    : null
+  targetDraft.timeText = formatterTimeTokens.value.normalizedTimeFormat
+    ? dateValue.format(formatterTimeTokens.value.normalizedTimeFormat)
+    : ''
+  targetDraft.isHydrated = isHydrated
+  targetDraft.isValid = true
+  targetDraft.errorCode = null
+}
+
+function syncDateTimeDraftsFromApplyValue() {
+  if (!datetimeModeConfig.value.datetime)
+    return
+
+  const [startDate, endDate] = applyValue.value
+  assignDateTimeDraft('start', startDate ?? null, datetimeDraftState.start.isHydrated)
+  assignDateTimeDraft('end', endDate ?? null, datetimeDraftState.end.isHydrated)
+}
+
+function setDateTimeEndpoint(endpoint: DateTimeEndpointSelection) {
+  if (!asRange())
+    return
+  if (datetimeDraftState.activeEndpoint === endpoint) {
+    datetimeDraftState.activeEndpoint = endpoint === 'start' ? 'end' : 'start'
+  }
+  else {
+    datetimeDraftState.activeEndpoint = endpoint
+  }
+}
+
+function toggleTimePanel() {
+  if (canToggleTimePanel.value || shouldShowTimePanelSwitchButton.value)
+    timePickerPanelOpen.value = !timePickerPanelOpen.value
+}
+
+function openTimePanelAfterDateSelection() {
+  if (!isDateTimeEnabled.value)
+    return
+  if (!isPageTimePickerStyle.value)
+    return
+  if (!isPageAutoSwitchMode.value)
+    return
+
+  const requiredSelectionCount = asRange() ? 2 : 1
+  if (applyValue.value.length >= requiredSelectionCount) {
+    if (asRange())
+      datetimeDraftState.activeEndpoint = 'start'
+    timePickerPanelOpen.value = true
+  }
+}
+
+function reconcileRangeOrderErrorState() {
+  if (!datetimeApplyError.value || datetimeApplyError.value.code !== 'range-end-before-start')
+    return
+
+  const [startRaw, endRaw] = applyValue.value
+  const startDate = startRaw ? dayjs(startRaw) : null
+  const endDate = endRaw ? dayjs(endRaw) : null
+  const stillInvalidRange = !!(
+    asRange()
+    && startDate
+    && endDate
+    && startDate.isValid()
+    && endDate.isValid()
+    && endDate.isBefore(startDate)
+  )
+
+  if (stillInvalidRange) {
+    datetimeApplyError.value = {
+      ...datetimeApplyError.value,
+      message: resolveDateTimeErrorMessage('range-end-before-start', { startDate }),
+      field: 'range',
+      endpoint: 'end',
+      type: 'validation',
+    }
+    markDateTimeDraftInvalid('end', 'range-end-before-start')
+    return
+  }
+
+  datetimeApplyError.value = null
+  if (datetimeDraftState.end.errorCode === 'range-end-before-start') {
+    datetimeDraftState.end.isValid = true
+    datetimeDraftState.end.errorCode = null
+  }
+}
+
+function normalize24Hour(hour: number) {
+  return ((hour % 24) + 24) % 24
+}
+
+function to24HourFrom12Hour(hour12: number, meridiem: 'AM' | 'PM') {
+  const normalizedHour12 = Math.min(Math.max(hour12, 1), 12)
+  if (normalizedHour12 === 12)
+    return meridiem === 'AM' ? 0 : 12
+  return meridiem === 'PM' ? normalizedHour12 + 12 : normalizedHour12
+}
+
+function parseNumberValue(rawValue: number | string, fallback = 0) {
+  const parsed = typeof rawValue === 'number' ? rawValue : Number.parseInt(rawValue, 10)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function getApplyValueByEndpoint(endpoint: DateTimeEndpointSelection): Dayjs | null {
+  if (endpoint === 'start')
+    return applyValue.value[0] ?? null
+  return applyValue.value[1] ?? null
+}
+
+function setApplyValueByEndpoint(endpoint: DateTimeEndpointSelection, dateValue: Dayjs) {
+  const normalizedDate = dayjs(dateValue)
+  if (!normalizedDate.isValid())
+    return
+
+  if (!asRange()) {
+    applyValue.value = [normalizedDate]
+    return
+  }
+
+  if (endpoint === 'start') {
+    if (applyValue.value.length > 1)
+      applyValue.value = [normalizedDate, applyValue.value[1]]
+    else
+      applyValue.value = [normalizedDate]
+    return
+  }
+
+  if (applyValue.value.length > 1) {
+    applyValue.value = [applyValue.value[0], normalizedDate]
+    return
+  }
+
+  if (applyValue.value.length === 1) {
+    applyValue.value = [applyValue.value[0], normalizedDate]
+    return
+  }
+
+  return
+}
+
+function mergeDateWithDraftTime(dateValue: Dayjs, endpoint: DateTimeEndpointSelection) {
+  const normalizedDate = dayjs(dateValue)
+  if (!normalizedDate.isValid() || !datetimeModeConfig.value.datetime)
+    return normalizedDate
+
+  const targetDraft = endpoint === 'end' ? datetimeDraftState.end : datetimeDraftState.start
+  const sourceDate = targetDraft.datePart ?? getApplyValueByEndpoint(endpoint)
+  if (!sourceDate || !sourceDate.isValid())
+    return normalizedDate
+
+  return normalizedDate
+    .hour(sourceDate.hour())
+    .minute(sourceDate.minute())
+    .second(formatterTimeTokens.value.usesSeconds ? sourceDate.second() : 0)
+    .millisecond(0)
+}
+
+function applyDateTimePartsToDraft(
+  endpoint: DateTimeEndpointSelection,
+  options: {
+    hour24?: number
+    hour12?: number
+    minute?: number
+    second?: number
+    meridiem?: 'AM' | 'PM'
+  },
+) {
+  const targetDraft = endpoint === 'end' ? datetimeDraftState.end : datetimeDraftState.start
+  const baseDate = targetDraft.datePart ?? getApplyValueByEndpoint(endpoint)
+  if (!baseDate) {
+    targetDraft.isValid = false
+    targetDraft.errorCode = 'invalid-time-input'
+    return
+  }
+
+  const currentHour = targetDraft.hour ?? baseDate.hour()
+  const currentMinute = targetDraft.minute ?? baseDate.minute()
+  const currentSecond = targetDraft.second ?? baseDate.second()
+  const currentMeridiem = targetDraft.meridiem ?? (currentHour >= 12 ? 'PM' : 'AM')
+
+  let nextHour = options.hour24 !== undefined ? normalize24Hour(options.hour24) : currentHour
+  const nextMinute = options.minute !== undefined
+    ? Math.min(Math.max(options.minute, 0), 59)
+    : currentMinute
+  const nextSecond = options.second !== undefined
+    ? Math.min(Math.max(options.second, 0), 59)
+    : currentSecond
+
+  let nextMeridiem: 'AM' | 'PM' | null = null
+  if (formatterTimeTokens.value.uses12Hour) {
+    const resolvedMeridiem = options.meridiem ?? currentMeridiem
+    const hour12 = options.hour12 !== undefined
+      ? Math.min(Math.max(options.hour12, 1), 12)
+      : (() => {
+          const normalized = nextHour % 12
+          return normalized === 0 ? 12 : normalized
+        })()
+    nextHour = to24HourFrom12Hour(hour12, resolvedMeridiem)
+    nextMeridiem = resolvedMeridiem
+  }
+
+  const nextDate = dayjs(baseDate)
+    .hour(nextHour)
+    .minute(nextMinute)
+    .second(formatterTimeTokens.value.usesSeconds ? nextSecond : 0)
+    .millisecond(0)
+
+  const localDateValidation = useValidateDayjsLocalDateTime(nextDate)
+  if (!localDateValidation.isValid && localDateValidation.isDstNonexistent) {
+    targetDraft.isValid = false
+    targetDraft.errorCode = 'dst-nonexistent-time'
+    return
+  }
+
+  const resolvedDate = localDateValidation.resolvedDate
+    ? dayjs(localDateValidation.resolvedDate)
+    : nextDate
+
+  targetDraft.datePart = resolvedDate
+  targetDraft.hour = resolvedDate.hour()
+  targetDraft.minute = resolvedDate.minute()
+  targetDraft.second = resolvedDate.second()
+  targetDraft.meridiem = formatterTimeTokens.value.uses12Hour
+    ? (nextMeridiem ?? (resolvedDate.format('A') as 'AM' | 'PM'))
+    : null
+  targetDraft.timeText = formatterTimeTokens.value.normalizedTimeFormat
+    ? resolvedDate.format(formatterTimeTokens.value.normalizedTimeFormat)
+    : ''
+  targetDraft.isValid = true
+  targetDraft.errorCode = null
+  targetDraft.isHydrated = false
+
+  setApplyValueByEndpoint(endpoint, resolvedDate)
+  reconcileRangeOrderErrorState()
+}
+
+function onDateTimeHourWheelUpdate(
+  value: number | string,
+  endpoint: DateTimeEndpointSelection = activeDateTimeEndpoint.value,
+) {
+  markActiveDateTimeEndpoint(endpoint)
+  const parsedHourValue = parseNumberValue(value, getHourWheelValue(endpoint))
+  if (formatterTimeTokens.value.uses12Hour) {
+    const hour12 = Math.min(Math.max(parsedHourValue, 1), 12)
+    const sourceDate = getDateTimeWheelSourceDate(endpoint)
+    const currentHour24 = getDateTimeDraftByEndpoint(endpoint).hour ?? sourceDate?.hour() ?? 0
+    const directionHint = getHourWheelStepDirection(endpoint)
+    const nextHour24 = resolveNearest24HourFromHour12(hour12, currentHour24, directionHint)
+    const meridiem: 'AM' | 'PM' = nextHour24 >= 12 ? 'PM' : 'AM'
+    const currentMeridiem = getMeridiemWheelValue(endpoint) as 'AM' | 'PM'
+    if (currentMeridiem !== meridiem) {
+      const meridiemDirection = directionHint !== 0
+        ? directionHint
+        : getCircularHourDelta(currentHour24, nextHour24)
+      setMeridiemWheelSyncDirection(endpoint, meridiemDirection)
+    }
+    applyDateTimePartsToDraft(endpoint, {
+      hour12,
+      meridiem,
+    })
+    return
+  }
+  applyDateTimePartsToDraft(endpoint, {
+    hour24: parsedHourValue,
+  })
+}
+
+function onDateTimeHourWheelStep(
+  payload: TimeWheelStepPayload,
+  endpoint: DateTimeEndpointSelection = activeDateTimeEndpoint.value,
+) {
+  if (payload.previousValue !== null) {
+    const currentHourValue = getHourWheelValue(endpoint)
+    const expectedPreviousHour = parseNumberValue(payload.previousValue, Number(currentHourValue))
+    if (Number(currentHourValue) !== expectedPreviousHour)
+      return
+  }
+  markActiveDateTimeEndpoint(endpoint)
+  setHourWheelStepDirection(endpoint, payload.delta)
+}
+
+function onDateTimeMinuteWheelUpdate(
+  value: number | string,
+  endpoint: DateTimeEndpointSelection = activeDateTimeEndpoint.value,
+) {
+  markActiveDateTimeEndpoint(endpoint)
+  applyDateTimePartsToDraft(endpoint, {
+    minute: parseNumberValue(value, getMinuteWheelValue(endpoint)),
+  })
+}
+
+function resolveTimeWheelStepDelta(payload: TimeWheelStepPayload) {
+  if (!Number.isFinite(payload.delta))
+    return 0
+  return Math.trunc(payload.delta)
+}
+
+function isDuplicateWheelStep(
+  endpoint: DateTimeEndpointSelection,
+  payload: TimeWheelStepPayload,
+  cache: Record<DateTimeEndpointSelection, { key: string; at: number }>,
+) {
+  const key = `${payload.previousAbsoluteIndex}:${payload.absoluteIndex}:${String(payload.value)}`
+  const now = Date.now()
+  const previous = cache[endpoint]
+  if (previous.key === key && now - previous.at <= TIME_WHEEL_STEP_DEDUP_WINDOW_MS)
+    return true
+
+  cache[endpoint] = { key, at: now }
+  return false
+}
+
+function applyDateTimeHourCarry(
+  endpoint: DateTimeEndpointSelection,
+  hourCarry: number,
+  minute?: number,
+) {
+  if (hourCarry === 0 && minute === undefined)
+    return
+
+  if (hourCarry === 0) {
+    applyDateTimePartsToDraft(endpoint, { minute })
+    return
+  }
+
+  const currentHour = getDateTimeDraftByEndpoint(endpoint).hour ?? getDateTimeWheelSourceDate(endpoint)?.hour() ?? 0
+  const nextHour24 = normalize24Hour(currentHour + hourCarry)
+
+  if (formatterTimeTokens.value.uses12Hour) {
+    const currentMeridiem = getMeridiemWheelValue(endpoint) as 'AM' | 'PM'
+    const normalizedHour12 = nextHour24 % 12
+    const hour12 = normalizedHour12 === 0 ? 12 : normalizedHour12
+    const meridiem: 'AM' | 'PM' = nextHour24 >= 12 ? 'PM' : 'AM'
+    if (currentMeridiem !== meridiem)
+      setMeridiemWheelSyncDirection(endpoint, hourCarry)
+    const payload: { hour12: number; meridiem: 'AM' | 'PM'; minute?: number } = { hour12, meridiem }
+    if (minute !== undefined)
+      payload.minute = minute
+    applyDateTimePartsToDraft(endpoint, payload)
+    return
+  }
+
+  const payload: { hour24: number; minute?: number } = { hour24: nextHour24 }
+  if (minute !== undefined)
+    payload.minute = minute
+  applyDateTimePartsToDraft(endpoint, payload)
+}
+
+function onDateTimeMinuteWheelStep(
+  payload: TimeWheelStepPayload,
+  endpoint: DateTimeEndpointSelection = activeDateTimeEndpoint.value,
+) {
+  if (isDuplicateWheelStep(endpoint, payload, lastMinuteWheelStepSignature))
+    return
+
+  // TODO(time-inline-day-boundary): evaluate optional day-boundary carry for
+  // wheel-inline mode so hour/day updates can stay synchronized with calendar
+  // dates when the hour wheel crosses midnight.
+  const MINUTES_PER_HOUR = 60
+  const currentMinute = Math.min(Math.max(getMinuteWheelValue(endpoint), 0), 59)
+  if (payload.previousValue !== null) {
+    const expectedPreviousMinute = Math.min(
+      Math.max(parseNumberValue(payload.previousValue, currentMinute), 0),
+      59,
+    )
+    if (expectedPreviousMinute !== currentMinute)
+      return
+  }
+  const minuteDelta = resolveTimeWheelStepDelta(payload)
+  if (minuteDelta === 0)
+    return
+  const hourCarry = Math.floor((currentMinute + minuteDelta) / MINUTES_PER_HOUR)
+  if (hourCarry === 0)
+    return
+
+  markActiveDateTimeEndpoint(endpoint)
+  applyDateTimeHourCarry(endpoint, hourCarry)
+}
+
+function onDateTimeSecondWheelStep(
+  payload: TimeWheelStepPayload,
+  endpoint: DateTimeEndpointSelection = activeDateTimeEndpoint.value,
+) {
+  if (isDuplicateWheelStep(endpoint, payload, lastSecondWheelStepSignature))
+    return
+
+  const SECONDS_PER_MINUTE = 60
+  const currentSecond = Math.min(Math.max(getSecondWheelValue(endpoint), 0), 59)
+  if (payload.previousValue !== null) {
+    const expectedPreviousSecond = Math.min(
+      Math.max(parseNumberValue(payload.previousValue, currentSecond), 0),
+      59,
+    )
+    if (expectedPreviousSecond !== currentSecond)
+      return
+  }
+  const secondDelta = resolveTimeWheelStepDelta(payload)
+  if (secondDelta === 0)
+    return
+  const minuteCarry = Math.floor((currentSecond + secondDelta) / SECONDS_PER_MINUTE)
+  if (minuteCarry === 0)
+    return
+
+  markActiveDateTimeEndpoint(endpoint)
+  const currentMinute = Math.min(Math.max(getMinuteWheelValue(endpoint), 0), 59)
+  const nextMinuteRaw = currentMinute + minuteCarry
+  const MINUTES_PER_HOUR = 60
+  const hourCarry = Math.floor(nextMinuteRaw / MINUTES_PER_HOUR)
+  const nextMinute = ((nextMinuteRaw % MINUTES_PER_HOUR) + MINUTES_PER_HOUR) % MINUTES_PER_HOUR
+
+  applyDateTimeHourCarry(endpoint, hourCarry, nextMinute)
+}
+
+function onDateTimeSecondWheelUpdate(
+  value: number | string,
+  endpoint: DateTimeEndpointSelection = activeDateTimeEndpoint.value,
+) {
+  markActiveDateTimeEndpoint(endpoint)
+  applyDateTimePartsToDraft(endpoint, {
+    second: parseNumberValue(value, getSecondWheelValue(endpoint)),
+  })
+}
+
+function onDateTimeMeridiemWheelUpdate(
+  value: number | string,
+  endpoint: DateTimeEndpointSelection = activeDateTimeEndpoint.value,
+) {
+  markActiveDateTimeEndpoint(endpoint)
+  const meridiem = value === 'PM' ? 'PM' : 'AM'
+  applyDateTimePartsToDraft(endpoint, { meridiem })
+}
+
+function onDateTimeInput(
+  event: Event,
+  endpoint: DateTimeEndpointSelection = activeDateTimeEndpoint.value,
+) {
+  const inputElement = event.target as HTMLInputElement | null
+  const inputValue = inputElement?.value ?? ''
+  markActiveDateTimeEndpoint(endpoint)
+  const targetDraft = endpoint === 'end' ? datetimeDraftState.end : datetimeDraftState.start
+
+  targetDraft.timeText = inputValue
+
+  if (!formatterTimeTokens.value.isValid || !formatterTimeTokens.value.normalizedTimeFormat) {
+    targetDraft.isValid = false
+    targetDraft.errorCode = 'config-missing-time-token'
+    return
+  }
+
+  const trimmedInput = inputValue.trim()
+  if (!trimmedInput) {
+    targetDraft.isValid = false
+    targetDraft.errorCode = 'invalid-time-input'
+    return
+  }
+
+  const parsedTime = dayjs(trimmedInput, formatterTimeTokens.value.normalizedTimeFormat, true)
+  if (!parsedTime.isValid()) {
+    targetDraft.isValid = false
+    targetDraft.errorCode = 'invalid-time-input'
+    return
+  }
+
+  const baseDate = targetDraft.datePart ?? getApplyValueByEndpoint(endpoint)
+  if (!baseDate) {
+    targetDraft.isValid = false
+    targetDraft.errorCode = 'invalid-time-input'
+    return
+  }
+
+  applyDateTimePartsToDraft(endpoint, {
+    hour24: parsedTime.hour(),
+    minute: parsedTime.minute(),
+    second: parsedTime.second(),
+    meridiem: (parsedTime.format('A') as 'AM' | 'PM'),
+  })
+}
+
 const panel = reactive({
   previous: {
     calendar: true,
@@ -1104,6 +2501,26 @@ function isVisibleElement(element: HTMLElement) {
   return element.getClientRects().length > 0
 }
 
+function getElementLabelText(element: HTMLElement) {
+  return (element.textContent ?? '').replace(/\s+/g, ' ').trim()
+}
+
+function isDisabledFocusTarget(element: HTMLElement) {
+  if (element.getAttribute('aria-disabled') === 'true')
+    return true
+
+  if (
+    element instanceof HTMLButtonElement
+    || element instanceof HTMLInputElement
+    || element instanceof HTMLSelectElement
+    || element instanceof HTMLTextAreaElement
+  ) {
+    return !!element.disabled
+  }
+
+  return false
+}
+
 function getSelectorFocusCycleTargets() {
   const queryRoot = getPickerQueryRoot()
   if (!queryRoot)
@@ -1174,6 +2591,58 @@ function getCalendarFocusCycleTargets() {
   return targets
 }
 
+function getTimeModeFocusCycleTargets() {
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return []
+
+  const targets: HTMLElement[] = []
+  const pushTarget = (element: HTMLElement | null) => {
+    if (!element || !isVisibleElement(element))
+      return
+    if (isDisabledFocusTarget(element))
+      return
+    if (targets.includes(element))
+      return
+    targets.push(element)
+  }
+
+  // Keep shortcuts as a single focus stop in time mode.
+  pushTarget(queryRoot.querySelector<HTMLElement>('.vtd-shortcuts'))
+
+  const endpointToggleButtons = Array.from(queryRoot.querySelectorAll<HTMLButtonElement>('button'))
+    .filter((button) => {
+      if (!isVisibleElement(button) || isDisabledFocusTarget(button))
+        return false
+      const label = getElementLabelText(button)
+      return label === 'Start' || label === 'End'
+    })
+  endpointToggleButtons.forEach(button => pushTarget(button))
+
+  const wheelTargets = Array.from(queryRoot.querySelectorAll<HTMLElement>('.vtd-time-wheel[role="listbox"]'))
+    .filter(target => isVisibleElement(target) && !isDisabledFocusTarget(target))
+  wheelTargets.forEach(target => pushTarget(target))
+
+  const footerButtons = Array.from(queryRoot.querySelectorAll<HTMLButtonElement>('.away-cancel-picker, .away-apply-picker'))
+    .filter(button => isVisibleElement(button) && !isDisabledFocusTarget(button))
+
+  const footerCancelButton = footerButtons.find((button) => {
+    return button.classList.contains('away-cancel-picker')
+      && getElementLabelText(button) !== timePanelSwitchLabel.value
+  })
+  const footerSwitchButton = footerButtons.find((button) => {
+    return button.classList.contains('away-cancel-picker')
+      && getElementLabelText(button) === timePanelSwitchLabel.value
+  })
+  const footerApplyButton = footerButtons.find(button => button.classList.contains('away-apply-picker'))
+
+  pushTarget(footerCancelButton ?? null)
+  pushTarget(footerSwitchButton ?? null)
+  pushTarget(footerApplyButton ?? null)
+
+  return targets
+}
+
 type PopoverCloseFn = (ref?: Ref | HTMLElement) => void
 
 function closePopoverFromPanel(close?: PopoverCloseFn) {
@@ -1200,6 +2669,24 @@ function onPickerPanelKeydown(event: KeyboardEvent, close?: PopoverCloseFn) {
 
   if (event.key !== 'Tab')
     return
+
+  if (isTimePickerWheelStyle.value && shouldShowDateTimeControls.value) {
+    const timeWheelTargets = getTimeModeFocusCycleTargets()
+    if (timeWheelTargets.length > 0) {
+      event.preventDefault()
+      event.stopPropagation()
+
+      const activeElement = document.activeElement as HTMLElement | null
+      let currentIndex = timeWheelTargets.findIndex(target => target === activeElement || target.contains(activeElement))
+      if (currentIndex < 0)
+        currentIndex = event.shiftKey ? 0 : -1
+
+      const delta = event.shiftKey ? -1 : 1
+      const nextIndex = (currentIndex + delta + timeWheelTargets.length) % timeWheelTargets.length
+      timeWheelTargets[nextIndex].focus()
+      return
+    }
+  }
 
   const inSelectorMode = props.selectorMode && pickerViewMode.value === 'selector'
   const targets = inSelectorMode
@@ -1247,6 +2734,11 @@ function onInputKeydown(event: KeyboardEvent) {
 }
 
 function onPopoverAfterEnter() {
+  // Preserve lock dimensions across reopen cycles so inline-right wheels remain
+  // bounded while a fresh measurement is queued.
+  if (panelContentLockState.width <= 0 || panelContentLockState.height <= 0)
+    resetPanelContentLockState()
+  queuePanelContentMeasurement()
   nextTick(() => {
     if (props.selectorMode && pickerViewMode.value === 'selector') {
       focusSelectorModeTargetDeferred(selectionContext.value, selectorFocus.value)
@@ -1261,6 +2753,58 @@ watch(
   (enabled) => {
     if (!enabled)
       resetPickerViewMode()
+  },
+)
+
+watch(
+  () => resolvedTimePickerStyle.value,
+  (style) => {
+    timePickerPanelOpen.value = style === 'input' || style === 'wheel-inline'
+    if (style !== 'wheel-page')
+      hasMountedPageTimePanel.value = false
+
+    refreshPanelContentLockState()
+  },
+  { immediate: true },
+)
+
+watch(
+  () => showPageTimePanelInline.value,
+  (visible) => {
+    if (visible && showDualRangeTimePanels.value)
+      hasMountedPageTimePanel.value = true
+  },
+  { immediate: true },
+)
+
+watch(
+  () => shouldLockPanelContentSize.value,
+  () => {
+    refreshPanelContentLockState()
+  },
+)
+
+watch(
+  () => [props.timeInlinePosition, props.asSingle, props.useRange, !!props.shortcuts],
+  () => {
+    if (!shouldLockPanelContentSize.value)
+      return
+    refreshPanelContentLockState()
+  },
+)
+
+watch(
+  () => [
+    timePickerPanelOpen.value,
+    shouldShowDatePanels.value,
+    showAnyInlineTimePanel.value,
+    props.asSingle,
+    props.useRange,
+    !!props.shortcuts,
+    pickerViewMode.value,
+  ],
+  () => {
+    queuePanelContentMeasurement()
   },
 )
 
@@ -1347,11 +2891,220 @@ function clearPicker() {
 }
 defineExpose({ clearPicker })
 
+function resolveDateTimeErrorMessage(
+  code: DateTimeErrorCode,
+  context: { startDate?: Dayjs | null } = {},
+) {
+  switch (code) {
+    case 'config-missing-time-token':
+      return 'Datetime mode requires formatter.date to include supported time tokens.'
+    case 'invalid-time-input':
+      return 'Please provide a valid time before applying the selection.'
+    case 'dst-nonexistent-time':
+      return 'Selected local time does not exist because of a DST transition.'
+    case 'range-end-before-start': {
+      const startDate = context.startDate
+      const fallbackTimeFormat = formatterTimeTokens.value.usesSeconds ? 'HH:mm:ss' : 'HH:mm'
+      const timeFormat = formatterTimeTokens.value.normalizedTimeFormat ?? fallbackTimeFormat
+      if (startDate && startDate.isValid()) {
+        return `End time must be at or after start (${startDate.format(timeFormat)}).`
+      }
+      return 'End time must be at or after start.'
+    }
+    default:
+      return 'Unable to apply the current datetime selection.'
+  }
+}
+
+function resetDateTimeDraftValidationState() {
+  datetimeDraftState.start.isValid = true
+  datetimeDraftState.start.errorCode = null
+  datetimeDraftState.end.isValid = true
+  datetimeDraftState.end.errorCode = null
+}
+
+function markDateTimeDraftInvalid(
+  endpoint: DateTimeEndpointSelection | null,
+  code: DateTimeErrorCode,
+) {
+  if (!endpoint)
+    return
+  const targetDraft
+    = endpoint === 'start' ? datetimeDraftState.start : datetimeDraftState.end
+  targetDraft.isValid = false
+  targetDraft.errorCode = code
+}
+
+function evaluateDateTimeApplyGuard(): ApplyGuardState {
+  if (!datetimeModeConfig.value.datetime) {
+    return {
+      canApply: true,
+      blockedCode: null,
+      blockedField: null,
+      blockedEndpoint: null,
+    }
+  }
+
+  if (!formatterTimeTokens.value.isValid) {
+    return {
+      canApply: false,
+      blockedCode: 'config-missing-time-token',
+      blockedField: 'formatter',
+      blockedEndpoint: null,
+    }
+  }
+
+  if (!datetimeDraftState.start.isValid) {
+    return {
+      canApply: false,
+      blockedCode: datetimeDraftState.start.errorCode ?? 'invalid-time-input',
+      blockedField: datetimeDraftState.start.errorCode === 'config-missing-time-token' ? 'formatter' : 'time',
+      blockedEndpoint: 'start',
+    }
+  }
+
+  if (asRange() && !datetimeDraftState.end.isValid) {
+    return {
+      canApply: false,
+      blockedCode: datetimeDraftState.end.errorCode ?? 'invalid-time-input',
+      blockedField: datetimeDraftState.end.errorCode === 'config-missing-time-token' ? 'formatter' : 'time',
+      blockedEndpoint: 'end',
+    }
+  }
+
+  const requiredSelectionCount = asRange() ? 2 : 1
+  if (applyValue.value.length < requiredSelectionCount) {
+    return {
+      canApply: false,
+      blockedCode: 'invalid-time-input',
+      blockedField: 'time',
+      blockedEndpoint: asRange() ? 'end' : 'start',
+    }
+  }
+
+  const [startDateRaw, endDateRaw] = applyValue.value
+  const startDate = startDateRaw ? dayjs(startDateRaw) : null
+  const endDate = endDateRaw ? dayjs(endDateRaw) : null
+
+  if (!startDate || !startDate.isValid()) {
+    return {
+      canApply: false,
+      blockedCode: 'invalid-time-input',
+      blockedField: 'time',
+      blockedEndpoint: 'start',
+    }
+  }
+
+  if (asRange() && (!endDate || !endDate.isValid())) {
+    return {
+      canApply: false,
+      blockedCode: 'invalid-time-input',
+      blockedField: 'time',
+      blockedEndpoint: 'end',
+    }
+  }
+
+  const startValidation = useValidateDayjsLocalDateTime(startDate)
+  if (!startValidation.isValid && startValidation.isDstNonexistent) {
+    return {
+      canApply: false,
+      blockedCode: 'dst-nonexistent-time',
+      blockedField: 'time',
+      blockedEndpoint: 'start',
+    }
+  }
+
+  if (asRange() && endDate) {
+    const endValidation = useValidateDayjsLocalDateTime(endDate)
+    if (!endValidation.isValid && endValidation.isDstNonexistent) {
+      return {
+        canApply: false,
+        blockedCode: 'dst-nonexistent-time',
+        blockedField: 'time',
+        blockedEndpoint: 'end',
+      }
+    }
+  }
+
+  if (asRange() && endDate && endDate.isBefore(startDate)) {
+    return {
+      canApply: false,
+      blockedCode: 'range-end-before-start',
+      blockedField: 'range',
+      blockedEndpoint: 'end',
+    }
+  }
+
+  return {
+    canApply: true,
+    blockedCode: null,
+    blockedField: null,
+    blockedEndpoint: null,
+  }
+}
+
+function emitBlockedApplyError(blockedState: ApplyGuardState) {
+  if (
+    blockedState.canApply
+    || !blockedState.blockedCode
+    || !blockedState.blockedField
+  ) {
+    return
+  }
+
+  const payload: DateTimeErrorEventPayload = {
+    type: blockedState.blockedField === 'formatter' ? 'configuration' : 'validation',
+    code: blockedState.blockedCode,
+    message: resolveDateTimeErrorMessage(
+      blockedState.blockedCode,
+      blockedState.blockedCode === 'range-end-before-start'
+        ? { startDate: applyValue.value[0] ?? null }
+        : {},
+    ),
+    field: blockedState.blockedField,
+    endpoint: blockedState.blockedEndpoint,
+  }
+
+  resetDateTimeDraftValidationState()
+  markDateTimeDraftInvalid(payload.endpoint, payload.code)
+  datetimeApplyError.value = payload
+  emit('error', payload)
+}
+
+function isApplyButtonDisabled() {
+  if (datetimeModeConfig.value.datetime) {
+    const hasRequiredSelection = asRange()
+      ? isDateTimeDraftReady('start') && isDateTimeDraftReady('end')
+      : isDateTimeDraftReady('start')
+    if (!hasRequiredSelection)
+      return true
+
+    const startHasInputError = !datetimeDraftState.start.isValid
+      && (
+        datetimeDraftState.start.errorCode === 'invalid-time-input'
+        || datetimeDraftState.start.errorCode === 'dst-nonexistent-time'
+      )
+    const endHasInputError = asRange()
+      && !datetimeDraftState.end.isValid
+      && (
+        datetimeDraftState.end.errorCode === 'invalid-time-input'
+        || datetimeDraftState.end.errorCode === 'dst-nonexistent-time'
+      )
+
+    return startHasInputError || endHasInputError
+  }
+
+  return props.asSingle ? applyValue.value.length < 1 : applyValue.value.length < 2
+}
+
 /**
  * keyUp event
  * @since v1.0.5
  */
 function keyUp() {
+  if (datetimeModeConfig.value.datetime)
+    return
+
   if (asRange()) {
     const [s, e] = pickerValue.value.split(props.separator)
     const [sd, ed] = [
@@ -1406,10 +3159,16 @@ function keyUp() {
 }
 
 function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
+  if (datetimeModeConfig.value.datetime) {
+    datetimeApplyError.value = null
+    resetDateTimeDraftValidationState()
+  }
+
   if (asRange()) {
     if (previous.value) {
+      datetimeDraftState.activeEndpoint = 'end'
       next.value = date
-      if (props.autoApply) {
+      if (autoApplyEnabled.value) {
         if (date.isBefore(previous.value)) {
           pickerValue.value = useToValueFromArray(
             {
@@ -1475,9 +3234,13 @@ function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
         force()
       }
       else {
-        if (previous.value.isAfter(date, 'month'))
-          applyValue.value = [date, previous.value]
-        else applyValue.value = [previous.value, date]
+        const startBaseDate = applyValue.value[0] ?? previous.value
+        const startDateWithDraftTime = mergeDateWithDraftTime(startBaseDate, 'start')
+        const endDateWithDraftTime = mergeDateWithDraftTime(date, 'end')
+
+        if (previous.value.isAfter(date, 'date'))
+          applyValue.value = [endDateWithDraftTime, startDateWithDraftTime]
+        else applyValue.value = [startDateWithDraftTime, endDateWithDraftTime]
 
         const [s, e] = applyValue.value
 
@@ -1485,24 +3248,29 @@ function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
           datepicker.value.previous = s
           datepicker.value.next = e
         }
+        assignDateTimeDraft('start', s, false)
+        assignDateTimeDraft('end', e, false)
+        openTimePanelAfterDateSelection()
         force()
       }
     }
     else {
+      datetimeDraftState.activeEndpoint = 'start'
       applyValue.value = []
       previous.value = date
       selection.value = date
       hoverValue.value.push(date)
-      applyValue.value.push(date)
+      applyValue.value.push(mergeDateWithDraftTime(date, 'start'))
       datepicker.value.previous = date
       if (datepicker.value.next.isSame(date, 'month')) {
         datepicker.value.previous = datepicker.value.next
         datepicker.value.next = date.add(1, 'month')
       }
+      openTimePanelAfterDateSelection()
     }
   }
   else {
-    if (props.autoApply) {
+    if (autoApplyEnabled.value) {
       pickerValue.value = useToValueFromString(date, props)
       if (Array.isArray(props.modelValue)) {
         emit('update:modelValue', [pickerValue.value])
@@ -1523,7 +3291,10 @@ function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
       force()
     }
     else {
-      applyValue.value = [date]
+      const dateWithDraftTime = mergeDateWithDraftTime(date, 'start')
+      applyValue.value = [dateWithDraftTime]
+      assignDateTimeDraft('start', dateWithDraftTime, false)
+      openTimePanelAfterDateSelection()
       force()
     }
   }
@@ -1532,6 +3303,17 @@ function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
 function applyDate(close?: (ref?: Ref | HTMLElement) => void) {
   if (applyValue.value.length < 1)
     return false
+
+  if (datetimeModeConfig.value.datetime) {
+    const applyGuard = evaluateDateTimeApplyGuard()
+    if (!applyGuard.canApply) {
+      emitBlockedApplyError(applyGuard)
+      return false
+    }
+    datetimeApplyError.value = null
+    resetDateTimeDraftValidationState()
+  }
+
   let date
   if (asRange()) {
     const [s, e] = applyValue.value
@@ -1620,7 +3402,7 @@ function atMouseOver(date: Dayjs) {
 }
 
 function isBetweenRange(date: DatePickerDay) {
-  if (previous.value && props.autoApply)
+  if (previous.value && autoApplyEnabled.value)
     return false
   let s, e
   if (hoverValue.value.length > 1) {
@@ -1630,7 +3412,7 @@ function isBetweenRange(date: DatePickerDay) {
   }
   else {
     if (Array.isArray(props.modelValue)) {
-      if (props.autoApply) {
+      if (autoApplyEnabled.value) {
         const [start, end] = props.modelValue
         s = start && dayjs(start, props.formatter.date, true)
         e = end && dayjs(end, props.formatter.date, true)
@@ -1642,7 +3424,7 @@ function isBetweenRange(date: DatePickerDay) {
       }
     }
     else if (typeof props.modelValue === 'object') {
-      if (props.autoApply) {
+      if (autoApplyEnabled.value) {
         if (props.modelValue) {
           const [start, end] = Object.values(props.modelValue)
           s = start && dayjs(start, props.formatter.date, true)
@@ -1656,7 +3438,7 @@ function isBetweenRange(date: DatePickerDay) {
       }
     }
     else {
-      if (props.autoApply) {
+      if (autoApplyEnabled.value) {
         const [start, end] = props.modelValue
           ? props.modelValue.split(props.separator)
           : [null, null]
@@ -1690,7 +3472,7 @@ function datepickerClasses(date: DatePickerDay) {
         e = end && dayjs(end, props.formatter.date, true)
       }
       else {
-        if (props.autoApply) {
+        if (autoApplyEnabled.value) {
           const [start, end] = props.modelValue
           s = start && dayjs(start, props.formatter.date, true)
           e = end && dayjs(end, props.formatter.date, true)
@@ -1709,7 +3491,7 @@ function datepickerClasses(date: DatePickerDay) {
         e = end && dayjs(end, props.formatter.date, true)
       }
       else {
-        if (props.autoApply) {
+        if (autoApplyEnabled.value) {
           const [start, end] = props.modelValue
             ? Object.values(props.modelValue)
             : [null, null]
@@ -1730,7 +3512,7 @@ function datepickerClasses(date: DatePickerDay) {
         e = end && dayjs(end, props.formatter.date, true)
       }
       else {
-        if (props.autoApply) {
+        if (autoApplyEnabled.value) {
           const [start, end] = props.modelValue
             ? props.modelValue.split(props.separator)
             : [null, null]
@@ -1747,7 +3529,7 @@ function datepickerClasses(date: DatePickerDay) {
   }
   else {
     if (Array.isArray(props.modelValue)) {
-      if (props.autoApply) {
+      if (autoApplyEnabled.value) {
         if (props.modelValue.length > 0) {
           const [start] = props.modelValue
           s = dayjs(start, props.formatter.date, true)
@@ -1759,7 +3541,7 @@ function datepickerClasses(date: DatePickerDay) {
       }
     }
     else if (typeof props.modelValue === 'object') {
-      if (props.autoApply) {
+      if (autoApplyEnabled.value) {
         if (props.modelValue) {
           const [start] = Object.values(props.modelValue)
           s = dayjs(start, props.formatter.date, true)
@@ -1771,7 +3553,7 @@ function datepickerClasses(date: DatePickerDay) {
       }
     }
     else {
-      if (props.autoApply) {
+      if (autoApplyEnabled.value) {
         if (props.modelValue) {
           const [start] = props.modelValue.split(props.separator)
           s = dayjs(start, props.formatter.date, true)
@@ -1837,7 +3619,7 @@ function betweenRangeClasses(date: Dayjs) {
       e = end && dayjs(end, props.formatter.date, true)
     }
     else {
-      if (props.autoApply) {
+      if (autoApplyEnabled.value) {
         const [start, end] = props.modelValue
         s = start && dayjs(start, props.formatter.date, true)
         e = end && dayjs(end, props.formatter.date, true)
@@ -1856,7 +3638,7 @@ function betweenRangeClasses(date: Dayjs) {
       e = end && dayjs(end, props.formatter.date, true)
     }
     else {
-      if (props.autoApply) {
+      if (autoApplyEnabled.value) {
         if (props.modelValue) {
           const [start, end] = Object.values(props.modelValue)
           s = start && dayjs(start, props.formatter.date, true)
@@ -1877,7 +3659,7 @@ function betweenRangeClasses(date: Dayjs) {
       e = end && dayjs(end, props.formatter.date, true)
     }
     else {
-      if (props.autoApply) {
+      if (autoApplyEnabled.value) {
         const [start, end] = props.modelValue
           ? props.modelValue.split(props.separator)
           : [null, null]
@@ -1961,7 +3743,7 @@ function forceEmit(s: string, e: string) {
 
 function emitShortcut(s: string, e: string) {
   if (asRange()) {
-    if (props.autoApply) {
+    if (autoApplyEnabled.value) {
       if (Array.isArray(props.modelValue)) {
         emit('update:modelValue', [s, e])
       }
@@ -1994,7 +3776,7 @@ function emitShortcut(s: string, e: string) {
     }
   }
   else {
-    if (props.autoApply) {
+    if (autoApplyEnabled.value) {
       if (Array.isArray(props.modelValue)) {
         emit('update:modelValue', [s])
       }
@@ -2277,13 +4059,25 @@ function activateShortcut(
 
   applyShortcutResolvedValue(activation.value)
 
-  if (close)
+  const shouldCloseAfterShortcutSelection
+    = typeof close === 'function'
+      && (!asRange() || props.closeOnRangeSelection)
+
+  if (shouldCloseAfterShortcutSelection)
     close()
 }
 
 watch(
   () => applyValue.value,
   (newValue) => {
+    if (datetimeModeConfig.value.datetime) {
+      // Keep the user-selected endpoint stable while editing time wheels.
+      // Explicit endpoint changes come from Start/End controls (or date selection flow).
+      if (!asRange() || newValue.length === 0)
+        datetimeDraftState.activeEndpoint = 'start'
+      syncDateTimeDraftsFromApplyValue()
+    }
+
     if (newValue.length > 0) {
       panel.previous.calendar = true
       panel.previous.month = false
@@ -2326,13 +4120,20 @@ watchEffect(() => {
       dayjs.locale(locale)
     }
 
-    let s, e
+    let s: Dayjs | null = null
+    let e: Dayjs | null = null
+    let startHydrated = false
+    let endHydrated = false
     if (asRange()) {
       if (Array.isArray(modelValueCloned)) {
         if (modelValueCloned.length > 0) {
           const [start, end] = modelValueCloned
-          s = dayjs(start, props.formatter.date, true)
-          e = dayjs(end, props.formatter.date, true)
+          const resolvedStart = resolveModelDateValue(start, 'start')
+          const resolvedEnd = resolveModelDateValue(end, 'end')
+          s = resolvedStart.value
+          e = resolvedEnd.value
+          startHydrated = resolvedStart.isHydrated
+          endHydrated = resolvedEnd.isHydrated
         }
       }
       else if (typeof modelValueCloned === 'object') {
@@ -2359,15 +4160,23 @@ watchEffect(() => {
         }
         if (modelValueCloned) {
           const [start, end] = Object.values(modelValueCloned)
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
+          const resolvedStart = resolveModelDateValue(start, 'start')
+          const resolvedEnd = resolveModelDateValue(end, 'end')
+          s = resolvedStart.value
+          e = resolvedEnd.value
+          startHydrated = resolvedStart.isHydrated
+          endHydrated = resolvedEnd.isHydrated
         }
       }
       else {
         if (modelValueCloned) {
           const [start, end] = modelValueCloned.split(props.separator)
-          s = dayjs(start, props.formatter.date, true)
-          e = dayjs(end, props.formatter.date, true)
+          const resolvedStart = resolveModelDateValue(start, 'start')
+          const resolvedEnd = resolveModelDateValue(end, 'end')
+          s = resolvedStart.value
+          e = resolvedEnd.value
+          startHydrated = resolvedStart.isHydrated
+          endHydrated = resolvedEnd.isHydrated
         }
       }
 
@@ -2397,7 +4206,9 @@ watchEffect(() => {
           datepicker.value.year.previous = s.year()
           datepicker.value.year.next = e.year()
         }
-        if (!props.autoApply)
+        assignDateTimeDraft('start', s, startHydrated)
+        assignDateTimeDraft('end', e, endHydrated)
+        if (!autoApplyEnabled.value)
           applyValue.value = [s, e]
       }
       else {
@@ -2405,25 +4216,33 @@ watchEffect(() => {
         datepicker.value.next = dayjs(props.startFrom).add(1, 'month')
         datepicker.value.year.previous = datepicker.value.previous.year()
         datepicker.value.year.next = datepicker.value.next.year()
+        assignDateTimeDraft('start', null)
+        assignDateTimeDraft('end', null)
       }
     }
     else {
       if (Array.isArray(modelValueCloned)) {
         if (modelValueCloned.length > 0) {
           const [start] = modelValueCloned
-          s = dayjs(start, props.formatter.date, true)
+          const resolvedStart = resolveModelDateValue(start, 'start')
+          s = resolvedStart.value
+          startHydrated = resolvedStart.isHydrated
         }
       }
       else if (typeof modelValueCloned === 'object') {
         if (modelValueCloned) {
           const [start] = Object.values(modelValueCloned)
-          s = dayjs(start, props.formatter.date, true)
+          const resolvedStart = resolveModelDateValue(start, 'start')
+          s = resolvedStart.value
+          startHydrated = resolvedStart.isHydrated
         }
       }
       else {
         if (modelValueCloned.length) {
           const [start] = modelValueCloned.split(props.separator)
-          s = dayjs(start, props.formatter.date, true)
+          const resolvedStart = resolveModelDateValue(start, 'start')
+          s = resolvedStart.value
+          startHydrated = resolvedStart.isHydrated
         }
       }
 
@@ -2433,7 +4252,9 @@ watchEffect(() => {
         datepicker.value.next = s.add(1, 'month')
         datepicker.value.year.previous = s.year()
         datepicker.value.year.next = s.add(1, 'year').year()
-        if (!props.autoApply)
+        assignDateTimeDraft('start', s, startHydrated)
+        assignDateTimeDraft('end', null)
+        if (!autoApplyEnabled.value)
           applyValue.value = [s]
       }
       else {
@@ -2441,6 +4262,8 @@ watchEffect(() => {
         datepicker.value.next = dayjs(props.startFrom).add(1, 'month')
         datepicker.value.year.previous = datepicker.value.previous.year()
         datepicker.value.year.next = datepicker.value.next.year()
+        assignDateTimeDraft('start', null)
+        assignDateTimeDraft('end', null)
       }
     }
     const days
@@ -2534,29 +4357,46 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
             class="fixed inset-0 z-50 overflow-y-auto sm:overflow-visible sm:static sm:z-auto bg-white dark:bg-vtd-secondary-800 sm:rounded-lg shadow-sm">
             <div
               class="vtd-datepicker static sm:relative w-full sm:w-fit bg-white sm:rounded-lg sm:shadow-sm border-0 sm:border border-black/[.1] px-3 py-3 sm:px-4 sm:py-4 dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700/[1]"
-              :class="[getAbsoluteClass(open), props.selectorMode && props.asSingle ? 'sm:min-h-[23.5rem]' : '']"
+              :class="[
+                getAbsoluteClass(open),
+                props.selectorMode && props.asSingle ? 'sm:w-[28.5rem]' : '',
+                props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-[23.5rem]' : '',
+                collapseDualRangeInlineRightTimePanel ? 'sm:min-w-[78rem]' : '',
+              ]"
+              :style="datepickerShellLockStyle"
               @keydown.capture="(event) => onPickerPanelKeydown(event, close)">
-              <div class="flex flex-wrap lg:flex-nowrap" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
+              <div class="flex flex-wrap lg:flex-nowrap" :class="props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-full' : ''">
                 <VtdShortcut v-if="props.shortcuts" :shortcuts="props.shortcuts" :as-range="asRange()"
                   :as-single="props.asSingle" :built-in-shortcuts="builtInShortcutItems" :close="close">
                   <template #shortcut-item="slotProps">
                     <slot name="shortcut-item" v-bind="slotProps" />
                   </template>
                 </VtdShortcut>
-                <div class="relative flex flex-wrap sm:flex-nowrap p-1 w-full sm:w-auto" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
-                  <div v-if="asRange() && !props.asSingle"
+                <div
+                  ref="VtdPanelContentRef"
+                  class="relative flex flex-wrap sm:flex-nowrap p-1 w-full"
+                  :class="[
+                    props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-full' : '',
+                    showAnyInlineTimePanel ? 'sm:flex-1 sm:min-w-0' : 'sm:w-auto',
+                  ]"
+                  :style="panelContentLockStyle"
+                >
+                  <template v-if="shouldShowDatePanels">
+                    <div v-if="asRange() && !props.asSingle && !collapseDualRangeInlineRightTimePanel"
                     class="hidden h-full absolute inset-0 sm:flex justify-center items-center">
-                    <div class="h-full border-r border-black/[.1] dark:border-vtd-secondary-700/[1]" />
-                  </div>
-                  <div class="relative w-full" data-vtd-selector-panel="previous" :class="{
-                    'mb-3 sm:mb-0 sm:mr-2 md:w-1/2 lg:w-80':
-                      asRange() && !props.asSingle,
-                    'lg:w-80': props.asSingle && !!props.shortcuts,
-                    'sm:min-h-[21.625rem]': props.asSingle && !props.selectorMode,
-                    'sm:h-full': props.selectorMode && props.asSingle,
-                    'overflow-visible': isSelectorPanel('previous'),
-                    'overflow-hidden': !isSelectorPanel('previous'),
-                  }">
+                      <div class="h-full border-r border-black/[.1] dark:border-vtd-secondary-700/[1]" />
+                    </div>
+                    <div class="relative w-full" data-vtd-selector-panel="previous" :class="{
+                      'mb-3 sm:mb-0 sm:mr-2 md:w-1/2 lg:w-80':
+                        asRange() && !props.asSingle && !showInlineTimePanelInline,
+                      'mb-3 sm:mb-0 sm:mr-2 md:flex-1 md:min-w-0 lg:w-auto':
+                        asRange() && !props.asSingle && showInlineTimePanelInline,
+                      'lg:w-80': props.asSingle && !!props.shortcuts,
+                      'sm:min-h-[21.625rem]': props.asSingle && !props.selectorMode,
+                      'overflow-visible': isSelectorPanel('previous'),
+                      'overflow-hidden': !isSelectorPanel('previous'),
+                      'sm:h-full': props.selectorMode && props.asSingle && !isDateTimeEnabled,
+                    }">
                     <VtdHeader
                       :panel="panel.previous"
                       :calendar="calendar.previous"
@@ -2627,10 +4467,12 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                     </div>
                   </div>
 
-                  <div v-if="asRange() && !props.asSingle"
+                    <div v-if="asRange() && !props.asSingle"
                     data-vtd-selector-panel="next"
-                    class="relative w-full md:w-1/2 lg:w-80 mt-3 sm:mt-0 sm:ml-2"
+                    class="relative w-full mt-3 sm:mt-0 sm:ml-2"
                     :class="{
+                      'md:w-1/2 lg:w-80': asRange() && !props.asSingle && !showInlineTimePanelInline,
+                      'md:flex-1 md:min-w-0 lg:w-auto': asRange() && !props.asSingle && showInlineTimePanelInline,
                       'overflow-visible': isSelectorPanel('next'),
                       'overflow-hidden': !isSelectorPanel('next'),
                     }">
@@ -2703,25 +4545,340 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                         </div>
                       </template>
                     </div>
-                  </div>
+                    </div>
+                  </template>
+                  <template v-if="shouldRenderInlineTimePanels">
+                    <div v-show="showPageTimePanelInline || showInlineTimePanelInline" class="w-full min-w-0 sm:flex-1 px-0.5 sm:px-2 flex flex-col sm:h-full">
+                      <div class="mt-2 w-full min-w-0 rounded-md border border-black/[.08] p-2 dark:border-vtd-secondary-700/[1]"
+                        :class="timePanelFillClass">
+                        <div class="flex flex-col gap-2" :class="shouldUseFillTimePanelLayout ? 'h-full' : ''">
+                          <div :class="timePanelHeaderRowClass">
+                            <p
+                              v-if="!showDualRangeTimePanelsUi"
+                              class="shrink-0 whitespace-nowrap text-xs font-medium text-vtd-secondary-700 dark:text-vtd-secondary-200"
+                            >
+                              {{ timePanelSingleEndpointTitle }}
+                            </p>
+                            <div
+                              v-if="showDualRangeTimePanelsUi"
+                              :class="timePanelDualEndpointLabelsClass"
+                            >
+                              <p :class="timePanelDualEndpointLabelTextClass">
+                                Start time
+                              </p>
+                              <p :class="timePanelDualEndpointLabelTextClass">
+                                End time
+                              </p>
+                            </div>
+                            <div v-if="shouldCenterTimePanelEndpointToggle" :class="timePanelCenteredToggleWrapperClass">
+                              <div :class="timePanelEndpointToggleGroupClass">
+                                <button
+                                  type="button"
+                                  :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('start')]"
+                                  @click="setDateTimeEndpoint('start')"
+                                >
+                                  Start
+                                </button>
+                                <button
+                                  type="button"
+                                  :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('end')]"
+                                  @click="setDateTimeEndpoint('end')"
+                                >
+                                  End
+                                </button>
+                              </div>
+                            </div>
+                            <p
+                              v-if="shouldOverlayTimeFormatLabel"
+                              :class="[timePanelFormatLabelClass, 'absolute right-0 top-0']"
+                            >
+                              {{ dateTimeFormatDescription }}
+                            </p>
+                            <div :class="timePanelHeaderActionsClass">
+                              <div v-if="shouldShowInlineTimePanelEndpointToggle" :class="timePanelEndpointToggleGroupClass">
+                                <button
+                                  type="button"
+                                  :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('start')]"
+                                  @click="setDateTimeEndpoint('start')"
+                                >
+                                  Start
+                                </button>
+                                <button
+                                  type="button"
+                                  :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('end')]"
+                                  @click="setDateTimeEndpoint('end')"
+                                >
+                                  End
+                                </button>
+                              </div>
+                              <button
+                                v-if="shouldShowHeaderTimePanelSwitchButton"
+                                type="button"
+                                :class="timePanelHeaderSwitchButtonClass"
+                                @click="toggleTimePanel()"
+                              >
+                                {{ timePanelSwitchLabel }}
+                              </button>
+                              <p v-if="shouldShowInlineTimeFormatLabel" :class="timePanelFormatLabelClass">
+                                {{ dateTimeFormatDescription }}
+                              </p>
+                            </div>
+                          </div>
+                          <div class="w-full min-w-0" :class="timePanelEndpointLayoutClass" :style="timePanelEndpointLayoutStyle">
+                            <div
+                              v-for="endpoint in visibleTimeEndpoints"
+                              :key="endpoint"
+                              class="vtd-time-endpoint min-w-0 flex flex-col gap-2"
+                              :class="showDualRangeTimePanelsUi ? 'vtd-time-endpoint-dual h-full min-h-0 w-full overflow-hidden rounded-md border border-black/[.1] px-2 py-4 dark:border-vtd-secondary-700/[1]' : 'vtd-time-endpoint-single w-full'"
+                            >
+                              <template v-if="isTimePickerWheelStyle">
+                                <div
+                                  class="vtd-time-wheel-grid mt-1.5 mb-1 grid min-h-0 auto-rows-[minmax(0,1fr)] items-stretch gap-2"
+                                  :class="[timeWheelGridColumnClass, showDualRangeTimePanelsUi ? 'vtd-time-wheel-grid-dual' : 'vtd-time-wheel-grid-single w-full']"
+                                >
+                                  <VtdTimeWheel
+                                    ariaLabel="Hour wheel"
+                                    :items="hourWheelOptions"
+                                    :model-value="getHourWheelValue(endpoint)"
+                                    :scrollMode="props.timeWheelScrollMode"
+                                    :fractionalOffset="getHourWheelFractionalOffset(endpoint)"
+                                    :disabled="!isDateTimeDraftReady(endpoint)"
+                                    @step="(payload) => onDateTimeHourWheelStep(payload, endpoint)"
+                                    @update:model-value="(value) => onDateTimeHourWheelUpdate(value, endpoint)"
+                                  />
+                                  <VtdTimeWheel
+                                    ariaLabel="Minute wheel"
+                                    :items="minuteWheelOptions"
+                                    :model-value="getMinuteWheelValue(endpoint)"
+                                    :scrollMode="props.timeWheelScrollMode"
+                                    :fractionalOffset="getMinuteWheelFractionalOffset(endpoint)"
+                                    :disabled="!isDateTimeDraftReady(endpoint)"
+                                    @step="(payload) => onDateTimeMinuteWheelStep(payload, endpoint)"
+                                    @update:model-value="(value) => onDateTimeMinuteWheelUpdate(value, endpoint)"
+                                  />
+                                  <VtdTimeWheel
+                                    v-if="formatterTimeTokens.usesSeconds"
+                                    ariaLabel="Second wheel"
+                                    :items="secondWheelOptions"
+                                    :model-value="getSecondWheelValue(endpoint)"
+                                    :scrollMode="props.timeWheelScrollMode"
+                                    :disabled="!isDateTimeDraftReady(endpoint)"
+                                    @step="(payload) => onDateTimeSecondWheelStep(payload, endpoint)"
+                                    @update:model-value="(value) => onDateTimeSecondWheelUpdate(value, endpoint)"
+                                  />
+                                  <VtdTimeWheel
+                                    v-if="formatterTimeTokens.uses12Hour"
+                                    ariaLabel="Meridiem wheel"
+                                    :items="meridiemWheelOptions"
+                                    :model-value="getMeridiemWheelValue(endpoint)"
+                                    :scrollMode="props.timeWheelScrollMode"
+                                    :fractionalOffset="getMeridiemWheelFractionalOffset(endpoint)"
+                                    :syncDirection="getMeridiemWheelSyncDirection(endpoint)"
+                                    :disabled="!isDateTimeDraftReady(endpoint)"
+                                    @update:model-value="(value) => onDateTimeMeridiemWheelUpdate(value, endpoint)"
+                                  />
+                                </div>
+                              </template>
+                              <template v-else>
+                                <input
+                                  :value="getDateTimeInputValue(endpoint)"
+                                  :placeholder="dateTimeInputPlaceholder"
+                                  type="text"
+                                  class="block w-full rounded-md border border-vtd-secondary-300 px-3 py-2 text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 focus:border-vtd-primary-300 focus:outline-none focus:ring focus:ring-vtd-primary-500 focus:ring-opacity-10 dark:border-vtd-secondary-700 dark:bg-vtd-secondary-800 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-20"
+                                  :disabled="!isDateTimeDraftReady(endpoint)"
+                                  @input="(event) => onDateTimeInput(event, endpoint)"
+                                >
+                              </template>
+                              <p v-if="getDateTimeValidationMessage(endpoint)" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                                {{ getDateTimeValidationMessage(endpoint) }}
+                              </p>
+                            </div>
+                          </div>
+                          <p v-if="formatterTimeTokenErrorMessage" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                            {{ formatterTimeTokenErrorMessage }}
+                          </p>
+                          <p v-else-if="panelLevelDateTimeErrorMessage" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                            {{ panelLevelDateTimeErrorMessage }}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
                 </div>
               </div>
-              <div v-if="!props.autoApply">
+              <div v-if="showStackedDateTimeControls" class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]">
+                <div class="mt-1.5 w-full min-w-0 flex flex-col gap-2">
+                  <div :class="timePanelHeaderRowClass">
+                    <p
+                      v-if="!showDualRangeTimePanelsUi"
+                      class="shrink-0 whitespace-nowrap text-xs font-medium text-vtd-secondary-700 dark:text-vtd-secondary-200"
+                    >
+                      {{ timePanelSingleEndpointTitle }}
+                    </p>
+                    <div
+                      v-if="showDualRangeTimePanelsUi"
+                      :class="timePanelDualEndpointLabelsClass"
+                    >
+                      <p :class="timePanelDualEndpointLabelTextClass">
+                        Start time
+                      </p>
+                      <p :class="timePanelDualEndpointLabelTextClass">
+                        End time
+                      </p>
+                    </div>
+                    <div v-if="shouldCenterTimePanelEndpointToggle" :class="timePanelCenteredToggleWrapperClass">
+                      <div :class="timePanelEndpointToggleGroupClass">
+                        <button
+                          type="button"
+                          :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('start')]"
+                          @click="setDateTimeEndpoint('start')"
+                        >
+                          Start
+                        </button>
+                        <button
+                          type="button"
+                          :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('end')]"
+                          @click="setDateTimeEndpoint('end')"
+                        >
+                          End
+                        </button>
+                      </div>
+                    </div>
+                    <p
+                      v-if="shouldOverlayTimeFormatLabel"
+                      :class="[timePanelFormatLabelClass, 'absolute right-0 top-0']"
+                    >
+                      {{ dateTimeFormatDescription }}
+                    </p>
+                    <div :class="timePanelHeaderActionsClass">
+                      <div v-if="shouldShowInlineTimePanelEndpointToggle" :class="timePanelEndpointToggleGroupClass">
+                        <button
+                          type="button"
+                          :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('start')]"
+                          @click="setDateTimeEndpoint('start')"
+                        >
+                          Start
+                        </button>
+                        <button
+                          type="button"
+                          :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('end')]"
+                          @click="setDateTimeEndpoint('end')"
+                        >
+                          End
+                        </button>
+                      </div>
+                      <button
+                        v-if="shouldShowHeaderTimePanelSwitchButton"
+                        type="button"
+                        :class="timePanelHeaderSwitchButtonClass"
+                        @click="toggleTimePanel()"
+                      >
+                        {{ timePanelSwitchLabel }}
+                      </button>
+                      <p v-if="shouldShowInlineTimeFormatLabel" :class="timePanelFormatLabelClass">
+                        {{ dateTimeFormatDescription }}
+                      </p>
+                    </div>
+                  </div>
+                  <div class="w-full min-w-0" :class="timePanelEndpointLayoutClass" :style="timePanelEndpointLayoutStyle">
+                    <div
+                      v-for="endpoint in visibleTimeEndpoints"
+                      :key="`stacked-${endpoint}`"
+                      class="vtd-time-endpoint min-w-0 flex flex-col gap-2"
+                      :class="showDualRangeTimePanelsUi ? 'vtd-time-endpoint-dual h-full min-h-0 w-full overflow-hidden rounded-md border border-black/[.1] px-2 py-4 dark:border-vtd-secondary-700/[1]' : 'vtd-time-endpoint-single w-full'"
+                    >
+                      <template v-if="isTimePickerWheelStyle">
+                        <div
+                          class="vtd-time-wheel-grid mt-1.5 mb-1 grid min-h-0 auto-rows-[minmax(0,1fr)] items-stretch gap-2"
+                          :class="[timeWheelGridColumnClass, showDualRangeTimePanelsUi ? 'vtd-time-wheel-grid-dual' : 'vtd-time-wheel-grid-single w-full']"
+                        >
+                          <VtdTimeWheel
+                            ariaLabel="Hour wheel"
+                                    :items="hourWheelOptions"
+                            :model-value="getHourWheelValue(endpoint)"
+                            :scrollMode="props.timeWheelScrollMode"
+                            :fractionalOffset="getHourWheelFractionalOffset(endpoint)"
+                            :disabled="!isDateTimeDraftReady(endpoint)"
+                            @step="(payload) => onDateTimeHourWheelStep(payload, endpoint)"
+                            @update:model-value="(value) => onDateTimeHourWheelUpdate(value, endpoint)"
+                          />
+                          <VtdTimeWheel
+                            ariaLabel="Minute wheel"
+                                    :items="minuteWheelOptions"
+                            :model-value="getMinuteWheelValue(endpoint)"
+                            :scrollMode="props.timeWheelScrollMode"
+                            :fractionalOffset="getMinuteWheelFractionalOffset(endpoint)"
+                            :disabled="!isDateTimeDraftReady(endpoint)"
+                            @step="(payload) => onDateTimeMinuteWheelStep(payload, endpoint)"
+                            @update:model-value="(value) => onDateTimeMinuteWheelUpdate(value, endpoint)"
+                          />
+                          <VtdTimeWheel
+                            v-if="formatterTimeTokens.usesSeconds"
+                            ariaLabel="Second wheel"
+                                    :items="secondWheelOptions"
+                            :model-value="getSecondWheelValue(endpoint)"
+                            :scrollMode="props.timeWheelScrollMode"
+                            :disabled="!isDateTimeDraftReady(endpoint)"
+                            @step="(payload) => onDateTimeSecondWheelStep(payload, endpoint)"
+                            @update:model-value="(value) => onDateTimeSecondWheelUpdate(value, endpoint)"
+                          />
+                          <VtdTimeWheel
+                            v-if="formatterTimeTokens.uses12Hour"
+                            ariaLabel="Meridiem wheel"
+                            :items="meridiemWheelOptions"
+                            :model-value="getMeridiemWheelValue(endpoint)"
+                            :scrollMode="props.timeWheelScrollMode"
+                            :fractionalOffset="getMeridiemWheelFractionalOffset(endpoint)"
+                            :syncDirection="getMeridiemWheelSyncDirection(endpoint)"
+                            :disabled="!isDateTimeDraftReady(endpoint)"
+                            @update:model-value="(value) => onDateTimeMeridiemWheelUpdate(value, endpoint)"
+                          />
+                        </div>
+                      </template>
+                      <template v-else>
+                        <input
+                          :value="getDateTimeInputValue(endpoint)"
+                          :placeholder="dateTimeInputPlaceholder"
+                          type="text"
+                          class="block w-full rounded-md border border-vtd-secondary-300 px-3 py-2 text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 focus:border-vtd-primary-300 focus:outline-none focus:ring focus:ring-vtd-primary-500 focus:ring-opacity-10 dark:border-vtd-secondary-700 dark:bg-vtd-secondary-800 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-20"
+                          :disabled="!isDateTimeDraftReady(endpoint)"
+                          @input="(event) => onDateTimeInput(event, endpoint)"
+                        >
+                      </template>
+                      <p v-if="getDateTimeValidationMessage(endpoint)" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                        {{ getDateTimeValidationMessage(endpoint) }}
+                      </p>
+                    </div>
+                  </div>
+                  <p v-if="formatterTimeTokenErrorMessage" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                    {{ formatterTimeTokenErrorMessage }}
+                  </p>
+                  <p v-else-if="panelLevelDateTimeErrorMessage" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                    {{ panelLevelDateTimeErrorMessage }}
+                  </p>
+                </div>
+              </div>
+              <div v-if="showApplyFooter">
                 <div class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]">
                   <div class="mt-1.5 sm:flex sm:flex-row-reverse">
                     <button type="button"
                       class="away-apply-picker w-full transition ease-out duration-300 inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-vtd-primary-600 text-base font-medium text-white hover:bg-vtd-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vtd-primary-500 sm:ml-3 sm:w-auto sm:text-sm dark:ring-offset-vtd-secondary-800 disabled:cursor-not-allowed"
-                      :disabled="props.asSingle
-                        ? applyValue.length < 1
-                        : applyValue.length < 2
-                        " @click="applyDate(close)" v-text="props.options.footer.apply" />
+                      :disabled="isApplyButtonDisabled()" @click="applyDate(close)" v-text="props.options.footer.apply" />
+                    <button
+                      v-if="canToggleTimePanel || shouldShowTimePanelSwitchButton"
+                      type="button"
+                      class="mt-3 away-cancel-picker w-full transition ease-out duration-300 inline-flex justify-center rounded-md border border-vtd-secondary-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-vtd-secondary-700 hover:bg-vtd-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vtd-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm dark:ring-offset-vtd-secondary-800"
+                      @click="toggleTimePanel()"
+                    >
+                      {{ timePanelSwitchLabel }}
+                    </button>
                     <button type="button"
                       class="mt-3 away-cancel-picker w-full transition ease-out duration-300 inline-flex justify-center rounded-md border border-vtd-secondary-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-vtd-secondary-700 hover:bg-vtd-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vtd-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm dark:ring-offset-vtd-secondary-800"
                       @click="close()" v-text="props.options.footer.cancel" />
                   </div>
                 </div>
               </div>
-              <div v-else class="sm:hidden">
+              <div v-else-if="showMobileCancelFooter" class="sm:hidden">
                 <div class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]">
                   <div class="mt-1.5 sm:flex sm:flex-row-reverse">
                     <button type="button"
@@ -2740,28 +4897,42 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
     <div
       ref="VtdStaticRef"
       class="bg-white rounded-lg shadow-sm border border-black/[.1] px-3 py-3 sm:px-4 sm:py-4 dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700/[1]"
-      :class="props.selectorMode && props.asSingle ? 'sm:min-h-[23.5rem]' : ''"
+      :class="[
+        props.selectorMode && props.asSingle ? 'sm:w-[28.5rem]' : '',
+        props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-[23.5rem]' : '',
+        collapseDualRangeInlineRightTimePanel ? 'sm:min-w-[78rem]' : '',
+      ]"
       @keydown.capture="onPickerPanelKeydown">
-      <div class="flex flex-wrap lg:flex-nowrap" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
+      <div class="flex flex-wrap lg:flex-nowrap" :class="props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-full' : ''">
         <VtdShortcut v-if="props.shortcuts" :shortcuts="props.shortcuts" :as-range="asRange()" :as-single="props.asSingle"
           :built-in-shortcuts="builtInShortcutItems">
           <template #shortcut-item="slotProps">
             <slot name="shortcut-item" v-bind="slotProps" />
           </template>
         </VtdShortcut>
-        <div class="relative flex flex-wrap sm:flex-nowrap p-1 w-full sm:w-auto" :class="props.selectorMode && props.asSingle ? 'sm:h-full' : ''">
-          <div v-if="asRange() && !props.asSingle"
+        <div
+          ref="VtdPanelContentRef"
+          class="relative flex flex-wrap sm:flex-nowrap p-1 w-full"
+          :class="[
+            props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-full' : '',
+            showAnyInlineTimePanel ? 'sm:flex-1 sm:min-w-0' : 'sm:w-auto',
+          ]"
+          :style="panelContentLockStyle"
+        >
+          <template v-if="shouldShowDatePanels">
+            <div v-if="asRange() && !props.asSingle && !collapseDualRangeInlineRightTimePanel"
             class="hidden h-full absolute inset-0 sm:flex justify-center items-center">
-            <div class="h-full border-r border-black/[.1] dark:border-vtd-secondary-700/[1]" />
-          </div>
-          <div class="relative w-full" data-vtd-selector-panel="previous" :class="{
-            'mb-3 sm:mb-0 sm:mr-2 md:w-1/2 lg:w-80': asRange() && !props.asSingle,
-            'lg:w-80': props.asSingle && !!props.shortcuts,
-            'sm:min-h-[21.625rem]': props.asSingle && !props.selectorMode,
-            'sm:h-full': props.selectorMode && props.asSingle,
-            'overflow-visible': isSelectorPanel('previous'),
-            'overflow-hidden': !isSelectorPanel('previous'),
-          }">
+              <div class="h-full border-r border-black/[.1] dark:border-vtd-secondary-700/[1]" />
+            </div>
+            <div class="relative w-full" data-vtd-selector-panel="previous" :class="{
+              'mb-3 sm:mb-0 sm:mr-2 md:w-1/2 lg:w-80': asRange() && !props.asSingle && !showInlineTimePanelInline,
+              'mb-3 sm:mb-0 sm:mr-2 md:flex-1 md:min-w-0 lg:w-auto': asRange() && !props.asSingle && showInlineTimePanelInline,
+              'lg:w-80': props.asSingle && !!props.shortcuts,
+              'sm:min-h-[21.625rem]': props.asSingle && !props.selectorMode,
+              'sm:h-full': props.selectorMode && props.asSingle && !isDateTimeEnabled,
+              'overflow-visible': isSelectorPanel('previous'),
+              'overflow-hidden': !isSelectorPanel('previous'),
+            }">
             <VtdHeader
               :panel="panel.previous"
               :calendar="calendar.previous"
@@ -2831,10 +5002,12 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
             </div>
           </div>
 
-          <div v-if="asRange() && !props.asSingle"
+            <div v-if="asRange() && !props.asSingle"
             data-vtd-selector-panel="next"
-            class="relative w-full md:w-1/2 lg:w-80 mt-3 sm:mt-0 sm:ml-2"
+            class="relative w-full mt-3 sm:mt-0 sm:ml-2"
             :class="{
+              'md:w-1/2 lg:w-80': asRange() && !props.asSingle && !showInlineTimePanelInline,
+              'md:flex-1 md:min-w-0 lg:w-auto': asRange() && !props.asSingle && showInlineTimePanelInline,
               'overflow-visible': isSelectorPanel('next'),
               'overflow-hidden': !isSelectorPanel('next'),
             }">
@@ -2907,16 +5080,333 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                 </div>
               </template>
             </div>
-          </div>
+            </div>
+          </template>
+          <template v-if="shouldRenderInlineTimePanels">
+            <div v-show="showPageTimePanelInline || showInlineTimePanelInline" class="w-full min-w-0 sm:flex-1 px-0.5 sm:px-2 flex flex-col sm:h-full">
+              <div class="mt-2 w-full min-w-0 rounded-md border border-black/[.08] p-2 dark:border-vtd-secondary-700/[1]"
+                :class="timePanelFillClass">
+                <div class="flex flex-col gap-2" :class="shouldUseFillTimePanelLayout ? 'h-full' : ''">
+                  <div :class="timePanelHeaderRowClass">
+                    <p
+                      v-if="!showDualRangeTimePanelsUi"
+                      class="shrink-0 whitespace-nowrap text-xs font-medium text-vtd-secondary-700 dark:text-vtd-secondary-200"
+                    >
+                      {{ timePanelSingleEndpointTitle }}
+                    </p>
+                    <div
+                      v-if="showDualRangeTimePanelsUi"
+                      :class="timePanelDualEndpointLabelsClass"
+                    >
+                      <p :class="timePanelDualEndpointLabelTextClass">
+                        Start time
+                      </p>
+                      <p :class="timePanelDualEndpointLabelTextClass">
+                        End time
+                      </p>
+                    </div>
+                    <div v-if="shouldCenterTimePanelEndpointToggle" :class="timePanelCenteredToggleWrapperClass">
+                      <div :class="timePanelEndpointToggleGroupClass">
+                        <button
+                          type="button"
+                          :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('start')]"
+                          @click="setDateTimeEndpoint('start')"
+                        >
+                          Start
+                        </button>
+                        <button
+                          type="button"
+                          :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('end')]"
+                          @click="setDateTimeEndpoint('end')"
+                        >
+                          End
+                        </button>
+                      </div>
+                    </div>
+                    <p
+                      v-if="shouldOverlayTimeFormatLabel"
+                      :class="[timePanelFormatLabelClass, 'absolute right-0 top-0']"
+                    >
+                      {{ dateTimeFormatDescription }}
+                    </p>
+                    <div :class="timePanelHeaderActionsClass">
+                      <div v-if="shouldShowInlineTimePanelEndpointToggle" :class="timePanelEndpointToggleGroupClass">
+                        <button
+                          type="button"
+                          :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('start')]"
+                          @click="setDateTimeEndpoint('start')"
+                        >
+                          Start
+                        </button>
+                        <button
+                          type="button"
+                          :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('end')]"
+                          @click="setDateTimeEndpoint('end')"
+                        >
+                          End
+                        </button>
+                      </div>
+                      <button
+                        v-if="shouldShowHeaderTimePanelSwitchButton"
+                        type="button"
+                        :class="timePanelHeaderSwitchButtonClass"
+                        @click="toggleTimePanel()"
+                      >
+                        {{ timePanelSwitchLabel }}
+                      </button>
+                      <p v-if="shouldShowInlineTimeFormatLabel" :class="timePanelFormatLabelClass">
+                        {{ dateTimeFormatDescription }}
+                      </p>
+                    </div>
+                  </div>
+                  <div class="w-full min-w-0" :class="timePanelEndpointLayoutClass" :style="timePanelEndpointLayoutStyle">
+                    <div
+                      v-for="endpoint in visibleTimeEndpoints"
+                      :key="`static-inline-${endpoint}`"
+                      class="vtd-time-endpoint min-w-0 flex flex-col gap-2"
+                      :class="showDualRangeTimePanelsUi ? 'vtd-time-endpoint-dual h-full min-h-0 w-full overflow-hidden rounded-md border border-black/[.1] px-2 py-4 dark:border-vtd-secondary-700/[1]' : 'vtd-time-endpoint-single w-full'"
+                    >
+                      <template v-if="isTimePickerWheelStyle">
+                        <div
+                          class="vtd-time-wheel-grid mt-1.5 mb-1 grid min-h-0 auto-rows-[minmax(0,1fr)] items-stretch gap-2"
+                          :class="[timeWheelGridColumnClass, showDualRangeTimePanelsUi ? 'vtd-time-wheel-grid-dual' : 'vtd-time-wheel-grid-single w-full']"
+                        >
+                          <VtdTimeWheel
+                            ariaLabel="Hour wheel"
+                                    :items="hourWheelOptions"
+                            :model-value="getHourWheelValue(endpoint)"
+                            :scrollMode="props.timeWheelScrollMode"
+                            :fractionalOffset="getHourWheelFractionalOffset(endpoint)"
+                            :disabled="!isDateTimeDraftReady(endpoint)"
+                            @step="(payload) => onDateTimeHourWheelStep(payload, endpoint)"
+                            @update:model-value="(value) => onDateTimeHourWheelUpdate(value, endpoint)"
+                          />
+                          <VtdTimeWheel
+                            ariaLabel="Minute wheel"
+                                    :items="minuteWheelOptions"
+                            :model-value="getMinuteWheelValue(endpoint)"
+                            :scrollMode="props.timeWheelScrollMode"
+                            :fractionalOffset="getMinuteWheelFractionalOffset(endpoint)"
+                            :disabled="!isDateTimeDraftReady(endpoint)"
+                            @step="(payload) => onDateTimeMinuteWheelStep(payload, endpoint)"
+                            @update:model-value="(value) => onDateTimeMinuteWheelUpdate(value, endpoint)"
+                          />
+                          <VtdTimeWheel
+                            v-if="formatterTimeTokens.usesSeconds"
+                            ariaLabel="Second wheel"
+                                    :items="secondWheelOptions"
+                            :model-value="getSecondWheelValue(endpoint)"
+                            :scrollMode="props.timeWheelScrollMode"
+                            :disabled="!isDateTimeDraftReady(endpoint)"
+                            @step="(payload) => onDateTimeSecondWheelStep(payload, endpoint)"
+                            @update:model-value="(value) => onDateTimeSecondWheelUpdate(value, endpoint)"
+                          />
+                          <VtdTimeWheel
+                            v-if="formatterTimeTokens.uses12Hour"
+                            ariaLabel="Meridiem wheel"
+                            :items="meridiemWheelOptions"
+                            :model-value="getMeridiemWheelValue(endpoint)"
+                            :scrollMode="props.timeWheelScrollMode"
+                            :fractionalOffset="getMeridiemWheelFractionalOffset(endpoint)"
+                            :syncDirection="getMeridiemWheelSyncDirection(endpoint)"
+                            :disabled="!isDateTimeDraftReady(endpoint)"
+                            @update:model-value="(value) => onDateTimeMeridiemWheelUpdate(value, endpoint)"
+                          />
+                        </div>
+                      </template>
+                      <template v-else>
+                        <input
+                          :value="getDateTimeInputValue(endpoint)"
+                          :placeholder="dateTimeInputPlaceholder"
+                          type="text"
+                          class="block w-full rounded-md border border-vtd-secondary-300 px-3 py-2 text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 focus:border-vtd-primary-300 focus:outline-none focus:ring focus:ring-vtd-primary-500 focus:ring-opacity-10 dark:border-vtd-secondary-700 dark:bg-vtd-secondary-800 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-20"
+                          :disabled="!isDateTimeDraftReady(endpoint)"
+                          @input="(event) => onDateTimeInput(event, endpoint)"
+                        >
+                      </template>
+                      <p v-if="getDateTimeValidationMessage(endpoint)" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                        {{ getDateTimeValidationMessage(endpoint) }}
+                      </p>
+                    </div>
+                  </div>
+                  <p v-if="formatterTimeTokenErrorMessage" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                    {{ formatterTimeTokenErrorMessage }}
+                  </p>
+                  <p v-else-if="panelLevelDateTimeErrorMessage" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                    {{ panelLevelDateTimeErrorMessage }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
-      <div v-if="!props.autoApply">
+      <div v-if="showStackedDateTimeControls" class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]">
+        <div class="mt-1.5 w-full min-w-0 flex flex-col gap-2">
+          <div :class="timePanelHeaderRowClass">
+            <p
+              v-if="!showDualRangeTimePanelsUi"
+              class="shrink-0 whitespace-nowrap text-xs font-medium text-vtd-secondary-700 dark:text-vtd-secondary-200"
+            >
+              {{ timePanelSingleEndpointTitle }}
+            </p>
+            <div
+              v-if="showDualRangeTimePanelsUi"
+              :class="timePanelDualEndpointLabelsClass"
+            >
+              <p :class="timePanelDualEndpointLabelTextClass">
+                Start time
+              </p>
+              <p :class="timePanelDualEndpointLabelTextClass">
+                End time
+              </p>
+            </div>
+            <div v-if="shouldCenterTimePanelEndpointToggle" :class="timePanelCenteredToggleWrapperClass">
+              <div :class="timePanelEndpointToggleGroupClass">
+                <button
+                  type="button"
+                  :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('start')]"
+                  @click="setDateTimeEndpoint('start')"
+                >
+                  Start
+                </button>
+                <button
+                  type="button"
+                  :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('end')]"
+                  @click="setDateTimeEndpoint('end')"
+                >
+                  End
+                </button>
+              </div>
+            </div>
+            <p
+              v-if="shouldOverlayTimeFormatLabel"
+              :class="[timePanelFormatLabelClass, 'absolute right-0 top-0']"
+            >
+              {{ dateTimeFormatDescription }}
+            </p>
+            <div :class="timePanelHeaderActionsClass">
+              <div v-if="shouldShowInlineTimePanelEndpointToggle" :class="timePanelEndpointToggleGroupClass">
+                <button
+                  type="button"
+                  :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('start')]"
+                  @click="setDateTimeEndpoint('start')"
+                >
+                  Start
+                </button>
+                <button
+                  type="button"
+                  :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('end')]"
+                  @click="setDateTimeEndpoint('end')"
+                >
+                  End
+                </button>
+              </div>
+              <button
+                v-if="shouldShowHeaderTimePanelSwitchButton"
+                type="button"
+                :class="timePanelHeaderSwitchButtonClass"
+                @click="toggleTimePanel()"
+              >
+                {{ timePanelSwitchLabel }}
+              </button>
+              <p v-if="shouldShowInlineTimeFormatLabel" :class="timePanelFormatLabelClass">
+                {{ dateTimeFormatDescription }}
+              </p>
+            </div>
+          </div>
+          <div class="w-full min-w-0" :class="timePanelEndpointLayoutClass" :style="timePanelEndpointLayoutStyle">
+            <div
+              v-for="endpoint in visibleTimeEndpoints"
+              :key="`static-stacked-${endpoint}`"
+              class="vtd-time-endpoint min-w-0 flex flex-col gap-2"
+              :class="showDualRangeTimePanelsUi ? 'vtd-time-endpoint-dual h-full min-h-0 w-full overflow-hidden rounded-md border border-black/[.1] px-2 py-4 dark:border-vtd-secondary-700/[1]' : 'vtd-time-endpoint-single w-full'"
+            >
+              <template v-if="isTimePickerWheelStyle">
+                <div
+                  class="vtd-time-wheel-grid mt-1.5 mb-1 grid min-h-0 auto-rows-[minmax(0,1fr)] items-stretch gap-2"
+                  :class="[timeWheelGridColumnClass, showDualRangeTimePanelsUi ? 'vtd-time-wheel-grid-dual' : 'vtd-time-wheel-grid-single w-full']"
+                >
+                  <VtdTimeWheel
+                    ariaLabel="Hour wheel"
+                                    :items="hourWheelOptions"
+                    :model-value="getHourWheelValue(endpoint)"
+                    :scrollMode="props.timeWheelScrollMode"
+                    :fractionalOffset="getHourWheelFractionalOffset(endpoint)"
+                    :disabled="!isDateTimeDraftReady(endpoint)"
+                    @step="(payload) => onDateTimeHourWheelStep(payload, endpoint)"
+                    @update:model-value="(value) => onDateTimeHourWheelUpdate(value, endpoint)"
+                  />
+                  <VtdTimeWheel
+                    ariaLabel="Minute wheel"
+                                    :items="minuteWheelOptions"
+                    :model-value="getMinuteWheelValue(endpoint)"
+                    :scrollMode="props.timeWheelScrollMode"
+                    :fractionalOffset="getMinuteWheelFractionalOffset(endpoint)"
+                    :disabled="!isDateTimeDraftReady(endpoint)"
+                    @step="(payload) => onDateTimeMinuteWheelStep(payload, endpoint)"
+                    @update:model-value="(value) => onDateTimeMinuteWheelUpdate(value, endpoint)"
+                  />
+                  <VtdTimeWheel
+                    v-if="formatterTimeTokens.usesSeconds"
+                    ariaLabel="Second wheel"
+                                    :items="secondWheelOptions"
+                    :model-value="getSecondWheelValue(endpoint)"
+                    :scrollMode="props.timeWheelScrollMode"
+                    :disabled="!isDateTimeDraftReady(endpoint)"
+                    @step="(payload) => onDateTimeSecondWheelStep(payload, endpoint)"
+                    @update:model-value="(value) => onDateTimeSecondWheelUpdate(value, endpoint)"
+                  />
+                  <VtdTimeWheel
+                    v-if="formatterTimeTokens.uses12Hour"
+                    ariaLabel="Meridiem wheel"
+                    :items="meridiemWheelOptions"
+                    :model-value="getMeridiemWheelValue(endpoint)"
+                    :scrollMode="props.timeWheelScrollMode"
+                    :fractionalOffset="getMeridiemWheelFractionalOffset(endpoint)"
+                    :syncDirection="getMeridiemWheelSyncDirection(endpoint)"
+                    :disabled="!isDateTimeDraftReady(endpoint)"
+                    @update:model-value="(value) => onDateTimeMeridiemWheelUpdate(value, endpoint)"
+                  />
+                </div>
+              </template>
+              <template v-else>
+                <input
+                  :value="getDateTimeInputValue(endpoint)"
+                  :placeholder="dateTimeInputPlaceholder"
+                  type="text"
+                  class="block w-full rounded-md border border-vtd-secondary-300 px-3 py-2 text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 focus:border-vtd-primary-300 focus:outline-none focus:ring focus:ring-vtd-primary-500 focus:ring-opacity-10 dark:border-vtd-secondary-700 dark:bg-vtd-secondary-800 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-20"
+                  :disabled="!isDateTimeDraftReady(endpoint)"
+                  @input="(event) => onDateTimeInput(event, endpoint)"
+                >
+              </template>
+              <p v-if="getDateTimeValidationMessage(endpoint)" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                {{ getDateTimeValidationMessage(endpoint) }}
+              </p>
+            </div>
+          </div>
+          <p v-if="formatterTimeTokenErrorMessage" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+            {{ formatterTimeTokenErrorMessage }}
+          </p>
+          <p v-else-if="panelLevelDateTimeErrorMessage" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+            {{ panelLevelDateTimeErrorMessage }}
+          </p>
+        </div>
+      </div>
+      <div v-if="showApplyFooter">
         <div class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]">
           <div class="mt-1.5 sm:flex sm:flex-row-reverse">
             <button type="button"
               class="away-apply-picker w-full transition ease-out duration-300 inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-vtd-primary-600 text-base font-medium text-white hover:bg-vtd-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vtd-primary-500 sm:ml-3 sm:w-auto sm:text-sm dark:ring-offset-vtd-secondary-800 disabled:cursor-not-allowed"
-              :disabled="props.asSingle ? applyValue.length < 1 : applyValue.length < 2
-                " @click="applyDate()" v-text="props.options.footer.apply" />
+              :disabled="isApplyButtonDisabled()" @click="applyDate()" v-text="props.options.footer.apply" />
+            <button
+              v-if="canToggleTimePanel || shouldShowTimePanelSwitchButton"
+              type="button"
+              class="mt-3 away-cancel-picker w-full transition ease-out duration-300 inline-flex justify-center rounded-md border border-vtd-secondary-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-vtd-secondary-700 hover:bg-vtd-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vtd-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm dark:ring-offset-vtd-secondary-800"
+              @click="toggleTimePanel()"
+            >
+              {{ timePanelSwitchLabel }}
+            </button>
           </div>
         </div>
       </div>
@@ -2927,6 +5417,30 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
 <style>
 @import "tailwindcss";
 @import "./index.css";
+
+.vtd-time-panel-fill {
+  @apply h-full;
+}
+
+.vtd-time-panel-fill .vtd-time-endpoint {
+  @apply min-h-0;
+}
+
+.vtd-time-panel-fill .vtd-time-endpoint-dual {
+  @apply flex-1 h-full min-h-0;
+}
+
+.vtd-time-panel-fill .vtd-time-endpoint-single {
+  @apply flex-1 h-full min-h-0 w-full;
+}
+
+.vtd-time-panel-fill .vtd-time-wheel-grid-dual {
+  @apply flex-1 h-full min-h-0;
+}
+
+.vtd-time-panel-fill .vtd-time-wheel-grid-single {
+  @apply flex-1 min-h-0 w-full;
+}
 
 .vtd-datepicker-overlay.open::before {
   @apply block opacity-50;

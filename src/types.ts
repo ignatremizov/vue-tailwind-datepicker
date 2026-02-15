@@ -75,3 +75,58 @@ export interface InvalidShortcutEventPayload {
   reason: ShortcutInvalidReason
   mode: ShortcutMode
 }
+
+export const DATETIME_ERROR_CODES = [
+  'config-missing-time-token',
+  'invalid-time-input',
+  'dst-nonexistent-time',
+  'range-end-before-start',
+] as const
+
+export type DateTimeErrorCode = (typeof DATETIME_ERROR_CODES)[number]
+export type DateTimeErrorType = 'configuration' | 'validation'
+export type DateTimeErrorField = 'formatter' | 'time' | 'range'
+export type DateTimeEndpointSelection = 'start' | 'end'
+export type DateTimeMeridiem = 'AM' | 'PM'
+
+export interface DateTimeModeConfig {
+  datetime: boolean
+  formatterDate: string
+  uses12Hour: boolean
+  usesSeconds: boolean
+  defaultTimeNormalized: string | null
+  defaultEndTimeNormalized: string | null
+}
+
+export interface DateTimeDraft {
+  datePart: Dayjs | null
+  timeText: string
+  hour: number | null
+  minute: number | null
+  second: number | null
+  meridiem: DateTimeMeridiem | null
+  isHydrated: boolean
+  isValid: boolean
+  errorCode: DateTimeErrorCode | null
+}
+
+export interface RangeDraftState {
+  start: DateTimeDraft
+  end: DateTimeDraft
+  activeEndpoint: DateTimeEndpointSelection
+}
+
+export interface ApplyGuardState {
+  canApply: boolean
+  blockedCode: DateTimeErrorCode | null
+  blockedField: DateTimeErrorField | null
+  blockedEndpoint: DateTimeEndpointSelection | null
+}
+
+export interface DateTimeErrorEventPayload {
+  type: DateTimeErrorType
+  code: DateTimeErrorCode
+  message: string
+  field: DateTimeErrorField
+  endpoint: DateTimeEndpointSelection | null
+}

@@ -21,6 +21,14 @@ const selectorSingleRangeFractionalValue = ref({
   startDate: dayjs().subtract(10, 'day').format('YYYY-MM-DD HH:mm:ss'),
   endDate: dayjs().add(10, 'day').format('YYYY-MM-DD HH:mm:ss'),
 })
+const selectorModeWheelRangeValue = ref({
+  startDate: dayjs().subtract(1, 'day').format('YYYY-MM-DD HH:mm:ss'),
+  endDate: dayjs().add(1, 'day').format('YYYY-MM-DD HH:mm:ss'),
+})
+const selectorModeWheelRangeNoSidepanelValue = ref({
+  startDate: dayjs().subtract(2, 'day').format('YYYY-MM-DD HH:mm:ss'),
+  endDate: dayjs().add(2, 'day').format('YYYY-MM-DD HH:mm:ss'),
+})
 const selectorDisabledValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
 const selectorEmptyModelValue = ref('')
 const selectorInvalidModelValue = ref('not-a-date ~ not-a-date')
@@ -46,6 +54,12 @@ const shortcutDisabledDemoValue = ref(
   `${dayjs().format('YYYY-MM-DD HH:mm:ss')} ~ ${dayjs().format('YYYY-MM-DD HH:mm:ss')}`,
 )
 const shortcutFailureLog = ref<string[]>([])
+const compatibilityDateOnlyValue = ref(dayjs().format('YYYY-MM-DD'))
+const compatibilityDateTimeValue = ref(dayjs().format('YYYY-MM-DD'))
+const wheelInlineValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
+const wheelInlineBoundaryValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
+const wheelToggleValue = ref(dayjs().format('YYYY-MM-DD hh:mm A'))
+const wheelToggleSecondsValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
 
 const currentLocale = ref('en')
 const localeOptions = [
@@ -190,6 +204,98 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
         <VueTailwindDatePicker v-model="singleDateValue" as-single :i18n="currentLocale" />
       </div>
 
+      <div class="rounded-lg border border-sky-200 bg-sky-50 p-4">
+        <p class="mb-3 text-sm font-medium text-sky-900">
+          Time picker style modes
+        </p>
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div>
+            <p class="mb-2 text-xs font-semibold text-sky-800">
+              Date-only (`timePickerStyle=&quot;none&quot;`)
+            </p>
+            <VueTailwindDatePicker
+              v-model="compatibilityDateOnlyValue"
+              as-single
+              :auto-apply="true"
+              time-picker-style="none"
+              :formatter="{ date: 'YYYY-MM-DD', month: 'MMM' }"
+              :i18n="currentLocale"
+            />
+          </div>
+          <div>
+            <p class="mb-2 text-xs font-semibold text-sky-800">
+              Text input time (`timePickerStyle=&quot;input&quot;`)
+            </p>
+            <VueTailwindDatePicker
+              v-model="compatibilityDateTimeValue"
+              as-single
+              :auto-apply="true"
+              time-picker-style="input"
+              default-time="09:30"
+              :formatter="{ date: 'YYYY-MM-DD HH:mm', month: 'MMM' }"
+              :i18n="currentLocale"
+            />
+          </div>
+          <div>
+            <p class="mb-2 text-xs font-semibold text-sky-800">
+              Wheel inline (`wheel-inline`)
+            </p>
+            <VueTailwindDatePicker
+              v-model="wheelInlineValue"
+              as-single
+              :auto-apply="true"
+              time-picker-style="wheel-inline"
+              :formatter="{ date: 'YYYY-MM-DD HH:mm:ss', month: 'MMM' }"
+              :i18n="currentLocale"
+            />
+          </div>
+          <div>
+            <p class="mb-2 text-xs font-semibold text-sky-800">
+              Wheel inline (`wheel-inline`, boundary HH:mm:ss)
+            </p>
+            <VueTailwindDatePicker
+              v-model="wheelInlineBoundaryValue"
+              as-single
+              :auto-apply="true"
+              time-picker-style="wheel-inline"
+              time-wheel-scroll-mode="boundary"
+              :formatter="{ date: 'YYYY-MM-DD HH:mm:ss', month: 'MMM' }"
+              :i18n="currentLocale"
+            />
+          </div>
+          <div>
+            <p class="mb-2 text-xs font-semibold text-sky-800">
+              Wheel page (`wheel-page`, manual toggle, fractional hh:mm A)
+            </p>
+            <VueTailwindDatePicker
+              v-model="wheelToggleValue"
+              as-single
+              :auto-apply="true"
+              time-picker-style="wheel-page"
+              time-page-mode="toggle"
+              time-wheel-scroll-mode="fractional"
+              :formatter="{ date: 'YYYY-MM-DD hh:mm A', month: 'MMM' }"
+              :i18n="currentLocale"
+            />
+          </div>
+          <div>
+            <p class="mb-2 text-xs font-semibold text-sky-800">
+              Wheel page (`wheel-page`, date -> time auto switch, fractional HH:mm:ss)
+            </p>
+            <VueTailwindDatePicker
+              v-model="wheelToggleSecondsValue"
+              as-single
+              :auto-apply="true"
+              time-picker-style="wheel-page"
+              time-page-mode="after-date"
+              time-wheel-scroll-mode="fractional"
+              :formatter="{ date: 'YYYY-MM-DD HH:mm:ss', month: 'MMM' }"
+              :i18n="currentLocale"
+            />
+          </div>
+        </div>
+      </div>
+
       <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
         <p class="mb-3 text-sm font-medium text-emerald-900">
           Opt-in selector mode demo (`:selector-mode=&quot;true&quot;`)
@@ -236,6 +342,43 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
           :selector-mode="true"
           :selector-focus-tint="false"
           selector-year-scroll-mode="fractional"
+          :i18n="currentLocale"
+        />
+      </div>
+
+      <div class="rounded-lg border border-fuchsia-200 bg-fuchsia-50 p-4">
+        <p class="mb-3 text-sm font-medium text-fuchsia-900">
+          Selector mode + wheel time (`:selector-mode=&quot;true&quot;`, `useRange` + `asSingle`, `wheel-inline`)
+        </p>
+        <VueTailwindDatePicker
+          v-model="selectorModeWheelRangeValue"
+          use-range
+          as-single
+          :selector-mode="true"
+          :selector-focus-tint="false"
+          :auto-apply="true"
+          time-picker-style="wheel-inline"
+          time-wheel-scroll-mode="fractional"
+          :formatter="{ date: 'YYYY-MM-DD HH:mm:ss', month: 'MMM' }"
+          :i18n="currentLocale"
+        />
+      </div>
+
+      <div class="rounded-lg border border-pink-200 bg-pink-50 p-4">
+        <p class="mb-3 text-sm font-medium text-pink-900">
+          Selector mode + wheel time (same config, sidepanel off)
+        </p>
+        <VueTailwindDatePicker
+          v-model="selectorModeWheelRangeNoSidepanelValue"
+          use-range
+          as-single
+          :selector-mode="true"
+          :selector-focus-tint="false"
+          :shortcuts="false"
+          :auto-apply="true"
+          time-picker-style="wheel-inline"
+          time-wheel-scroll-mode="fractional"
+          :formatter="{ date: 'YYYY-MM-DD HH:mm:ss', month: 'MMM' }"
           :i18n="currentLocale"
         />
       </div>

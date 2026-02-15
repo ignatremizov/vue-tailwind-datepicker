@@ -2,53 +2,60 @@
 
 ## Overview
 
-This feature adds deterministic datetime state and validation entities inside the existing picker component. No persistent storage changes are required.
+This feature adds deterministic datetime state, endpoint projection, validation, and panel-lock entities within the existing picker component.
 
 ## Entities
 
-### DateTimeModeConfig
+### TimeModeConfig
 
-- Purpose: normalized configuration that enables datetime behavior.
+- Purpose: normalized config for integrated time behavior.
 - Fields:
-  - `datetime: boolean` (default `false`)
-  - `formatterDate: string` (`formatter.date` source string)
-  - `uses12Hour: boolean` (derived from formatter tokens)
-  - `usesSeconds: boolean` (derived from formatter tokens)
+  - `timePickerStyle: 'none' | 'input' | 'wheel-inline' | 'wheel-page'`
+  - `timeInlinePosition: 'below' | 'right'`
+  - `timePageMode: 'toggle' | 'after-date'`
+  - `timeWheelScrollMode: 'boundary' | 'fractional'`
+  - `uses12Hour: boolean`
+  - `usesSeconds: boolean`
   - `defaultTimeNormalized: string | null`
   - `defaultEndTimeNormalized: string | null`
 
 ### EndpointSelection
 
-- Purpose: identifies active range endpoint for single time input editing.
 - Values:
   - `start`
   - `end`
 
 ### DateTimeDraft
 
-- Purpose: in-panel editable draft for one endpoint.
+- Purpose: editable date+time draft for one endpoint.
 - Fields:
   - `datePart: Dayjs | null`
-  - `timeText: string` (current input text)
+  - `timeText: string`
   - `hour: number | null`
   - `minute: number | null`
   - `second: number | null`
   - `meridiem: 'AM' | 'PM' | null`
-  - `isHydrated: boolean` (true when time came from defaults/fallback)
+  - `isHydrated: boolean`
   - `isValid: boolean`
   - `errorCode: ErrorCode | null`
 
 ### RangeDraftState
 
-- Purpose: datetime draft container for range mode.
 - Fields:
   - `start: DateTimeDraft`
   - `end: DateTimeDraft`
   - `activeEndpoint: EndpointSelection`
 
+### VisibleEndpointProjection
+
+- Purpose: style-aware endpoint rendering contract.
+- Derived behavior:
+  - input mode + single-panel range -> both endpoints visible
+  - wheel mode + single-panel range -> active endpoint only
+  - dual-panel range -> both endpoints visible
+
 ### ApplyGuardState
 
-- Purpose: records commit eligibility and blocking reasons at Apply-time.
 - Fields:
   - `canApply: boolean`
   - `blockedCode: ErrorCode | null`
@@ -57,13 +64,20 @@ This feature adds deterministic datetime state and validation entities inside th
 
 ### ErrorEventPayload
 
-- Purpose: emitted payload for blocked Apply attempts.
 - Fields:
   - `type: 'configuration' | 'validation'`
   - `code: ErrorCode`
   - `message: string`
   - `field: 'formatter' | 'time' | 'range'`
   - `endpoint: EndpointSelection | null`
+
+### PanelContentLockState
+
+- Purpose: prevent open-state layout jitter and stale rendering artifacts.
+- Fields:
+  - `shellWidth: number`
+  - `width: number`
+  - `height: number`
 
 ### ErrorCode (minimum enum)
 
@@ -74,51 +88,52 @@ This feature adds deterministic datetime state and validation entities inside th
 
 ## Relationships
 
-- `DateTimeModeConfig` controls validation and parse/format behavior for all `DateTimeDraft` records.
-- Single-date mode uses one `DateTimeDraft`; range mode uses `RangeDraftState` with explicit `activeEndpoint`.
+- `TimeModeConfig` controls all time rendering/validation paths.
+- `RangeDraftState` and `VisibleEndpointProjection` together determine active editing endpoint and visible controls.
 - `ApplyGuardState` is derived from draft + config checks.
-- `ErrorEventPayload` is produced only when `ApplyGuardState.canApply=false` and user attempts Apply.
+- `ErrorEventPayload` is emitted only on blocked Apply attempts.
+- `PanelContentLockState` is derived from measured DOM geometry and reset on structural mode changes.
 
 ## State Transitions
 
-1. Initialization (datetime disabled)
-- Use existing date-only initialization flow.
-- No time controls or datetime validation state is created.
-
-2. Initialization (datetime enabled)
-- Parse incoming model by existing container shape.
-- If time components are missing, hydrate from `defaultTime`/`defaultEndTime` or fallback `00:00[:00]`.
-- Mark hydrated drafts with `isHydrated=true`.
+1. **Initialization**
+- Parse incoming model value.
+- Hydrate missing time parts from defaults/fallback.
 - Do not emit `update:modelValue` during hydration.
 
-3. User edits date or time
-- Update active draft fields.
-- Run inline validation state updates (`isValid`, `errorCode`) without emitting blocked-apply error event.
+2. **Edit**
+- Update draft for active endpoint (or directly edited endpoint in dual-input mode).
+- Update inline validation state.
+- Preserve range-order error until ordering becomes valid.
 
-4. User toggles active endpoint in range mode
-- Switch `RangeDraftState.activeEndpoint` between `start` and `end`.
-- Single visible time input binds to selected endpoint draft.
+3. **Endpoint toggle**
+- In wheel range mode, set active endpoint.
+- Clicking currently active endpoint flips to opposite endpoint.
 
-5. User attempts Apply
-- Recompute `ApplyGuardState` in this order:
-  1) formatter token validity
-  2) endpoint time parse validity
+4. **Apply attempt**
+- Evaluate guard in order:
+  1) formatter/token contract
+  2) typed/parsed input validity
   3) DST local-time validity
   4) range ordering (`end >= start`)
 - If blocked:
-  - keep current panel open
-  - show inline error
-  - emit one structured `error` payload
+  - keep panel open
+  - show inline/panel-level error
+  - emit one structured `error` event
 - If valid:
-  - format output using `formatter.date`
-  - commit via existing `v-model` shape
-  - clear apply-block state
+  - commit formatted datetime values preserving external model shape
+
+5. **Structural settings changed while open**
+- Reset panel lock state.
+- Re-measure shell/content dimensions.
+- Re-apply bounded lock styles for current mode.
 
 ## Invariants
 
-- Datetime mode never changes external `v-model` container shape.
-- Datetime mode ignores `autoApply` and commits only on explicit Apply.
-- `formatter.date` remains the sole format contract.
+- Date-only mode (`timePickerStyle='none'`) preserves legacy behavior.
+- Time-enabled modes require explicit Apply regardless of `autoApply`.
+- `formatter.date` is the single parse/format contract.
+- Range-order errors clear only when corrected (not on endpoint toggle).
 - Blocked Apply never throws runtime exceptions.
-- Blocked Apply error events are emitted only on Apply attempts, not on every edit.
-- DST ambiguous fall-back time resolves to first occurrence (earlier offset).
+- Blocked Apply `error` events emit on Apply attempts only.
+- Input-mode errors wrap without expanding picker width.

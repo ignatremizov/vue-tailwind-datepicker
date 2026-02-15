@@ -3,8 +3,10 @@ const props = withDefaults(defineProps<{
   direction: 'up' | 'down'
   label: string
   zClass?: string
+  disabled?: boolean
 }>(), {
   zClass: 'z-20',
+  disabled: false,
 })
 
 const emit = defineEmits<{
@@ -16,8 +18,12 @@ const emit = defineEmits<{
   <button
     type="button"
     :aria-label="props.label"
+    :disabled="props.disabled"
     :class="[
-      'absolute left-1/2 -translate-x-1/2 inline-flex h-10 w-10 items-center justify-center rounded-full border border-vtd-secondary-300/80 bg-white/90 text-vtd-secondary-500 transition-colors hover:bg-vtd-secondary-100 hover:text-vtd-secondary-700 focus:outline-hidden focus:ring-2 focus:ring-vtd-primary-400/40 touch-manipulation dark:border-vtd-secondary-600 dark:bg-vtd-secondary-800/90 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700',
+      'absolute left-1/2 -translate-x-1/2 inline-flex h-10 w-10 items-center justify-center rounded-full border border-vtd-secondary-300/80 bg-white/90 text-vtd-secondary-500 transition-colors focus:outline-hidden focus:ring-2 focus:ring-vtd-primary-400/40 touch-manipulation dark:border-vtd-secondary-600 dark:bg-vtd-secondary-800/90 dark:text-vtd-secondary-300',
+      props.disabled
+        ? 'cursor-not-allowed opacity-50'
+        : 'hover:bg-vtd-secondary-100 hover:text-vtd-secondary-700 dark:hover:bg-vtd-secondary-700',
       props.direction === 'up' ? 'top-0 -translate-y-1/2' : 'bottom-0 translate-y-1/2',
       props.zClass,
     ]"

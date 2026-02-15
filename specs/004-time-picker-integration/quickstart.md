@@ -6,68 +6,104 @@
 npm install
 npm run typecheck
 npm run build
+npm run test:unit -- tests/unit/time-panel-layout.spec.ts
 ```
 
-## 2. Enable datetime mode in a local usage example
+## 2. Enable integrated time mode (`timePickerStyle`)
+
+Single-date input mode:
 
 ```vue
 <vue-tailwind-datepicker
   v-model="value"
-  :datetime="true"
   :auto-apply="true"
-  :formatter="{ date: 'YYYY-MM-DD HH:mm' }"
+  time-picker-style="input"
+  :formatter="{ date: 'YYYY-MM-DD HH:mm', month: 'MMM' }"
 />
 ```
 
-Range example with defaults and endpoint toggle flow:
+Single-panel range wheel mode:
 
 ```vue
 <vue-tailwind-datepicker
   v-model="rangeValue"
-  :datetime="true"
   use-range
-  :as-single="true"
+  as-single
+  time-picker-style="wheel-inline"
+  time-inline-position="right"
+  time-wheel-scroll-mode="fractional"
   default-time="09:00"
   default-end-time="17:00"
-  :formatter="{ date: 'YYYY-MM-DD h:mm A' }"
+  :formatter="{ date: 'YYYY-MM-DD hh:mm:ss A', month: 'MMM' }"
 />
 ```
 
 ## 3. Verify core behavior
 
-1. Select date then time in one panel; no second popover opens.
-2. In datetime mode, confirm no commit occurs until explicit Apply, even with `autoApply=true`.
-3. Apply with valid date/time and confirm emitted value includes time while preserving existing model container shape.
-4. Edit only time and confirm date portion remains unchanged after Apply.
-5. Omit/disable `datetime` and confirm date-only behavior is unchanged.
+1. Select date and time in one picker surface; no second popover opens.
+2. In any non-`none` time mode, confirm value is committed only after explicit Apply, even when `autoApply=true`.
+3. Confirm output includes time and preserves original `v-model` container shape.
+4. Confirm date-only behavior remains unchanged in `timePickerStyle='none'`.
 
-## 4. Verify formatter and default-time contract
+## 4. Verify range endpoint behavior
 
-1. Use formatter without time tokens while `datetime=true`; confirm Apply is blocked.
-2. Confirm inline error appears and one `error` event emits with `code='config-missing-time-token'` on blocked Apply attempt.
-3. Provide `defaultTime` / `defaultEndTime` using both 24-hour and 12-hour forms and confirm normalization to active formatter contract.
+1. In `input` mode with `useRange + asSingle`, confirm both Start/End inputs render together.
+2. In wheel modes with `useRange + asSingle`, confirm one active endpoint is edited at a time via Start/End toggle.
+3. Click active endpoint toggle again and confirm it flips to the opposite endpoint.
+4. With `timePageMode='after-date'`, confirm time page opens on Start endpoint after date actions.
 
-## 5. Verify range and validation behavior
+## 5. Verify validation and error lifecycle
 
-1. In range mode, confirm one time input plus explicit Start/End endpoint toggle.
-2. Set end datetime earlier than start and confirm Apply blocks with `code='range-end-before-start'`.
-3. Type an invalid time and confirm inline validation blocks Apply until corrected.
-4. Confirm blocked-Apply error events emit only on Apply attempts, not on each edit.
+1. Use formatter without time tokens in time-enabled mode and confirm Apply is blocked with `config-missing-time-token`.
+2. Set end datetime earlier than start and confirm Apply blocks with `range-end-before-start`.
+3. Confirm range-order error stays visible when switching endpoint only, and clears only after correcting end >= start.
+4. Confirm range-order message is human-friendly and includes start time context (time-only).
+5. Confirm invalid typed times block Apply and inline errors update correctly.
+6. Confirm blocked-Apply `error` events emit only on Apply attempts.
 
-## 6. Verify DST behavior
+## 6. Verify wheel behavior and keyboard flow
 
-1. Use a locale/date where spring-forward creates a nonexistent local time and confirm Apply blocks with `code='dst-nonexistent-time'`.
-2. Use a fall-back ambiguous local time and confirm deterministic first-occurrence resolution.
+1. Verify `timeWheelScrollMode='boundary'` and `'fractional'` both work and stay synchronized with endpoint state.
+2. Stress minute/second boundary transitions (rapid up/down) and confirm no duplicate carry jumps.
+3. In wheel mode, verify Tab/Shift+Tab cycle includes endpoint toggle, wheels, and footer actions.
 
-## 7. Verify initialization hydration
+## 7. Verify layout stability
 
-1. Pass incoming model values with date but no time while `datetime=true`.
-2. Confirm time hydrates from `defaultTime`/`defaultEndTime` or `00:00[:00]` internally.
+1. In `input` mode, trigger range validation errors and confirm picker width does not expand.
+2. While picker is open, switch `wheel-page -> wheel-inline (right) -> wheel-page` and confirm no stale clipping/ghost layout.
+
+## 8. Verify DST behavior
+
+1. Test spring-forward nonexistent local time and confirm Apply is blocked with `dst-nonexistent-time`.
+2. Test fall-back ambiguous local time and confirm first-occurrence deterministic resolution.
+
+## 9. Verify initialization hydration
+
+1. Pass incoming model values with date but missing time while time mode is enabled.
+2. Confirm hydration uses `defaultTime` / `defaultEndTime` (or `00:00[:00]`) internally.
 3. Confirm hydration does not emit `update:modelValue` before explicit Apply.
 
-## 8. Final validation
+## 10. Verification Log (2026-02-18)
 
-```bash
-npm run typecheck
-npm run build
-```
+### Command outcomes
+
+- `npm run typecheck`: PASS
+- `npm run build`: PASS
+- `npm run test:unit -- tests/unit/time-panel-layout.spec.ts`: PASS
+
+### Build note
+
+- Vite DTS warns API Extractor bundles TypeScript `5.8.2` while project uses `5.9.3`; build still succeeds.
+
+## 11. Datetime Scenario Matrix
+
+| Scenario | Status | Evidence |
+| --- | --- | --- |
+| Single datetime apply flow | PASS | Time-enabled modes render in-panel controls; Apply commits shape-preserving datetime output. |
+| Range endpoint UI by style | PASS | Input mode renders dual start/end fields; wheel modes render explicit endpoint toggle with endpoint-scoped edits. |
+| Range-order validation lifecycle | PASS | `range-end-before-start` persists until corrected; endpoint switching alone does not clear error. |
+| Formatter missing time tokens | PASS | Apply guard blocks with `config-missing-time-token`; inline error + structured `error` payload emitted on blocked Apply. |
+| Input-mode error layout stability | PASS | Validation messages wrap without expanding picker width. |
+| Open-state mode-switch stability | PASS | `wheel-page -> wheel-inline(right) -> wheel-page` no stale lock artifacts after reset/re-measure. |
+| DST nonexistent local time | PASS | Local datetime validation rejects nonexistent local time and emits `dst-nonexistent-time`. |
+| Initialization hydration without emit | PASS | Missing time components hydrate internal drafts using defaults/fallback before Apply, without early `update:modelValue`. |

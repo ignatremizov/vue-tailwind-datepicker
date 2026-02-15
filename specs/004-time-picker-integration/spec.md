@@ -2,137 +2,148 @@
 
 **Feature Branch**: `004-time-picker-integration`  
 **Created**: 2026-02-12  
-**Status**: Draft  
+**Updated**: 2026-02-18  
+**Status**: Implemented (scope expanded during polish and stabilization)  
 **Input**: User description: "Add integrated time selection after date choice within the same picker UI, without opening a second popover."
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Select Date and Time in One Panel (Priority: P1)
 
-As a date-picker user, I can select both date and time in one picker panel flow.
+As a date-picker user, I can select both date and time inside one picker surface.
 
-**Why this priority**: Current date-only flow is insufficient for general datetime precision needs.
+**Why this priority**: Date-only selection is insufficient for datetime workflows.
 
-**Independent Test**: Open picker, choose date, set time, confirm value is emitted as combined datetime.
+**Independent Test**: Open picker in each `timePickerStyle`, set date/time, apply, verify emitted value shape is preserved and contains time.
 
 **Acceptance Scenarios**:
 
-1. **Given** picker panel is open, **When** user selects a date, **Then** time controls are visible in the same panel.
-2. **Given** date and time are selected, **When** user applies selection, **Then** output contains both date and time while preserving existing `v-model` shape.
-3. **Given** user changes only time, **When** apply occurs, **Then** date portion stays unchanged.
-4. **Given** `autoApply=true` and datetime mode is enabled, **When** user picks a date/time, **Then** value is not emitted until explicit Apply.
-5. **Given** datetime mode is enabled with a formatter lacking time tokens, **When** user attempts Apply, **Then** Apply is blocked and configuration error is surfaced.
+1. **Given** picker is open, **When** `timePickerStyle` is not `none`, **Then** time controls are rendered in the same panel flow (no second popover).
+2. **Given** `timePickerStyle='input'`, **When** user edits time text, **Then** apply commits date+time and keeps existing `v-model` container shape.
+3. **Given** `timePickerStyle='wheel-inline'`, **When** user scrolls/clicks wheel values, **Then** draft time updates without leaving calendar context.
+4. **Given** `timePickerStyle='wheel-page'`, **When** user toggles between calendar/time pages, **Then** selection state remains synchronized.
+5. **Given** `autoApply=true` and time mode is enabled, **When** user changes date/time, **Then** no commit occurs until explicit Apply.
 
 ---
 
-### User Story 2 - Preserve Date-Only Backward Compatibility (Priority: P2)
+### User Story 2 - Range Endpoint Editing and Keyboard UX (Priority: P2)
 
-As an existing consumer, I can keep date-only behavior unless datetime mode is explicitly enabled.
+As a range user, I can edit start/end time deterministically with clear focus behavior.
 
-**Why this priority**: Avoid regressions for current integrations.
+**Why this priority**: Range datetime editing is high-frequency and sensitive to focus/state confusion.
 
-**Independent Test**: Run existing date-only usage unchanged and verify no time controls or value-format changes appear.
+**Independent Test**: Exercise `asSingle` range flows in input and wheel styles, verify endpoint behavior, tab order, and page-mode transitions.
 
 **Acceptance Scenarios**:
 
-1. **Given** datetime mode is disabled, **When** picker opens, **Then** component behaves exactly as date-only flow.
-2. **Given** datetime mode is enabled, **When** picker opens, **Then** time controls are present and emission waits for explicit Apply.
-3. **Given** datetime mode prop is not provided, **When** picker opens, **Then** behavior remains date-only and backward compatible.
-4. **Given** datetime mode is enabled and incoming model has date without time, **When** picker initializes, **Then** missing time is hydrated from `defaultTime`/`defaultEndTime` or `00:00[:00]`.
+1. **Given** `useRange=true` and `asSingle=true` with `timePickerStyle='input'`, **When** time controls render, **Then** start/end text inputs are both visible.
+2. **Given** `useRange=true` and wheel style, **When** user toggles Start/End endpoint, **Then** one endpoint is active for wheel edits and endpoint-specific draft state is preserved.
+3. **Given** wheel style range mode, **When** user clicks active endpoint button again, **Then** focus toggles to the opposite endpoint.
+4. **Given** `timePageMode='after-date'`, **When** user returns to time page after date selection, **Then** Start endpoint is opened by default.
+5. **Given** wheel time mode is focused, **When** user presses Tab/Shift+Tab, **Then** focus cycles predictably across endpoint toggle, wheels, and footer actions.
 
 ---
 
-### User Story 3 - Reasonable Defaults and Validation (Priority: P3)
+### User Story 3 - Validation, Stability, and Performance (Priority: P3)
 
-As a user, I get sensible defaults and validation for time values.
+As a user, I get stable validation feedback and resilient layout/scroll behavior.
 
-**Why this priority**: Reduces input errors and ambiguous due-time values.
+**Why this priority**: UX quality depends on deterministic errors and stable rendering under fast interactions.
 
-**Independent Test**: Verify default time behavior, boundary validation, and invalid input handling.
+**Independent Test**: Validate error lifecycle/messaging, layout stability under errors, mode switching stability, and wheel carry behavior.
 
 **Acceptance Scenarios**:
 
-1. **Given** no prior time is set, **When** datetime picker opens, **Then** it initializes with configurable default time.
-2. **Given** range mode is enabled, **When** user sets start/end times, **Then** Apply is blocked if end datetime is earlier than start datetime.
-3. **Given** local timezone DST transition makes a chosen local time invalid, **When** user applies, **Then** component rejects the invalid local datetime.
-4. **Given** user types an invalid time value, **When** picker validates input, **Then** inline validation is shown and Apply remains disabled until corrected.
-5. **Given** range mode is enabled, **When** user edits time values, **Then** one time control is shown with an explicit Start/End endpoint toggle.
-6. **Given** Apply is blocked by invalid config or validation, **When** error is raised, **Then** inline error is shown and structured error event is emitted.
-7. **Given** no prior time is set, **When** datetime picker initializes, **Then** precedence is `defaultTime`/`defaultEndTime` first, otherwise `00:00[:00]`.
-8. **Given** formatter uses 12-hour tokens with meridiem or 24-hour tokens with minutes, **When** datetime mode validates format, **Then** format is accepted.
-9. **Given** input/config is invalid, **When** user has not attempted Apply, **Then** blocked-apply error event is not emitted yet.
-10. **Given** local time is ambiguous during DST fall-back, **When** datetime is resolved, **Then** the first occurrence (earlier offset) is selected deterministically.
-11. **Given** datetime mode hydrates missing time from incoming date-only model, **When** initialization completes, **Then** no `update:modelValue` is emitted until explicit Apply/commit.
+1. **Given** end datetime is before start datetime, **When** user applies, **Then** Apply is blocked with `range-end-before-start` and inline error.
+2. **Given** range-order error is visible, **When** user toggles endpoint only, **Then** error remains visible until end is corrected to be `>= start`.
+3. **Given** range-order error is shown, **When** message is rendered, **Then** it uses human-friendly text and includes start time context (time-only).
+4. **Given** input-mode inline error is shown, **When** text wraps, **Then** picker width does not expand.
+5. **Given** user switches `wheel-page -> wheel-inline(right) -> wheel-page` while open, **When** layout re-measures, **Then** stale width/ghost rendering does not persist.
+6. **Given** formatter lacks supported time tokens, **When** user applies, **Then** Apply is blocked and `config-missing-time-token` is emitted.
+7. **Given** local DST produces nonexistent local time, **When** user applies, **Then** Apply is blocked with `dst-nonexistent-time`.
+8. **Given** wheel minute/second boundaries are crossed rapidly, **When** carry logic runs, **Then** endpoint hour/minute carry remains deterministic without duplicate jumps.
 
 ### Edge Cases
 
-- Transition over DST boundaries, including nonexistent local times.
-- 12h vs 24h display expectations.
-- Range mode semantics when datetime is enabled (independent start/end times).
+- Switching time picker style and inline position while popover remains open.
+- Fast wheel flicking across minute/second/hour boundaries in both `boundary` and `fractional` modes.
+- Range validation visibility when errored endpoint is not currently active.
+- Error text wrapping in constrained layouts with shortcut panel + time controls.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: System MUST support datetime mode through an explicit boolean prop (default `false`) in the picker API.
-- **FR-002**: System MUST render time controls in the same panel as calendar (no second popover).
-- **FR-003**: System MUST emit combined date-time values while preserving existing `v-model` container shape (`string`, `array`, keyed `object`).
-- **FR-004**: System MUST preserve existing date-only API behavior when datetime mode is disabled.
-- **FR-005**: System MUST validate time input and prevent invalid datetime submission.
-- **FR-006**: System MUST support configurable time defaults and display format.
-- **FR-007**: System MUST use local timezone interpretation for parse/apply and MUST reject invalid DST local times.
-- **FR-008**: In datetime mode, value commit MUST require explicit Apply even if `autoApply=true`.
-- **FR-009**: In range mode with datetime enabled, start and end times MUST be independently editable and Apply MUST be blocked when end < start.
-- **FR-010**: Time granularity MUST support hours+minutes, with optional seconds when formatter includes seconds.
-- **FR-011**: When datetime mode is enabled and formatter output omits time tokens, system MUST treat configuration as invalid and MUST block Apply with a clear error.
-- **FR-012**: Invalid typed times (including DST-nonexistent local times) MUST surface inline validation and MUST keep Apply disabled until corrected.
-- **FR-013**: Datetime formatting/parsing contract MUST use `formatter.date` as the single source of truth; implementation MAY add `defaultTime` and `defaultEndTime` props for initialization.
-- **FR-014**: In range mode, implementation MUST use a single time input bound to an explicit active endpoint selector (`start` or `end`), while preserving independent start/end times.
-- **FR-015**: When Apply is blocked by configuration or validation, implementation MUST show inline error and emit a single structured `error` event with payload at least `{ type, code, message, field, endpoint }`, without throwing runtime exceptions.
-- **FR-016**: Time initialization precedence MUST be deterministic: use `defaultTime`/`defaultEndTime` when provided, otherwise fall back to `00:00[:00]`.
-- **FR-017**: In datetime mode, incoming model values missing time components MUST be auto-hydrated using `defaultTime`/`defaultEndTime` or `00:00[:00]` at initialization.
-- **FR-018**: Valid datetime formatter tokens MUST include both 24-hour (`HH:mm` or `HH:mm:ss`) and 12-hour (`h:mm A`, `h:mm a`, `hh:mm A`, `hh:mm a`, with optional seconds variants) patterns, with minutes required.
-- **FR-019**: Structured `error` event emission for invalid configuration/input MUST occur when Apply is attempted and blocked (not on every keystroke/state change).
-- **FR-020**: `defaultTime`/`defaultEndTime` inputs MAY be provided in either 24-hour or 12-hour forms and MUST be normalized to the active `formatter.date` contract before use.
-- **FR-021**: For DST fall-back ambiguous local times, resolution MUST deterministically select the first occurrence (earlier offset).
-- **FR-022**: Auto-hydration of missing time components during initialization MUST update internal state only and MUST NOT emit `update:modelValue` until explicit Apply/commit.
-- **FR-023**: Structured `error` payload `code` MUST use a documented minimum enum: `config-missing-time-token`, `invalid-time-input`, `dst-nonexistent-time`, and `range-end-before-start`.
+- **FR-001**: Time selection mode MUST be controlled by `timePickerStyle` with values `none`, `input`, `wheel-inline`, `wheel-page`.
+- **FR-002**: Any non-`none` time mode MUST render integrated time controls in the same picker surface without opening a second popover.
+- **FR-003**: Commit output MUST preserve existing `v-model` container shape (`string`, `array`, keyed `object`) while including time.
+- **FR-004**: Date-only behavior MUST remain unchanged when `timePickerStyle='none'`.
+- **FR-005**: In time-enabled modes, commit MUST require explicit Apply regardless of `autoApply`.
+- **FR-006**: `formatter.date` MUST remain the single source of truth for parse/format behavior.
+- **FR-007**: Supported formatter token families MUST include 24-hour (`HH:mm`, `HH:mm:ss`) and 12-hour (`h|hh:mm[ :ss ] a|A`) patterns with minutes required.
+- **FR-008**: Missing/invalid time tokens in time-enabled mode MUST block Apply and produce `config-missing-time-token`.
+- **FR-009**: `defaultTime` and `defaultEndTime` MUST accept 12-hour or 24-hour forms and normalize to formatter contract.
+- **FR-010**: Missing time components in incoming model values MUST be hydrated from defaults (or `00:00[:00]`) without emitting `update:modelValue` before Apply.
+- **FR-011**: Range Apply MUST be blocked when end datetime is earlier than start datetime.
+- **FR-012**: Invalid typed time MUST block Apply and surface inline validation.
+- **FR-013**: DST-nonexistent local times MUST block Apply (`dst-nonexistent-time`), and DST-ambiguous fall-back times MUST resolve to first occurrence.
+- **FR-014**: Range endpoint editing UI MUST be style-aware:
+  - `input`: both start/end inputs visible in single-panel range mode.
+  - wheel styles: active Start/End endpoint toggle with one editable endpoint at a time.
+- **FR-015**: Clicking active Start/End endpoint toggle in wheel range mode MUST switch to the opposite endpoint.
+- **FR-016**: `timePageMode='after-date'` MUST reopen time page on Start endpoint by default.
+- **FR-017**: Wheel scroll mode (`boundary`/`fractional`) MUST apply to month/year selector and time wheels consistently.
+- **FR-018**: Boundary carry logic for minute/second/hour/meridiem wheels MUST avoid duplicate carry on rapid boundary oscillation.
+- **FR-019**: Keyboard focus cycle in wheel time mode MUST include endpoint toggle (when present), wheels, and footer actions.
+- **FR-020**: Inline/panel-level validation errors MUST remain visible until corrected; endpoint switches alone MUST NOT clear range-order errors.
+- **FR-021**: Range-order error message MUST be human-friendly and include start time context (time-only).
+- **FR-022**: Validation error text MUST wrap without increasing picker container width.
+- **FR-023**: Structural mode switches while open (time style, inline position, range layout) MUST reset and re-measure lock state to avoid stale layout artifacts.
+- **FR-024**: Structured `error` events MUST emit only when Apply is attempted and blocked (not per keystroke).
+- **FR-025**: Structured `error` payload MUST include `{ type, code, message, field, endpoint }` with stable minimum code enum:
+  - `config-missing-time-token`
+  - `invalid-time-input`
+  - `dst-nonexistent-time`
+  - `range-end-before-start`
 
 ### Key Entities *(include if feature involves data)*
 
-- **DateTime Selection State**: Combined in-panel state of selected calendar day and time.
-- **Time Config**: Consumer options controlling defaults, format, and validation bounds.
+- **DateTime Draft State**: endpoint-scoped editable date+time state with validity markers.
+- **Apply Guard State**: deterministic blocked/allowed commit decision with code/field/endpoint metadata.
+- **Panel Lock State**: measured width/height constraints used to stabilize inline/time-page layout transitions.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: Date+time selection can be completed in one panel without opening additional picker overlays.
-- **SC-002**: Date-only integrations pass unchanged behavior checks.
-- **SC-003**: Invalid time values (including DST-invalid local times) are rejected in 100% of validation test cases.
+- **SC-001**: Date+time can be completed inside one picker surface for all supported time picker styles.
+- **SC-002**: Date-only integrations are behaviorally unchanged in non-time mode.
+- **SC-003**: Invalid time, formatter, DST, and range-order conditions block Apply with deterministic error code behavior.
+- **SC-004**: Validation error rendering does not expand picker width in input mode.
+- **SC-005**: Style-switch transitions while open do not leave stale layout artifacts.
 
 ## Clarifications
 
-- **CL-001** Q: Where should time selection occur? -> A: Within the same picker panel.
-- **CL-002** Q: Should date-only behavior remain default? -> A: Yes; datetime mode is opt-in.
-- **CL-003** Q: What should `v-model` emit in datetime mode? -> A: Preserve existing container shape and include time in formatted outputs.
-- **CL-004** Q: When should value emit in datetime mode when `autoApply` exists? -> A: Require explicit Apply.
-- **CL-005** Q: What timezone rule should govern parsing/emission and DST? -> A: Local timezone only; reject invalid DST local times.
-- **CL-006** Q: How are range start/end times handled in datetime mode? -> A: Independent start/end times; block Apply if end < start.
-- **CL-007** Q: What time granularity must be supported? -> A: Hours+minutes, with optional seconds when formatter includes seconds.
-- **CL-008** Q: What is the canonical API switch for datetime mode? -> A: Explicit boolean prop, default `false`.
-- **CL-009** Q: What happens if datetime mode is enabled but formatter omits time tokens? -> A: Treat as invalid config; block Apply and surface clear error.
-- **CL-010** Q: How should invalid typed times be handled in UI? -> A: Show inline error and keep Apply disabled until corrected.
-- **CL-011** Q: What is the canonical API contract for time behavior in datetime mode? -> A: Reuse `formatter.date` as source of truth; add minimal default-time props as needed.
-- **CL-012** Q: How should range datetime editing work with independent start/end values? -> A: Single time input with explicit Start/End endpoint toggle.
-- **CL-013** Q: How should config/validation blocking errors be surfaced? -> A: Inline errors plus structured error events; no runtime throws.
-- **CL-014** Q: What is the public error event contract? -> A: Emit single `error` event with structured payload `{ type, code, message, field, endpoint }`.
-- **CL-015** Q: What is deterministic default-time precedence when no prior value exists? -> A: `defaultTime`/`defaultEndTime` first, else `00:00[:00]`.
-- **CL-016** Q: What is the single source of truth for time display/input format? -> A: Infer strictly from `formatter.date` tokens.
-- **CL-017** Q: In datetime mode, how should incoming date-only model values be handled? -> A: Auto-hydrate missing time via defaults at initialization.
-- **CL-018** Q: Which time token patterns are valid when formatter is source of truth? -> A: Support 24-hour and 12-hour patterns with minutes required.
-- **CL-019** Q: When should structured `error` events emit? -> A: On blocked Apply attempts, not every invalid keystroke/state transition.
-- **CL-020** Q: What default-time input formats are accepted when formatter is 12-hour? -> A: Accept both 24-hour and 12-hour default-time inputs and normalize internally.
-- **CL-021** Q: During DST fall-back ambiguity, which instant should be selected? -> A: First occurrence (earlier offset).
-- **CL-022** Q: Should initialization hydration emit `update:modelValue` immediately? -> A: No; hydrate internal state and emit only on Apply/commit.
-- **CL-023** Q: How stable should `error.code` values be? -> A: Define and document a minimum fixed enum for deterministic integration/tests.
+- **CL-001** Q: What enables datetime behavior? -> A: `timePickerStyle !== 'none'`.
+- **CL-002** Q: Is `autoApply` respected for time mode? -> A: No, Apply is always explicit in time-enabled flows.
+- **CL-003** Q: How are range endpoints edited in different styles? -> A: Input mode shows both fields; wheel styles use Start/End toggle with one active endpoint.
+- **CL-004** Q: What should happen when clicking active endpoint toggle? -> A: Flip to the opposite endpoint.
+- **CL-005** Q: Which endpoint opens in `after-date` mode? -> A: Start endpoint.
+- **CL-006** Q: When should blocked `error` events fire? -> A: Only on blocked Apply attempts.
+- **CL-007** Q: Should range-order errors clear on endpoint toggle? -> A: No, only when end time becomes valid relative to start.
+- **CL-008** Q: How should range-order message read? -> A: Human-friendly, time-only context including start time.
+- **CL-009** Q: What is required for layout stability during open-state mode toggles? -> A: Reset/re-measure lock state on structural setting changes.
+- **CL-010** Q: Is wheel behavior expected under aggressive flicking? -> A: Deterministic carry with no duplicate jumps and stable re-sync.
+- **CL-011** Q: Which `timePickerStyle` values are in contract? -> A: `none`, `input`, `wheel-inline`, `wheel-page`.
+- **CL-012** Q: Is date-only behavior still default? -> A: Yes, `timePickerStyle='none'` preserves legacy behavior.
+- **CL-013** Q: What is the parse/format source of truth? -> A: `formatter.date` only.
+- **CL-014** Q: What time token families are supported? -> A: 24-hour (`HH:mm`, `HH:mm:ss`) and 12-hour (`h|hh:mm a|A` with optional seconds), minutes required.
+- **CL-015** Q: What if formatter tokens are missing in time mode? -> A: Apply is blocked with `config-missing-time-token`.
+- **CL-016** Q: How are `defaultTime` and `defaultEndTime` interpreted? -> A: 12-hour or 24-hour input accepted, normalized to formatter contract.
+- **CL-017** Q: What happens when model values miss time components? -> A: Internal draft is hydrated from defaults/fallback (`00:00[:00]`) with no pre-Apply emit.
+- **CL-018** Q: What are range ordering semantics? -> A: Apply blocked when end datetime is earlier than start (`range-end-before-start`).
+- **CL-019** Q: When errored endpoint is not active in wheel range mode, should user still see error? -> A: Yes, via panel-level error projection.
+- **CL-020** Q: Is wheel scroll mode shared across selector and time wheels? -> A: Yes, `boundary`/`fractional` behavior is consistently applied.
+- **CL-021** Q: How is DST handled? -> A: Nonexistent local times are rejected; ambiguous fall-back times resolve to first occurrence.
+- **CL-022** Q: Should validation text be allowed to resize picker width? -> A: No, messages wrap without expanding container width.
+- **CL-023** Q: What is the minimum stable `error.code` enum? -> A: `config-missing-time-token`, `invalid-time-input`, `dst-nonexistent-time`, `range-end-before-start`.
