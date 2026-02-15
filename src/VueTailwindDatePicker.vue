@@ -73,6 +73,10 @@ export interface Props {
   selectorMode?: boolean
   selectorFocusTint?: boolean
   selectorYearScrollMode?: 'boundary' | 'fractional'
+  selectorYearHomeJump?: number
+  selectorYearEndJump?: number
+  selectorYearPageJump?: number
+  selectorYearPageShiftJump?: number
   closeOnRangeSelection?: boolean
   options?: {
     shortcuts: {
@@ -117,6 +121,10 @@ const props = withDefaults(defineProps<Props>(), {
   selectorMode: false,
   selectorFocusTint: true,
   selectorYearScrollMode: 'boundary',
+  selectorYearHomeJump: 100,
+  selectorYearEndJump: 100,
+  selectorYearPageJump: 10,
+  selectorYearPageShiftJump: 100,
   closeOnRangeSelection: true,
   options: () => ({
     shortcuts: {
@@ -1351,7 +1359,11 @@ function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
             ),
           )
         }
-        if (close && props.closeOnRangeSelection)
+        const shouldClosePopover
+          = props.closeOnRangeSelection && typeof close === 'function'
+        // In `no-input` static mode there is no popover close callback, so
+        // this option intentionally becomes a no-op.
+        if (shouldClosePopover)
           close()
 
         applyValue.value = []
@@ -2275,6 +2287,10 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                               :selected-year="getPanelSelectedYear('previous')"
                               :selector-focus="selectorFocus"
                               :year-scroll-mode="props.selectorYearScrollMode"
+                              :home-jump="props.selectorYearHomeJump"
+                              :end-jump="props.selectorYearEndJump"
+                              :page-jump="props.selectorYearPageJump"
+                              :page-shift-jump="props.selectorYearPageShiftJump"
                               @focus-year="onSelectorColumnFocus('previous', 'year')"
                               @request-focus-month="requestSelectorColumnFocus('previous', 'month')"
                               @update-year="(year) => onSelectorYearUpdate('previous', year)"
@@ -2348,6 +2364,10 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                               :selected-year="getPanelSelectedYear('next')"
                               :selector-focus="selectorFocus"
                               :year-scroll-mode="props.selectorYearScrollMode"
+                              :home-jump="props.selectorYearHomeJump"
+                              :end-jump="props.selectorYearEndJump"
+                              :page-jump="props.selectorYearPageJump"
+                              :page-shift-jump="props.selectorYearPageShiftJump"
                               @focus-year="onSelectorColumnFocus('next', 'year')"
                               @request-focus-month="requestSelectorColumnFocus('next', 'month')"
                               @update-year="(year) => onSelectorYearUpdate('next', year)"
@@ -2462,6 +2482,10 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                       :selected-year="getPanelSelectedYear('previous')"
                       :selector-focus="selectorFocus"
                       :year-scroll-mode="props.selectorYearScrollMode"
+                      :home-jump="props.selectorYearHomeJump"
+                      :end-jump="props.selectorYearEndJump"
+                      :page-jump="props.selectorYearPageJump"
+                      :page-shift-jump="props.selectorYearPageShiftJump"
                       @focus-year="onSelectorColumnFocus('previous', 'year')"
                       @request-focus-month="requestSelectorColumnFocus('previous', 'month')"
                       @update-year="(year) => onSelectorYearUpdate('previous', year)"
@@ -2534,6 +2558,10 @@ provide(setToCustomShortcutKey, setToCustomShortcut)
                       :selected-year="getPanelSelectedYear('next')"
                       :selector-focus="selectorFocus"
                       :year-scroll-mode="props.selectorYearScrollMode"
+                      :home-jump="props.selectorYearHomeJump"
+                      :end-jump="props.selectorYearEndJump"
+                      :page-jump="props.selectorYearPageJump"
+                      :page-shift-jump="props.selectorYearPageShiftJump"
                       @focus-year="onSelectorColumnFocus('next', 'year')"
                       @request-focus-month="requestSelectorColumnFocus('next', 'month')"
                       @update-year="(year) => onSelectorYearUpdate('next', year)"

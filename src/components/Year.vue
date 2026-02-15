@@ -11,12 +11,20 @@ const props = withDefaults(defineProps<{
   selectedMonth?: number | null
   selectorFocus?: SelectorFocus
   yearScrollMode?: 'boundary' | 'fractional'
+  homeJump?: number
+  endJump?: number
+  pageJump?: number
+  pageShiftJump?: number
 }>(), {
   selectorMode: false,
   selectedYear: null,
   selectedMonth: null,
   selectorFocus: 'month',
   yearScrollMode: 'boundary',
+  homeJump: 100,
+  endJump: 100,
+  pageJump: 10,
+  pageShiftJump: 100,
 })
 
 const emit = defineEmits<{
@@ -728,6 +736,13 @@ function getKeyboardBaseYear() {
     ?? new Date().getFullYear()
 }
 
+function normalizeJump(value: number | undefined, fallback: number) {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0)
+    return fallback
+  return Math.max(1, Math.trunc(parsed))
+}
+
 function applyKeyboardYearDelta(delta: number) {
   if (!props.selectorMode)
     return
@@ -779,25 +794,29 @@ function onSelectorKeydown(event: KeyboardEvent) {
 
   if (event.key === 'PageDown') {
     event.preventDefault()
-    applyKeyboardYearDelta(event.shiftKey ? 100 : 10)
+    applyKeyboardYearDelta(event.shiftKey
+      ? normalizeJump(props.pageShiftJump, 100)
+      : normalizeJump(props.pageJump, 10))
     return
   }
 
   if (event.key === 'PageUp') {
     event.preventDefault()
-    applyKeyboardYearDelta(event.shiftKey ? -100 : -10)
+    applyKeyboardYearDelta(event.shiftKey
+      ? -normalizeJump(props.pageShiftJump, 100)
+      : -normalizeJump(props.pageJump, 10))
     return
   }
 
   if (event.key === 'Home') {
     event.preventDefault()
-    applyKeyboardYearDelta(-100)
+    applyKeyboardYearDelta(-normalizeJump(props.homeJump, 100))
     return
   }
 
   if (event.key === 'End') {
     event.preventDefault()
-    applyKeyboardYearDelta(100)
+    applyKeyboardYearDelta(normalizeJump(props.endJump, 100))
   }
 }
 

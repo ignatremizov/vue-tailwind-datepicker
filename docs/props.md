@@ -315,6 +315,23 @@ const dateValue = ref([])
 </template>
 ```
 
+## Close on range selection
+
+Control whether popover mode closes immediately after selecting the second date in range mode.
+Default is `true`.
+
+In `no-input` static mode this prop is a no-op because there is no popover to close.
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    use-range
+    :close-on-range-selection="false"
+  />
+</template>
+```
+
 ## Start from
 
 Change start from of datepicker, by default `startFrom` is new Date().
@@ -635,6 +652,28 @@ Choose year-wheel sync behavior when selector mode is enabled.
     use-range
     :selector-mode="true"
     selector-year-scroll-mode="boundary"
+  />
+</template>
+```
+
+## Selector Year Keyboard Jumps
+
+Control keyboard jump distance (in years) for the selector year wheel.
+
+- `selector-year-home-jump` and `selector-year-end-jump` default to `100`.
+- `selector-year-page-jump` defaults to `10`.
+- `selector-year-page-shift-jump` defaults to `100`.
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    :selector-mode="true"
+    :selector-year-home-jump="50"
+    :selector-year-end-jump="50"
+    :selector-year-page-jump="12"
+    :selector-year-page-shift-jump="120"
   />
 </template>
 ```

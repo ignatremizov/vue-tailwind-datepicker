@@ -131,6 +131,62 @@ describe('Selector wheel keyboard behavior', () => {
     expect(wrapper.emitted('requestFocusMonth')).toHaveLength(2)
   })
 
+  it('supports configurable Home/End keyboard jumps for year wheel', async () => {
+    const years = Array.from({ length: 401 }, (_, index) => 1900 + index)
+    let wrapper: ReturnType<typeof mount>
+    wrapper = mount(Year, {
+      props: {
+        years,
+        selectorMode: true,
+        selectedYear: 2025,
+        selectedMonth: 0,
+        homeJump: 25,
+        endJump: 40,
+        onUpdateYear: (value: number) => {
+          wrapper.setProps({ selectedYear: value })
+        },
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Year selector"]')
+    await selector.trigger('keydown', { key: 'Home' })
+    await nextTick()
+    await selector.trigger('keydown', { key: 'End' })
+
+    expect(wrapper.emitted('updateYear')).toEqual([
+      [2000],
+      [2040],
+    ])
+  })
+
+  it('supports configurable PageUp/PageDown keyboard jumps for year wheel', async () => {
+    const years = Array.from({ length: 401 }, (_, index) => 1900 + index)
+    let wrapper: ReturnType<typeof mount>
+    wrapper = mount(Year, {
+      props: {
+        years,
+        selectorMode: true,
+        selectedYear: 2025,
+        selectedMonth: 0,
+        pageJump: 7,
+        pageShiftJump: 30,
+        onUpdateYear: (value: number) => {
+          wrapper.setProps({ selectedYear: value })
+        },
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Year selector"]')
+    await selector.trigger('keydown', { key: 'PageDown' })
+    await nextTick()
+    await selector.trigger('keydown', { key: 'PageUp', shiftKey: true })
+
+    expect(wrapper.emitted('updateYear')).toEqual([
+      [2032],
+      [2002],
+    ])
+  })
+
   it('steps month wheel with click controls', async () => {
     const wrapper = mount(Month, {
       props: {

@@ -79,3 +79,18 @@ When `selector-mode` is enabled, month/year wheel visuals can be tuned via CSS v
   --vtd-selector-year-text-offset-y: 0px;
 }
 ```
+
+## Calendar Range Preview Tokens
+
+You can tune the in-range background (including opacity) without custom selectors:
+
+```css
+.vtd-datepicker {
+  --vtd-calendar-range-preview-bg: rgb(224 242 254 / 60%);
+  --vtd-calendar-range-preview-bg-dark: rgb(55 65 81 / 50%);
+
+  /* Range edge caps (start/end) */
+  --vtd-calendar-range-preview-edge-bg: var(--vtd-calendar-day-selected-bg);
+  --vtd-calendar-range-preview-edge-bg-dark: var(--vtd-calendar-day-selected-bg);
+}
+```
