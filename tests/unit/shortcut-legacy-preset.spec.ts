@@ -37,7 +37,7 @@ function getLastRangeEmission(wrapper: ReturnType<typeof mount>) {
   return latest as string[]
 }
 
-describe('shortcutPreset=legacy', () => {
+describe.sequential('shortcutPreset=legacy', () => {
   it('uses legacy built-ins when shortcutPreset is omitted', async () => {
     await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
       const wrapper = await mountPicker()

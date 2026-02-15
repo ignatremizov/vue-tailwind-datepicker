@@ -25,7 +25,7 @@ function hasShortcutButtons(wrapper: ReturnType<typeof mount>) {
   return wrapper.findAll('button.vtd-shortcuts').length > 0
 }
 
-describe('shortcut visibility matrix', () => {
+describe.sequential('shortcut visibility matrix', () => {
   it('shows shortcuts for useRange=false and asSingle=false', async () => {
     await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
       const wrapper = await mountPicker({

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Ref } from 'vue'
 import { computed } from 'vue'
+import { legacyShortcutFallbackId } from '../composables/shortcut'
 import type { ShortcutDefinition, ShortcutFactory } from '../types'
 import { injectStrict } from '../utils'
 import {
@@ -17,6 +18,8 @@ const props = defineProps<{
 }>()
 
 const activateShortcut = injectStrict(activateShortcutKey)
+// TODO(shortcut-disabled-state): Keep slot contract stable until per-shortcut disabled-state is implemented.
+const SLOT_SHORTCUT_DISABLED = false
 
 defineSlots<{
   'shortcut-item': (props: {
@@ -38,20 +41,11 @@ const withShortcut = computed(() => {
   return false
 })
 
-function toLegacyFallbackId(label: string, index: number) {
-  const normalizedLabel = label
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-  return `legacy-${index}-${normalizedLabel || 'shortcut'}`
-}
-
 function resolveCustomShortcutId(item: ShortcutDefinition, index: number) {
   if ('id' in item && typeof item.id === 'string' && item.id.trim().length > 0)
     return item.id
 
-  return toLegacyFallbackId(item.label, index)
+  return legacyShortcutFallbackId(item.label, index)
 }
 </script>
 
@@ -71,7 +65,7 @@ function resolveCustomShortcutId(item: ShortcutDefinition, index: number) {
           v-bind="{
             id: resolveCustomShortcutId(item, i),
             label: item.label,
-            isDisabled: false,
+            isDisabled: SLOT_SHORTCUT_DISABLED,
             meta: 'meta' in item ? item.meta : undefined,
             activate: () => activateShortcut(item, close, i),
           }"
@@ -98,7 +92,7 @@ function resolveCustomShortcutId(item: ShortcutDefinition, index: number) {
           v-bind="{
             id: item.id,
             label: item.label,
-            isDisabled: false,
+            isDisabled: SLOT_SHORTCUT_DISABLED,
             meta: undefined,
             activate: () => activateShortcut(item.id, close),
           }"

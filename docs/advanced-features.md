@@ -195,14 +195,16 @@ Use the `shortcut-item` slot to customize each shortcut while preserving library
 ```vue
 <template>
   <vue-tailwind-datepicker v-model="dateValue" :shortcuts="typedShortcuts">
-    <template #shortcut-item="{ id, label, meta, activate }">
-      <button type="button" class="my-shortcut-button" :data-shortcut-id="id" @click="activate">
+    <template #shortcut-item="{ id, label, isDisabled, meta, activate }">
+      <button type="button" class="my-shortcut-button" :data-shortcut-id="id" :disabled="isDisabled" @click="activate">
         {{ label }}{{ meta?.hint ? ` (${meta.hint})` : '' }}
       </button>
     </template>
   </vue-tailwind-datepicker>
 </template>
 ```
+
+`isDisabled` is currently reserved for forward compatibility and is always `false`.
 
 ## Localization (i18n)
 

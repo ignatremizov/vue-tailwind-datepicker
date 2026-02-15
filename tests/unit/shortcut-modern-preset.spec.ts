@@ -60,7 +60,7 @@ function expectedSingleRange(date: Date) {
   return [value, value]
 }
 
-describe('shortcutPreset=modern', () => {
+describe.sequential('shortcutPreset=modern', () => {
   it('renders modern built-ins and hides legacy built-ins', async () => {
     await withFixedNow(SHORTCUT_EDGE_FIXTURES.weekendSaturday.now, async () => {
       const wrapper = await mountModernPresetPicker()

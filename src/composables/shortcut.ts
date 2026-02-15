@@ -99,20 +99,20 @@ function createInvalidPayload(
   }
 }
 
-function defaultLegacyId(item: LegacyShortcutDefinition, index = -1) {
-  const normalizedLabel = item.label
+export function legacyShortcutFallbackId(label: string, index = 0) {
+  const normalizedLabel = label
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-  return `legacy-${index >= 0 ? index : 0}-${normalizedLabel || 'shortcut'}`
+  return `legacy-${index}-${normalizedLabel || 'shortcut'}`
 }
 
 function resolveLegacyShortcutId(item: LegacyShortcutDefinition, index?: number) {
   if (typeof item.id === 'string' && item.id.trim().length > 0)
     return item.id
 
-  return defaultLegacyId(item, index)
+  return legacyShortcutFallbackId(item.label, index ?? 0)
 }
 
 function cloneDate(value: Date) {

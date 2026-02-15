@@ -40,7 +40,7 @@ function getLastInvalidPayload(wrapper: ReturnType<typeof mount>) {
   return invalidEvents!.at(-1)?.[0] as Record<string, unknown>
 }
 
-describe('invalid-shortcut event contract', () => {
+describe.sequential('invalid-shortcut event contract', () => {
   it('emits blocked-date with no model update when constraints reject output', async () => {
     await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
       const wrapper = await mountPicker({
