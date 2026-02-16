@@ -118,7 +118,7 @@ export function legacyShortcutFallbackId(label: string, index = 0) {
 
 function resolveLegacyShortcutId(item: LegacyShortcutDefinition, index?: number) {
   if (typeof item.id === 'string' && item.id.trim().length > 0)
-    return item.id
+    return item.id.trim()
 
   return legacyShortcutFallbackId(item.label, index ?? 0)
 }

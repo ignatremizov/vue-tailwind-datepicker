@@ -290,6 +290,55 @@ describe.sequential('invalid-shortcut event contract', () => {
     })
   })
 
+  it('normalizes padded legacy shortcut ids consistently for slot payload and events', async () => {
+    await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
+      const wrapper = mount(VueTailwindDatePicker, {
+        attachTo: document.body,
+        props: {
+          noInput: true,
+          shortcuts: [
+            {
+              id: '  legacy-padded-id  ',
+              label: 'Legacy padded id shortcut',
+              atClick: () => [] as Date[],
+            },
+          ],
+          autoApply: true,
+          asSingle: true,
+          useRange: true,
+          modelValue: [
+            createLocalDate(2026, 0, 15, 12, 0, 0),
+            createLocalDate(2026, 0, 15, 12, 0, 0),
+          ],
+        },
+        slots: {
+          'shortcut-item': ({ id, label, activate }: any) => h(
+            'button',
+            {
+              type: 'button',
+              class: 'slot-shortcut-item',
+              'data-shortcut-id': id,
+              onClick: activate,
+            },
+            label,
+          ),
+        },
+      })
+      await vi.advanceTimersByTimeAsync(320)
+      await nextTick()
+
+      const slotButton = wrapper.get('button.slot-shortcut-item')
+      expect(slotButton.attributes('data-shortcut-id')).toBe('legacy-padded-id')
+      await slotButton.trigger('click')
+      await nextTick()
+
+      const payload = getLastInvalidPayload(wrapper)
+      expect(payload.id).toBe('legacy-padded-id')
+      expect(payload.reason).toBe('invalid-result')
+      wrapper.unmount()
+    })
+  })
+
   it('caches typed shortcut disabled-state checks across unrelated rerenders', async () => {
     await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
       const resolver = vi.fn(({ now }: { now: Date }) => now)
