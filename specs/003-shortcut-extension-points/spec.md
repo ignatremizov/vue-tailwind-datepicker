@@ -2,7 +2,7 @@
 
 **Feature Branch**: `003-shortcut-extension-points`  
 **Created**: 2026-02-12  
-**Status**: Draft  
+**Status**: Implemented  
 **Input**: User description: "Support in-panel quick actions (Today, 3 business days, Next week, Next month) and extensible shortcut rendering for custom picker workflows."
 
 ## User Scenarios & Testing *(mandatory)*
@@ -73,6 +73,7 @@ As a keyboard or assistive-tech user, I can discover and activate shortcuts reli
 - Business-day calculation when "today" is Saturday/Sunday MUST start counting from the next Monday.
 - `Next month` rollover from dates that do not exist in the destination month MUST clamp to the destination month's final calendar day.
 - Timezone boundaries around midnight MUST resolve from browser-local click-time `now`; render-time date snapshots MUST NOT be reused.
+- Shortcut disabled-state evaluation MUST avoid re-running typed resolvers on unrelated reactive rerenders and MUST invalidate when shortcut inputs/constraints materially change.
 
 ## Assumptions and External Dependencies
 
@@ -105,6 +106,7 @@ As a keyboard or assistive-tech user, I can discover and activate shortcuts reli
 - **FR-019**: Resolver failures MUST fail soft: no value update, emit `invalid-shortcut` with `reason='resolver-error'`, and MUST NOT throw runtime exceptions.
 - **FR-020**: After successful shortcut activation, picker panel close/open/focus behavior MUST reuse existing selection semantics for the active mode/props.
 - **FR-021**: Built-in shortcut preset selection MUST use a dedicated public prop `shortcutPreset` with enum `legacy | modern`; default MUST be `legacy`.
+- **FR-022**: Shortcut disabled-state computation MUST be memoized per shortcut target and mode to avoid repeated resolver/activation pipeline work on unrelated rerenders; cache invalidation MUST occur when value, shortcut definitions, preset, range mode, or date-blocking constraints change, and time-sensitive disabled states MUST refresh without requiring user interaction.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -120,6 +122,7 @@ As a keyboard or assistive-tech user, I can discover and activate shortcuts reli
 - **SC-002**: Custom shortcuts and per-item rendering can be injected by API without source patching in integration example.
 - **SC-003**: Keyboard-only activation works for all shortcut actions in both default and extension-rendered shortcut items, preserving valid focus traversal behavior.
 - **SC-004**: For each invalid failure class (`blocked-date`, `mode-mismatch`, `resolver-error`, `invalid-result`), tests verify: `invalid-shortcut` payload includes `id`, `resolvedValue`, `reason`, and `mode`; selection value is unchanged; and no `update:modelValue` event is emitted.
+- **SC-005**: Disabled-state tests verify typed resolver checks are reused across unrelated rerenders and recomputed after relevant input changes (for example `modelValue` updates).
 
 ## Clarifications
 
@@ -152,3 +155,4 @@ As a keyboard or assistive-tech user, I can discover and activate shortcuts reli
 - **CL-027** Q: What is the constraint evaluation order for typed resolver outputs? -> A: Normalize output first, then validate start endpoint, then end endpoint; reject atomically on first blocked endpoint.
 - **CL-028** Q: What are the minimum accessibility pass/fail requirements? -> A: Each shortcut is focusable, has an accessible name, supports Enter/Space activation, and follows rendered tab order in both default and extension render paths.
 - **CL-029** Q: What external dependencies can alter deterministic outcomes? -> A: Dayjs date-math semantics and browser-local timezone source at click time; both are part of deterministic assumptions.
+- **CL-030** Q: How is shortcut disabled-state performance handled for typed resolvers? -> A: Disabled-state computation is memoized by shortcut target and mode, invalidated on relevant input changes, and time-bucket refreshed to keep time-dependent shortcuts current.

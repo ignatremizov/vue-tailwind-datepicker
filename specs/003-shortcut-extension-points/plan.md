@@ -15,7 +15,7 @@ Add extensible, in-panel shortcut behavior with a typed resolver contract, inval
 **Testing**: `npm run typecheck`, `npm run build`, manual quickstart flows for shortcut semantics and accessibility  
 **Target Platform**: Browser-based Vue 3 component library (desktop and mobile)  
 **Project Type**: Single frontend component library  
-**Performance Goals**: Shortcut activation updates selection with no noticeable lag and preserves current panel responsiveness  
+**Performance Goals**: Shortcut activation updates selection with no noticeable lag and preserves current panel responsiveness; disabled-state checks avoid repeated resolver execution on unrelated rerenders  
 **Constraints**: Backward compatible defaults, local-time deterministic calculations, no extra popup/panel for shortcut actions  
 **Scale/Scope**: Primary work in `src/VueTailwindDatePicker.vue`, `src/components/Shortcut.vue`, and typing/event contracts
 
@@ -94,6 +94,7 @@ Detailed entities and transitions are in `data-model.md` and `contracts/shortcut
 6. Introduce per-item render extension contract that routes all activations through `activate()`.
 7. Preserve keyboard activation and focus behavior in shortcut list semantics.
 8. Run typecheck/build and execute quickstart manual checks.
+9. Memoize shortcut disabled-state computation per shortcut target/mode, with explicit invalidation for value, constraints, preset, and shortcut-definition changes.
 
 ## Test and Verification Strategy
 
@@ -102,6 +103,9 @@ Detailed entities and transitions are in `data-model.md` and `contracts/shortcut
   - `npm run build`
 - Shortcut behavior regression checks:
   - `npm run test:unit` (or equivalent Vitest script introduced by this feature)
+- Disabled-state render-performance checks:
+  - Verify typed resolver-backed disabled checks are not recomputed for unrelated rerenders.
+  - Verify disabled-state cache invalidates on relevant inputs (`modelValue`, shortcut definitions, constraints, and range mode).
 - Manual verification matrix:
   - `shortcutPreset='legacy'` matches existing shortcut defaults.
   - `shortcutPreset='modern'` maps to Today, 3 business days, Next week, Next month semantics.

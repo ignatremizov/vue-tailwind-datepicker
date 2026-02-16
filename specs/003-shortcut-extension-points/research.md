@@ -73,6 +73,14 @@
 - Alternatives considered:
   - Separate keyboard path: rejected because duplicate activation logic increases drift risk.
 
+## Decision 11: Disabled-state render-performance caching
+
+- Decision: Memoize shortcut disabled-state results by shortcut target and mode, invalidate on relevant reactive inputs, and refresh cache on minute boundaries for time-sensitive shortcuts.
+- Rationale: Prevents repeated resolver/activation evaluation on unrelated rerenders while preserving accurate disabled status for changing values and time-based built-ins.
+- Alternatives considered:
+  - Recompute disabled state on every render: rejected due to unnecessary resolver work under reactive churn.
+  - Infinite cache without time refresh: rejected because time-dependent disabled states could become stale without user interaction.
+
 ## Risks and Mitigations
 
 - Risk: Date math regressions around month boundaries and weekends.

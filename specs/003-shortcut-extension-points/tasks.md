@@ -67,6 +67,7 @@
 - [X] T030 Add legacy-preset parity unit tests (default preset behavior and built-in outputs) in `tests/unit/shortcut-legacy-preset.spec.ts` (SC-001, FR-005, FR-011, FR-021).
 - [X] T031 Add failure-path reason-matrix unit tests for `invalid-shortcut` (`blocked-date`, `mode-mismatch`, `resolver-error`, `invalid-result`) including payload shape, `update:modelValue` suppression, and deterministic legacy id generation in `tests/unit/shortcut-event-contract.spec.ts` (FR-012, FR-018, FR-019, SC-004).
 - [X] T032 Add shortcut visibility matrix unit tests for `useRange/asSingle` combinations (visible for `false/false`, `true/false`, `true/true`; hidden for `false/true`) in `tests/unit/shortcut-visibility.spec.ts` (FR-005).
+- [X] T033 Add shortcut disabled-state memoization and invalidation behavior in `src/VueTailwindDatePicker.vue` with regression coverage in `tests/unit/shortcut-event-contract.spec.ts` to prevent repeated typed resolver evaluation on unrelated rerenders (FR-022, SC-005).
 
 ## Dependencies & Execution Order
 
@@ -89,5 +90,6 @@
 
 - **US1 coverage**: FR-001, FR-002, FR-004, FR-005, FR-007, FR-008, FR-011, FR-021 -> T007-T011, T030, T032.
 - **US2 coverage**: FR-003, FR-009, FR-010, FR-012, FR-013, FR-014, FR-015, FR-016, FR-017, FR-018, FR-019, FR-020 -> T012-T020.
+- **US2 coverage**: FR-003, FR-009, FR-010, FR-012, FR-013, FR-014, FR-015, FR-016, FR-017, FR-018, FR-019, FR-020, FR-022 -> T012-T020, T033.
 - **US3 coverage**: FR-006, FR-020 -> T021-T023.
-- **Success criteria coverage**: SC-001 -> T001/T003/T011/T026/T028/T029/T030, SC-002 -> T024/T025/T027, SC-003 -> T023/T026, SC-004 -> T018/T031.
+- **Success criteria coverage**: SC-001 -> T001/T003/T011/T026/T028/T029/T030, SC-002 -> T024/T025/T027, SC-003 -> T023/T026, SC-004 -> T018/T031, SC-005 -> T033.

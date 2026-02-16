@@ -91,6 +91,7 @@ type ShortcutRenderPayload = {
   id: string
   label: string
   isDisabled: boolean
+  disabledReason: 'explicit' | 'blocked-date' | null
   meta?: Record<string, unknown>
   activate: () => void
 }
@@ -99,6 +100,18 @@ type ShortcutRenderPayload = {
 - `activate()` is the only supported mutation trigger.
 - Library owns selection mutation, validation, and event emission side effects.
 - `isDisabled` is derived from custom shortcut `disabled` rules and built-in blocked-date checks.
+- `disabledReason` provides the source of disabled state for custom renderers (`explicit`, `blocked-date`, or `null`).
+
+## Disabled-State Evaluation and Caching
+
+- Disabled-state checks are memoized per shortcut target and picker mode (`single`/`range`) to avoid repeated resolver/activation computation on unrelated rerenders.
+- Cache invalidation occurs when:
+  - `modelValue` changes
+  - `disableDate` constraints change
+  - range mode (`useRange`) changes
+  - shortcut preset changes
+  - shortcut definitions/factories change
+- Time-sensitive disabled states are refreshed via minute-bucket rollover so built-ins depending on `now` do not remain stale.
 
 ## Events
 

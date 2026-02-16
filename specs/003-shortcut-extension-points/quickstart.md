@@ -127,6 +127,7 @@ See executable example in `src/App.vue`.
 9. Confirm Enter/Space activates each shortcut.
 10. Confirm post-activation close/open/focus behavior matches existing mode semantics.
 11. Confirm `invalid-shortcut.reason` covers `blocked-date`, `mode-mismatch`, `resolver-error`, and `invalid-result`.
+12. Confirm typed shortcut disabled-state checks are stable across unrelated rerenders (e.g. visual prop changes) and recompute when `modelValue` changes.
 
 ## 8. Timezone-boundary verification scenarios
 
@@ -140,4 +141,10 @@ See executable example in `src/App.vue`.
 ```bash
 npm run typecheck
 npm run build
+```
+
+Optional focused regression:
+
+```bash
+npm run test:unit -- tests/unit/shortcut-event-contract.spec.ts
 ```
