@@ -6,6 +6,7 @@ import type { ShortcutDefinition, ShortcutFactory } from '../types'
 import { injectStrict } from '../utils'
 import {
   type BuiltInShortcutId,
+  type ShortcutDisabledReason,
   activateShortcutKey,
   getShortcutDisabledStateKey,
 } from '../keys'
@@ -26,7 +27,7 @@ defineSlots<{
     id: string
     label: string
     isDisabled: boolean
-    disabledReason: 'explicit' | 'blocked-date' | null
+    disabledReason: ShortcutDisabledReason
     meta?: Record<string, unknown>
     activate: () => void
   }) => unknown
@@ -36,7 +37,7 @@ interface RenderShortcutItem {
   id: string
   label: string
   isDisabled: boolean
-  disabledReason: 'explicit' | 'blocked-date' | null
+  disabledReason: ShortcutDisabledReason
   meta?: Record<string, unknown>
   activate: () => void
 }

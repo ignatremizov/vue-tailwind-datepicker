@@ -2044,9 +2044,10 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
         id: 'past-7-days',
         label: props.options.shortcuts.past(7),
         atClick: () => {
+          const now = dayjs()
           return [
-            dayjs().subtract(6, 'day').toDate(),
-            dayjs().toDate(),
+            now.subtract(6, 'day').toDate(),
+            now.toDate(),
           ]
         },
       }
@@ -2055,9 +2056,10 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
         id: 'past-30-days',
         label: props.options.shortcuts.past(30),
         atClick: () => {
+          const now = dayjs()
           return [
-            dayjs().subtract(29, 'day').toDate(),
-            dayjs().toDate(),
+            now.subtract(29, 'day').toDate(),
+            now.toDate(),
           ]
         },
       }
@@ -2066,9 +2068,10 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
         id: 'this-month',
         label: props.options.shortcuts.currentMonth,
         atClick: () => {
+          const now = dayjs()
           return [
-            dayjs().date(1).toDate(),
-            dayjs().date(dayjs().daysInMonth()).toDate(),
+            now.date(1).toDate(),
+            now.date(now.daysInMonth()).toDate(),
           ]
         },
       }
@@ -2077,9 +2080,10 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
         id: 'last-month',
         label: props.options.shortcuts.pastMonth,
         atClick: () => {
+          const now = dayjs()
           return [
-            dayjs().date(1).subtract(1, 'month').toDate(),
-            dayjs().date(0).toDate(),
+            now.date(1).subtract(1, 'month').toDate(),
+            now.date(0).toDate(),
           ]
         },
       }
