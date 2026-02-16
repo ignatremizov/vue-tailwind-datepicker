@@ -9,7 +9,7 @@
 - [x] CHK001 Do requirements explicitly define both built-in preset inventories (legacy and modern) so no built-in labels/semantics are implied? [Spec §Functional Requirements FR-001, FR-011, FR-021] [Gap]
 - [x] CHK002 Do requirements fully specify the modern preset algorithms (business-day counting, +7 days, month clamp, local timezone) without hidden assumptions? [Spec §Functional Requirements FR-004, FR-007] [Spec §Clarifications CL-004, CL-005, CL-007, CL-008]
 - [x] CHK003 Do requirements define when shortcuts are visible for each mode combination (`use-range`, `as-single`, single mode), or is display scope still implicit? [Spec §User Story 1] [Ambiguity]
-- [x] CHK004 Do requirements define the full invalid-shortcut reason taxonomy needed for all rejection paths, including blocked date, mode mismatch, and resolver exception cases? [Spec §Functional Requirements FR-010, FR-012, FR-019] [Gap]
+- [x] CHK004 Do requirements define the full invalid-shortcut reason taxonomy needed for all rejection paths, including explicit disabled, blocked date, mode mismatch, and resolver exception cases? [Spec §Functional Requirements FR-010, FR-012, FR-019] [Gap]
 - [x] CHK005 Do requirements specify whether custom shortcut replacement is all-or-nothing in every input form (array, factory, legacy, typed)? [Spec §Functional Requirements FR-014] [Assumption]
 
 ## Clarity and Determinism
