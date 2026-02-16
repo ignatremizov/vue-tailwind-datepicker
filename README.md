@@ -119,6 +119,32 @@ const rangeDate = ref({
 
 Selector wheel visuals are also themeable through CSS variables on `.vtd-datepicker` (month/year selected and hover colors, borders, typography, and wheel cell sizing). Calendar range preview colors/opacity are exposed via `--vtd-calendar-range-preview-bg` and `--vtd-calendar-range-preview-bg-dark`. See `docs/theming-options.md` for examples.
 
+## Shortcut Layout Customization
+
+Shortcut sizing can be customized through the `shortcut-item` slot and host CSS.
+
+```vue
+<vue-tailwind-datepicker v-model="dateValue" :shortcuts="typedShortcuts">
+  <template #shortcut-item="{ id, label, isDisabled, disabledReason, activate }">
+    <button
+      type="button"
+      class="vtd-shortcuts w-[10.5rem] rounded border px-2 py-1.5 text-left text-sm"
+      :data-shortcut-id="id"
+      :disabled="isDisabled"
+      @click="activate"
+    >
+      {{ label }}
+    </button>
+    <small v-if="disabledReason === 'blocked-date'">blocked by disableDate</small>
+  </template>
+</vue-tailwind-datepicker>
+```
+
+- Control width/spacing/typography with slot classes.
+- Use `.vtd-shortcuts` for host-level CSS overrides.
+- Use `disabledReason` (`explicit` | `blocked-date`) to show user-facing status badges.
+- There is no dedicated `shortcutPanelWidth` prop yet; panel width follows rendered shortcut content.
+
 ## Weekend Day Styling Hooks
 
 Day cells now expose stable weekend hooks so host apps can apply weekend tinting without patching component internals:

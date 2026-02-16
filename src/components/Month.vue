@@ -478,7 +478,7 @@ defineExpose({
 </script>
 
 <template>
-  <div v-if="!props.selectorMode" class="flex flex-wrap mt-1.5">
+  <div v-if="!props.selectorMode" class="mx-auto mt-1.5 flex max-w-[20.5rem] flex-wrap">
     <div v-for="(month, key) in props.months" :key="key" class="w-1/2 px-0.5">
       <span class="flex rounded-md mt-1.5">
         <button

@@ -41,7 +41,10 @@
       yesterday: 'Kemarin',
       past: period => period + ' hari terakhir',
       currentMonth: 'Bulan ini',
-      pastMonth: 'Bulan lalu'
+      pastMonth: 'Bulan lalu',
+      businessDays: period => `${period} hari kerja`,
+      nextWeek: 'Minggu depan',
+      nextMonth: 'Bulan depan',
     },
     footer: {
       apply: 'Terapkan',
@@ -157,6 +160,90 @@ const customShortcuts = () => {
 </template>
 ```
 
+Custom shortcuts replace built-ins by default (no implicit merge).
+
+## Typed shortcuts
+
+Typed shortcuts support resolver context and deterministic shortcut ids.
+
+```vue
+<script setup lang="ts">
+const dateValue = ref("")
+const typedShortcuts = [
+  {
+    id: "next-billing-cycle",
+    label: "Next billing cycle",
+    disabled: false,
+    resolver: ({ now }) => {
+      const date = new Date(now)
+      date.setMonth(date.getMonth() + 1)
+      return date
+    },
+  },
+]
+</script>
+
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    :shortcuts="typedShortcuts"
+    shortcut-preset="modern"
+  />
+</template>
+```
+
+## Shortcut item render extension
+
+Use the `shortcut-item` slot to customize each shortcut while preserving library-owned activation/event behavior through `activate()`.
+
+```vue
+<template>
+  <vue-tailwind-datepicker v-model="dateValue" :shortcuts="typedShortcuts">
+    <template #shortcut-item="{ id, label, isDisabled, disabledReason, meta, activate }">
+      <button type="button" class="my-shortcut-button" :data-shortcut-id="id" :disabled="isDisabled" @click="activate">
+        {{ label }}{{ meta?.hint ? ` (${meta.hint})` : '' }}
+      </button>
+      <small v-if="disabledReason === 'blocked-date'">blocked by disableDate</small>
+    </template>
+  </vue-tailwind-datepicker>
+</template>
+```
+
+`isDisabled` is `true` when:
+- a custom shortcut declares `disabled: true` (or `disabled(context)` returns `true`)
+- a built-in shortcut resolves to a blocked date under current `disableDate` constraints
+- a typed custom shortcut resolver output is blocked by current `disableDate` constraints
+
+`disabledReason` exposes why it is disabled:
+- `explicit`: shortcut-level disabled flag/predicate
+- `blocked-date`: resolver output is blocked by current `disableDate` constraints
+
+## Shortcut layout customization
+
+Shortcut sizing is currently content-driven and can be customized through the `shortcut-item` slot/CSS.
+
+```vue
+<template>
+  <vue-tailwind-datepicker v-model="dateValue" :shortcuts="typedShortcuts">
+    <template #shortcut-item="{ id, label, isDisabled, activate }">
+      <button
+        type="button"
+        class="vtd-shortcuts w-[10.5rem] rounded border px-2 py-1.5 text-left text-sm"
+        :data-shortcut-id="id"
+        :disabled="isDisabled"
+        @click="activate"
+      >
+        {{ label }}
+      </button>
+    </template>
+  </vue-tailwind-datepicker>
+</template>
+```
+
+- Use slot button classes (for example `w-[10.5rem]`, padding, typography) to control item width and visual density.
+- The `.vtd-shortcuts` class is available for host CSS overrides.
+- There is no dedicated prop for shortcut panel width yet; panel width follows rendered shortcut content and layout mode.
+
 ## Localization (i18n)
 
 Vue Tailwind Datepicker extend to day.js<br>
@@ -182,6 +269,9 @@ const options = ref({
     past: (period) => period + " hari terakhir",
     currentMonth: "Bulan ini",
     pastMonth: "Bulan lalu",
+    businessDays: (period) => `${period} hari kerja`,
+    nextWeek: "Minggu depan",
+    nextMonth: "Bulan depan",
   },
   footer: {
     apply: "Terapkan",

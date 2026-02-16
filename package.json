@@ -44,6 +44,7 @@
     "build": "vite build",
     "preview": "vite preview --port 4173",
     "test:unit": "vitest run",
+    "test:shortcut-matrix": "vitest run --passWithNoTests tests/unit/shortcut-*.spec.ts",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "docs:dev": "npm --prefix docs run dev",

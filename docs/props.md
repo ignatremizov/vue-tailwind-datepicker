@@ -34,7 +34,10 @@
       yesterday: 'Kemarin',
       past: period => period + ' hari terakhir',
       currentMonth: 'Bulan ini',
-      pastMonth: 'Bulan lalu'
+      pastMonth: 'Bulan lalu',
+      businessDays: period => `${period} hari kerja`,
+      nextWeek: 'Minggu depan',
+      nextMonth: 'Bulan depan',
     },
     footer: {
       apply: 'Terapkan',
@@ -395,7 +398,14 @@ If you want to show week number in the calendar
 
 ## Shortcuts
 
-Display or not the dates shortcuts, default value is true.
+Display or hide shortcuts. Default value is `true`.
+
+`shortcuts` accepts:
+
+- `true`: show built-ins (from `shortcutPreset`)
+- `false`: hide all shortcuts
+- `ShortcutDefinition[]`: use custom shortcuts (replaces built-ins)
+- `() => ShortcutDefinition[]`: lazy factory for custom shortcuts (replaces built-ins)
 
 <DemoLayout>
   <VueTailwindDatePicker
@@ -413,6 +423,32 @@ const dateValue = ref([])
 
 <template>
   <vue-tailwind-datepicker v-model="dateValue" :shortcuts="false" />
+</template>
+```
+
+## Shortcut Preset
+
+Choose which built-in shortcut inventory is active when `shortcuts` is `true` and no custom shortcuts are provided.
+
+- `legacy` (default): Today, Yesterday, Last 7 Days, Last 30 Days, This Month, Last Month
+- `modern`: Today, 3 business days, Next week, Next month
+
+Modern preset labels can be overridden via `options.shortcuts.today`, `options.shortcuts.businessDays(period)`, `options.shortcuts.nextWeek`, and `options.shortcuts.nextMonth`.
+
+<DemoLayout>
+  <VueTailwindDatePicker
+    v-model="dateValue10"
+    shortcut-preset="modern"
+  />
+</DemoLayout>
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    shortcut-preset="modern"
+    :shortcuts="true"
+  />
 </template>
 ```
 
@@ -590,6 +626,9 @@ const options = ref({
     past: period => `${period} hari terakhir`,
     currentMonth: 'Bulan ini',
     pastMonth: 'Bulan lalu',
+    businessDays: period => `${period} hari kerja`,
+    nextWeek: 'Minggu depan',
+    nextMonth: 'Bulan depan',
   },
   footer: {
     apply: 'Terapkan',

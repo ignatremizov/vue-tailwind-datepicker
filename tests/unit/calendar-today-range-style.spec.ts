@@ -41,4 +41,36 @@ describe('Calendar today styling in range preview', () => {
     expect(classNames).toContain('rounded-full')
     expect(classNames).not.toContain('vtd-datepicker-date-selected')
   })
+
+  it('keeps selected day circular for single-day ranges in asSingle useRange mode', async () => {
+    vi.useFakeTimers()
+    const selectedDate = dayjs().format('YYYY-MM-DD HH:mm:ss')
+    const selectedDateKey = dayjs(selectedDate).format('YYYY-MM-DD')
+
+    const wrapper = mount(VueTailwindDatePicker, {
+      attachTo: document.body,
+      props: {
+        noInput: true,
+        useRange: true,
+        asSingle: true,
+        autoApply: true,
+        modelValue: {
+          startDate: selectedDate,
+          endDate: selectedDate,
+        },
+      },
+    })
+
+    vi.advanceTimersByTime(260)
+    await nextTick()
+    await nextTick()
+
+    const selectedButton = wrapper.get(`button[data-date-key="${selectedDateKey}"]`)
+    const classNames = selectedButton.attributes('class')
+    expect(classNames).toContain('vtd-datepicker-date-selected-single')
+
+    const selectedCell = selectedButton.element.parentElement as HTMLElement
+    const edgePreview = selectedCell.querySelector('.vtd-datepicker-range-preview-edge')
+    expect(edgePreview).toBeNull()
+  })
 })

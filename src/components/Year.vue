@@ -1027,7 +1027,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div :class="props.selectorMode ? 'w-full min-w-0' : 'flex flex-wrap'">
+  <div :class="props.selectorMode ? 'w-full min-w-0' : 'mx-auto flex max-w-[20.5rem] flex-wrap'">
     <template v-if="props.selectorMode">
       <div class="relative h-64 w-full min-w-0">
         <VtdSelectorWheelStepButton
