@@ -35,7 +35,10 @@ import VtdWeek from './components/Week.vue'
 import VtdMonth from './components/Month.vue'
 import useDate from './composables/date'
 import useDom from './composables/dom'
-import useShortcut, { resolveModernBuiltInDate } from './composables/shortcut'
+import useShortcut, {
+  legacyShortcutFallbackId,
+  resolveModernBuiltInDate,
+} from './composables/shortcut'
 import type {
   DatePickerDay,
   InvalidShortcutEventPayload,
@@ -2112,31 +2115,18 @@ function applyShortcutResolvedValue(value: Date | [Date, Date]) {
   emitShortcut(s, e)
 }
 
-function getShortcutActivationState(target: ShortcutActivationTarget, index?: number) {
-  const item = typeof target === 'string' ? getBuiltInShortcut(target) : target
-  const mode = asRange() ? 'range' : 'single'
-  const now = new Date()
-  return activateShortcutByDefinition({
-    item,
-    mode,
-    currentValue: props.modelValue,
-    now,
-    index,
-    constraints: {
-      isDateBlocked: (date: Date) => useDisableDate(dayjs(date), props),
-    },
-  })
-}
-
 function isTypedShortcutDefinition(target: ShortcutActivationTarget): target is TypedShortcutDefinition {
   return typeof target !== 'string' && 'resolver' in target && typeof target.resolver === 'function'
 }
 
 const shortcutDisabledStateCache = new Map<string, ShortcutDisabledState>()
+type ShortcutActivationState = ReturnType<typeof activateShortcutByDefinition>
+const shortcutActivationStateCache = new Map<string, ShortcutActivationState>()
 let shortcutDisabledStateCacheMinuteBucket = Math.floor(Date.now() / 60000)
 
 function clearShortcutDisabledStateCache() {
   shortcutDisabledStateCache.clear()
+  shortcutActivationStateCache.clear()
 }
 
 function syncShortcutDisabledStateCacheBucket() {
@@ -2154,12 +2144,44 @@ function getShortcutCacheTargetKey(target: ShortcutActivationTarget, index?: num
   if ('id' in target && typeof target.id === 'string' && target.id.trim().length > 0)
     return `custom:${target.id.trim()}:${index ?? -1}`
 
-  return `legacy:${index ?? -1}:${target.label}`
+  return `legacy:${legacyShortcutFallbackId(target.label, index ?? -1)}`
 }
 
 function getShortcutDisabledStateCacheKey(target: ShortcutActivationTarget, index?: number) {
   syncShortcutDisabledStateCacheBucket()
   return `${asRange() ? 'range' : 'single'}:${getShortcutCacheTargetKey(target, index)}`
+}
+
+function getShortcutActivationState(
+  target: ShortcutActivationTarget,
+  index?: number,
+  options: { preferCached?: boolean; cacheResult?: boolean } = {},
+) {
+  const cacheKey = getShortcutDisabledStateCacheKey(target, index)
+  if (options.preferCached) {
+    const cachedActivation = shortcutActivationStateCache.get(cacheKey)
+    if (cachedActivation)
+      return cachedActivation
+  }
+
+  const item = typeof target === 'string' ? getBuiltInShortcut(target) : target
+  const mode = asRange() ? 'range' : 'single'
+  const now = new Date()
+  const activation = activateShortcutByDefinition({
+    item,
+    mode,
+    currentValue: props.modelValue,
+    now,
+    index,
+    constraints: {
+      isDateBlocked: (date: Date) => useDisableDate(dayjs(date), props),
+    },
+  })
+
+  if (options.cacheResult)
+    shortcutActivationStateCache.set(cacheKey, activation)
+
+  return activation
 }
 
 function cacheShortcutDisabledState(
@@ -2177,7 +2199,10 @@ function getShortcutDisabledState(target: ShortcutActivationTarget, index?: numb
     return cachedState
 
   if (typeof target === 'string') {
-    const activation = getShortcutActivationState(target, index)
+    const activation = getShortcutActivationState(target, index, {
+      preferCached: true,
+      cacheResult: true,
+    })
     if (!activation.ok && activation.payload.reason === 'blocked-date') {
       return cacheShortcutDisabledState(cacheKey, {
         isDisabled: true,
@@ -2209,7 +2234,10 @@ function getShortcutDisabledState(target: ShortcutActivationTarget, index?: numb
   }
 
   if (isTypedShortcutDefinition(target)) {
-    const activation = getShortcutActivationState(target, index)
+    const activation = getShortcutActivationState(target, index, {
+      preferCached: true,
+      cacheResult: true,
+    })
     if (!activation.ok && activation.payload.reason === 'blocked-date') {
       return cacheShortcutDisabledState(cacheKey, {
         isDisabled: true,
@@ -2233,7 +2261,10 @@ function activateShortcut(
   close?: (ref?: Ref | HTMLElement) => void,
   index?: number,
 ) {
-  const activation = getShortcutActivationState(target, index)
+  const activation = getShortcutActivationState(target, index, {
+    preferCached: true,
+    cacheResult: true,
+  })
 
   if (!activation.ok) {
     emitInvalidShortcut(activation.payload)

@@ -324,6 +324,35 @@ describe.sequential('invalid-shortcut event contract', () => {
     })
   })
 
+  it('reuses typed activation state cached during disabled-state evaluation on first click', async () => {
+    await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
+      const resolver = vi.fn(() => null as unknown as Date)
+      const wrapper = await mountPicker({
+        shortcuts: [
+          {
+            id: 'typed-first-click-cache',
+            label: 'Typed first click cache',
+            resolver,
+          },
+        ],
+      })
+
+      const initialCalls = resolver.mock.calls.length
+      expect(initialCalls).toBeGreaterThan(0)
+
+      const button = getShortcutButton(wrapper, 'Typed first click cache')
+      expect(button).toBeTruthy()
+      await button!.trigger('click')
+      await nextTick()
+
+      const payload = getLastInvalidPayload(wrapper)
+      expect(payload.id).toBe('typed-first-click-cache')
+      expect(payload.reason).toBe('invalid-result')
+      expect(resolver).toHaveBeenCalledTimes(initialCalls)
+      wrapper.unmount()
+    })
+  })
+
   it('marks built-in buttons disabled when disableDate blocks their resolved values', async () => {
     await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
       const wrapper = await mountPicker({
