@@ -2020,7 +2020,7 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
   switch (target) {
     case 'today':
       return {
-        id: 'legacy-today',
+        id: 'today',
         label: props.options.shortcuts.today,
         atClick: () => {
           const date = dayjs().toDate()
@@ -2029,7 +2029,7 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
       }
     case 'yesterday':
       return {
-        id: 'legacy-yesterday',
+        id: 'yesterday',
         label: props.options.shortcuts.yesterday,
         atClick: () => {
           const date = dayjs().subtract(1, 'day').toDate()
@@ -2038,7 +2038,7 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
       }
     case 'past-7-days':
       return {
-        id: 'legacy-past-7-days',
+        id: 'past-7-days',
         label: props.options.shortcuts.past(7),
         atClick: () => {
           return [
@@ -2049,7 +2049,7 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
       }
     case 'past-30-days':
       return {
-        id: 'legacy-past-30-days',
+        id: 'past-30-days',
         label: props.options.shortcuts.past(30),
         atClick: () => {
           return [
@@ -2060,7 +2060,7 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
       }
     case 'this-month':
       return {
-        id: 'legacy-this-month',
+        id: 'this-month',
         label: props.options.shortcuts.currentMonth,
         atClick: () => {
           return [
@@ -2071,7 +2071,7 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
       }
     case 'last-month':
       return {
-        id: 'legacy-last-month',
+        id: 'last-month',
         label: props.options.shortcuts.pastMonth,
         atClick: () => {
           return [
@@ -2082,19 +2082,19 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
       }
     case 'three-business-days':
       return {
-        id: 'modern-three-business-days',
+        id: 'three-business-days',
         label: getModernShortcutLabel('three-business-days'),
         resolver: ({ now }) => resolveModernBuiltInDate('three-business-days', now),
       }
     case 'next-week':
       return {
-        id: 'modern-next-week',
+        id: 'next-week',
         label: getModernShortcutLabel('next-week'),
         resolver: ({ now }) => resolveModernBuiltInDate('next-week', now),
       }
     case 'next-month':
       return {
-        id: 'modern-next-month',
+        id: 'next-month',
         label: getModernShortcutLabel('next-month'),
         resolver: ({ now }) => resolveModernBuiltInDate('next-month', now),
       }

@@ -338,4 +338,48 @@ describe.sequential('invalid-shortcut event contract', () => {
       wrapper.unmount()
     })
   })
+
+  it('keeps built-in slot ids aligned with invalid-shortcut payload ids', async () => {
+    await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
+      const wrapper = mount(VueTailwindDatePicker, {
+        attachTo: document.body,
+        props: {
+          noInput: true,
+          shortcuts: true,
+          shortcutPreset: 'modern',
+          autoApply: true,
+          asSingle: true,
+          useRange: true,
+          disableDate: () => true,
+          modelValue: [
+            createLocalDate(2026, 0, 15, 12, 0, 0),
+            createLocalDate(2026, 0, 15, 12, 0, 0),
+          ],
+        },
+        slots: {
+          'shortcut-item': ({ id, label, activate }: any) => h(
+            'button',
+            {
+              type: 'button',
+              class: 'slot-shortcut-item',
+              'data-shortcut-id': id,
+              onClick: activate,
+            },
+            label,
+          ),
+        },
+      })
+      await vi.advanceTimersByTimeAsync(320)
+      await nextTick()
+
+      const todayButton = wrapper.get('button.slot-shortcut-item[data-shortcut-id="today"]')
+      await todayButton.trigger('click')
+      await nextTick()
+
+      const payload = getLastInvalidPayload(wrapper)
+      expect(payload.id).toBe('today')
+      expect(payload.reason).toBe('blocked-date')
+      wrapper.unmount()
+    })
+  })
 })
