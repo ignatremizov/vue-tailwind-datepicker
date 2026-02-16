@@ -86,7 +86,7 @@ Custom shortcuts replace built-ins by default.
 
 - `id: string`
 - `resolvedValue: Date | [Date, Date] | null`
-- `reason: 'blocked-date' | 'mode-mismatch' | 'resolver-error' | 'invalid-result'`
+- `reason: 'disabled' | 'blocked-date' | 'mode-mismatch' | 'resolver-error' | 'invalid-result'`
 - `mode: 'single' | 'range'`
 
 ## 6. Use per-item render extension
@@ -126,7 +126,7 @@ See executable example in `src/App.vue`.
 8. Confirm blocked-date and resolver-error paths keep value unchanged and emit `invalid-shortcut`.
 9. Confirm Enter/Space activates each shortcut.
 10. Confirm post-activation close/open/focus behavior matches existing mode semantics.
-11. Confirm `invalid-shortcut.reason` covers `blocked-date`, `mode-mismatch`, `resolver-error`, and `invalid-result`.
+11. Confirm `invalid-shortcut.reason` covers `disabled`, `blocked-date`, `mode-mismatch`, `resolver-error`, and `invalid-result`.
 12. Confirm typed shortcut disabled-state checks are stable across unrelated rerenders (e.g. visual prop changes) and recompute when `modelValue` changes.
 
 ## 8. Timezone-boundary verification scenarios

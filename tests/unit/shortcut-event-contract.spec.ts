@@ -41,7 +41,7 @@ function getLastInvalidPayload(wrapper: ReturnType<typeof mount>) {
 }
 
 describe.sequential('invalid-shortcut event contract', () => {
-  it('treats explicit disabled shortcuts as blocked-date failures', () => {
+  it('treats explicit disabled shortcuts as disabled failures', () => {
     const { activateShortcut } = useShortcut()
     const now = SHORTCUT_EDGE_FIXTURES.monthBoundary.now
     const result = activateShortcut({
@@ -62,7 +62,7 @@ describe.sequential('invalid-shortcut event contract', () => {
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.payload.id).toBe('typed-disabled')
-      expect(result.payload.reason).toBe('blocked-date')
+      expect(result.payload.reason).toBe('disabled')
       expect(result.payload.mode).toBe('range')
       expect(result.payload.resolvedValue).toBeNull()
     }

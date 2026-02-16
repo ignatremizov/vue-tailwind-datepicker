@@ -232,7 +232,7 @@ export default function useShortcut() {
     }
 
     if (isShortcutDisabled({ item, mode, currentValue, now, constraints }))
-      return createInvalidPayload(id, 'blocked-date', mode, null)
+      return createInvalidPayload(id, 'disabled', mode, null)
 
     let rawResolvedValue: unknown = null
 

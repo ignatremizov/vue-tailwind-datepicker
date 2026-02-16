@@ -121,11 +121,12 @@ type ShortcutRenderPayload = {
 
 ### `invalid-shortcut`
 
-- Emitted whenever shortcut activation fails due to invalid output, blocked dates, or resolver failure.
+- Emitted whenever shortcut activation fails due to explicit disabled state, invalid output, blocked dates, or resolver failure.
 - Payload contract:
 
 ```ts
 type InvalidShortcutReason =
+  | 'disabled'
   | 'blocked-date'
   | 'mode-mismatch'
   | 'resolver-error'

@@ -30,6 +30,7 @@ export type ShortcutMode = 'single' | 'range'
 export type ShortcutResolvedValue = Date | [Date, Date]
 
 export type ShortcutInvalidReason =
+  | 'disabled'
   | 'blocked-date'
   | 'mode-mismatch'
   | 'resolver-error'

@@ -79,7 +79,7 @@ The same works with `no-input` prop.
 
 ## invalidShortcut
 
-Shortcut activation failure event. Triggered when resolver output is invalid, blocked by constraints, or resolver execution fails.
+Shortcut activation failure event. Triggered when a shortcut is explicitly disabled, resolver output is invalid, blocked by constraints, or resolver execution fails.
 
 ```vue
 <script setup>
@@ -88,7 +88,7 @@ const dateValue = ref("");
 
 const onInvalidShortcut = (payload) => {
   console.log(payload.id);
-  console.log(payload.reason); // blocked-date | mode-mismatch | resolver-error | invalid-result
+  console.log(payload.reason); // disabled | blocked-date | mode-mismatch | resolver-error | invalid-result
   console.log(payload.mode); // single | range
   console.log(payload.resolvedValue); // Date | [Date, Date] | null
 };

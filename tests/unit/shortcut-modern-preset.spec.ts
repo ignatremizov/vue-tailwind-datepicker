@@ -135,7 +135,7 @@ describe.sequential('shortcutPreset=modern', () => {
 
       const nextMonthButton = getShortcutButtons(wrapper).find(item => item.text().trim() === 'Next month')
       expect(nextMonthButton).toBeTruthy()
-      await nextMonthButton!.trigger('keydown.space')
+      await nextMonthButton!.trigger('keyup.space')
       await nextTick()
       expect(getLastRangeEmission(wrapper)).toEqual(
         expectedSingleRange(clampToNextMonth(now)),

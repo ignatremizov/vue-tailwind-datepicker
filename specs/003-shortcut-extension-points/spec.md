@@ -96,7 +96,7 @@ As a keyboard or assistive-tech user, I can discover and activate shortcuts reli
 - **FR-009**: System MUST support both legacy custom shortcut handlers (`atClick(): Date[]`) and a typed resolver contract (`(context) => Date | [Date, Date]`) via backward-compatible adaptation.
 - **FR-010**: When a shortcut resolves to a date blocked by configured constraints, system MUST NOT apply the value, MUST keep prior selection unchanged, and MUST emit an invalid-shortcut signal/event.
 - **FR-011**: New built-in shortcut behavior MUST be opt-in; default shortcut behavior MUST remain backward compatible.
-- **FR-012**: `invalid-shortcut` event MUST be emitted with structured payload containing shortcut identifier, resolved value, reason, and mode. `reason` MUST be one of `blocked-date`, `mode-mismatch`, `resolver-error`, or `invalid-result`. System MUST NOT emit `update:modelValue` on failure.
+- **FR-012**: `invalid-shortcut` event MUST be emitted with structured payload containing shortcut identifier, resolved value, reason, and mode. `reason` MUST be one of `disabled`, `blocked-date`, `mode-mismatch`, `resolver-error`, or `invalid-result`. System MUST NOT emit `update:modelValue` on failure.
 - **FR-013**: Typed resolver context MUST be explicitly defined as exactly `{ currentValue, mode, now, constraints }`; in range mode, single-date resolver output MUST normalize to `[d, d]`; validation order MUST be normalize first, then evaluate start endpoint, then evaluate end endpoint against the same constraint snapshot; if any endpoint is blocked, the full result MUST be rejected atomically.
 - **FR-014**: When custom shortcuts are configured, they MUST replace built-in shortcuts by default (no implicit merge) for every supported shortcut input form (legacy array, legacy factory function, typed array, typed factory function).
 - **FR-015**: Per-item render extension MUST receive shortcut metadata plus an `activate()` helper; library MUST own mutation side effects and event emission.
@@ -121,7 +121,7 @@ As a keyboard or assistive-tech user, I can discover and activate shortcuts reli
 - **SC-001**: 100% of built-in shortcuts produce expected date outputs in unit test matrix, including weekend starts, month-boundary rollover, and timezone-midnight activation cases.
 - **SC-002**: Custom shortcuts and per-item rendering can be injected by API without source patching in integration example.
 - **SC-003**: Keyboard-only activation works for all shortcut actions in both default and extension-rendered shortcut items, preserving valid focus traversal behavior.
-- **SC-004**: For each invalid failure class (`blocked-date`, `mode-mismatch`, `resolver-error`, `invalid-result`), tests verify: `invalid-shortcut` payload includes `id`, `resolvedValue`, `reason`, and `mode`; selection value is unchanged; and no `update:modelValue` event is emitted.
+- **SC-004**: For each invalid failure class (`disabled`, `blocked-date`, `mode-mismatch`, `resolver-error`, `invalid-result`), tests verify: `invalid-shortcut` payload includes `id`, `resolvedValue`, `reason`, and `mode`; selection value is unchanged; and no `update:modelValue` event is emitted.
 - **SC-005**: Disabled-state tests verify typed resolver checks are reused across unrelated rerenders and recomputed after relevant input changes (for example `modelValue` updates).
 
 ## Clarifications
@@ -137,7 +137,7 @@ As a keyboard or assistive-tech user, I can discover and activate shortcuts reli
 - **CL-009** Q: What custom shortcut resolver contract should be supported? -> A: Support both legacy `atClick(): Date[]` and typed resolver with backward-compatible adapter.
 - **CL-010** Q: What happens when a shortcut resolves to a blocked date? -> A: Do not apply; keep value unchanged; emit invalid-shortcut signal/event.
 - **CL-011** Q: Should new built-in shortcuts be default or opt-in? -> A: Opt-in; legacy defaults remain unless enabled.
-- **CL-012** Q: What is the `invalid-shortcut` contract? -> A: Emit structured payload with `reason` in `{blocked-date, mode-mismatch, resolver-error, invalid-result}` and do not emit model updates on failure.
+- **CL-012** Q: What is the `invalid-shortcut` contract? -> A: Emit structured payload with `reason` in `{disabled, blocked-date, mode-mismatch, resolver-error, invalid-result}` and do not emit model updates on failure.
 - **CL-013** Q: What is the typed resolver contract surface? -> A: Explicit context shape plus range normalization/rejection rules.
 - **CL-014** Q: When custom shortcuts are provided, how do they interact with built-ins? -> A: Custom shortcuts replace built-ins by default.
 - **CL-015** Q: What is the frozen typed resolver context contract? -> A: Exactly `{ currentValue, mode, now, constraints }`.

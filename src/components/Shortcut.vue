@@ -107,7 +107,7 @@ const builtInShortcutItems = computed<RenderShortcutItem[]>(() => {
             class="vtd-shortcuts block text-sm lg:text-xs px-2 py-2 sm:leading-4 whitespace-nowrap font-medium rounded-sm text-vtd-primary-600 hover:text-vtd-primary-700 transition-colors hover:bg-vtd-secondary-100 focus:bg-vtd-secondary-100 focus:text-vtd-primary-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-vtd-primary-600 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-primary-300 dark:text-vtd-primary-400 dark:focus:bg-vtd-secondary-700 dark:focus:text-vtd-primary-300 dark:disabled:hover:bg-transparent dark:disabled:hover:text-vtd-primary-400"
             @click="item.activate"
             @keydown.enter.prevent="item.activate"
-            @keydown.space.prevent="item.activate"
+            @keyup.space.prevent="item.activate"
             v-text="item.label"
           />
         </slot>
@@ -129,7 +129,7 @@ const builtInShortcutItems = computed<RenderShortcutItem[]>(() => {
             class="vtd-shortcuts block text-sm lg:text-xs px-2 py-2 sm:leading-4 whitespace-nowrap font-medium rounded-sm text-vtd-primary-600 hover:text-vtd-primary-700 transition-colors hover:bg-vtd-secondary-100 focus:bg-vtd-secondary-100 focus:text-vtd-primary-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-vtd-primary-600 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-primary-300 dark:text-vtd-primary-400 dark:focus:bg-vtd-secondary-700 dark:focus:text-vtd-primary-300 dark:disabled:hover:bg-transparent dark:disabled:hover:text-vtd-primary-400"
             @click="item.activate"
             @keydown.enter.prevent="item.activate"
-            @keydown.space.prevent="item.activate"
+            @keyup.space.prevent="item.activate"
           >
             {{ item.label }}
           </button>
