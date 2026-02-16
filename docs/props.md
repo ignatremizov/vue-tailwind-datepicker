@@ -34,7 +34,10 @@
       yesterday: 'Kemarin',
       past: period => period + ' hari terakhir',
       currentMonth: 'Bulan ini',
-      pastMonth: 'Bulan lalu'
+      pastMonth: 'Bulan lalu',
+      businessDays: period => `${period} hari kerja`,
+      nextWeek: 'Minggu depan',
+      nextMonth: 'Bulan depan',
     },
     footer: {
       apply: 'Terapkan',
@@ -430,6 +433,8 @@ Choose which built-in shortcut inventory is active when `shortcuts` is `true` an
 - `legacy` (default): Today, Yesterday, Last 7 Days, Last 30 Days, This Month, Last Month
 - `modern`: Today, 3 business days, Next week, Next month
 
+Modern preset labels can be overridden via `options.shortcuts.today`, `options.shortcuts.businessDays(period)`, `options.shortcuts.nextWeek`, and `options.shortcuts.nextMonth`.
+
 <DemoLayout>
   <VueTailwindDatePicker
     v-model="dateValue10"
@@ -621,6 +626,9 @@ const options = ref({
     past: period => `${period} hari terakhir`,
     currentMonth: 'Bulan ini',
     pastMonth: 'Bulan lalu',
+    businessDays: period => `${period} hari kerja`,
+    nextWeek: 'Minggu depan',
+    nextMonth: 'Bulan depan',
   },
   footer: {
     apply: 'Terapkan',
