@@ -2122,7 +2122,7 @@ function isTypedShortcutDefinition(target: ShortcutActivationTarget): target is 
 const shortcutDisabledStateCache = new Map<string, ShortcutDisabledState>()
 type ShortcutActivationState = ReturnType<typeof activateShortcutByDefinition>
 const shortcutActivationStateCache = new Map<string, ShortcutActivationState>()
-let shortcutDisabledStateCacheMinuteBucket = Math.floor(Date.now() / 60000)
+let shortcutDisabledStateCacheMinuteBucket = Math.floor(new Date().getTime() / 60000)
 
 function clearShortcutDisabledStateCache() {
   shortcutDisabledStateCache.clear()
@@ -2130,7 +2130,7 @@ function clearShortcutDisabledStateCache() {
 }
 
 function syncShortcutDisabledStateCacheBucket() {
-  const currentMinuteBucket = Math.floor(Date.now() / 60000)
+  const currentMinuteBucket = Math.floor(new Date().getTime() / 60000)
   if (currentMinuteBucket !== shortcutDisabledStateCacheMinuteBucket) {
     shortcutDisabledStateCacheMinuteBucket = currentMinuteBucket
     clearShortcutDisabledStateCache()

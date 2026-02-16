@@ -324,6 +324,37 @@ describe.sequential('invalid-shortcut event contract', () => {
     })
   })
 
+  it('invalidates cached activation state when the minute bucket changes under fake timers', async () => {
+    const now = SHORTCUT_EDGE_FIXTURES.monthBoundary.now
+    await withFixedNow(now, async () => {
+      const resolver = vi.fn(() => null as unknown as Date)
+      const wrapper = await mountPicker({
+        shortcuts: [
+          {
+            id: 'typed-minute-bucket-cache',
+            label: 'Typed minute bucket cache',
+            resolver,
+          },
+        ],
+      })
+
+      const initialCalls = resolver.mock.calls.length
+      expect(initialCalls).toBeGreaterThan(0)
+
+      const button = getShortcutButton(wrapper, 'Typed minute bucket cache')
+      expect(button).toBeTruthy()
+      await button!.trigger('click')
+      await nextTick()
+      expect(resolver).toHaveBeenCalledTimes(initialCalls)
+
+      vi.setSystemTime(new Date(now.getTime() + 61000))
+      await button!.trigger('click')
+      await nextTick()
+      expect(resolver.mock.calls.length).toBeGreaterThan(initialCalls)
+      wrapper.unmount()
+    })
+  })
+
   it('reuses typed activation state cached during disabled-state evaluation on first click', async () => {
     await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
       const resolver = vi.fn(() => null as unknown as Date)
