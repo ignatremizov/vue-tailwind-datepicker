@@ -242,6 +242,40 @@ describe.sequential('invalid-shortcut event contract', () => {
     })
   })
 
+  it('caches typed shortcut disabled-state checks across unrelated rerenders', async () => {
+    await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
+      const resolver = vi.fn(({ now }: { now: Date }) => now)
+      const wrapper = await mountPicker({
+        shortcuts: [
+          {
+            id: 'typed-cache',
+            label: 'Typed cache',
+            resolver,
+          },
+        ],
+      })
+
+      const initialCalls = resolver.mock.calls.length
+      expect(initialCalls).toBeGreaterThan(0)
+
+      await wrapper.setProps({
+        inputClasses: 'cache-check',
+      })
+      await nextTick()
+      expect(resolver).toHaveBeenCalledTimes(initialCalls)
+
+      await wrapper.setProps({
+        modelValue: [
+          createLocalDate(2026, 0, 16, 12, 0, 0),
+          createLocalDate(2026, 0, 16, 12, 0, 0),
+        ],
+      })
+      await nextTick()
+      expect(resolver.mock.calls.length).toBeGreaterThan(initialCalls)
+      wrapper.unmount()
+    })
+  })
+
   it('marks built-in buttons disabled when disableDate blocks their resolved values', async () => {
     await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
       const wrapper = await mountPicker({

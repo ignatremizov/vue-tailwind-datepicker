@@ -48,6 +48,7 @@ import type {
 import {
   type BuiltInShortcutId,
   type ShortcutActivationTarget,
+  type ShortcutDisabledState,
   activateShortcutKey,
   atMouseOverKey,
   betweenRangeClassesKey,
@@ -2112,20 +2113,63 @@ function isTypedShortcutDefinition(target: ShortcutActivationTarget): target is 
   return typeof target !== 'string' && 'resolver' in target && typeof target.resolver === 'function'
 }
 
+const shortcutDisabledStateCache = new Map<string, ShortcutDisabledState>()
+let shortcutDisabledStateCacheMinuteBucket = Math.floor(Date.now() / 60000)
+
+function clearShortcutDisabledStateCache() {
+  shortcutDisabledStateCache.clear()
+}
+
+function syncShortcutDisabledStateCacheBucket() {
+  const currentMinuteBucket = Math.floor(Date.now() / 60000)
+  if (currentMinuteBucket !== shortcutDisabledStateCacheMinuteBucket) {
+    shortcutDisabledStateCacheMinuteBucket = currentMinuteBucket
+    clearShortcutDisabledStateCache()
+  }
+}
+
+function getShortcutCacheTargetKey(target: ShortcutActivationTarget, index?: number) {
+  if (typeof target === 'string')
+    return `builtin:${target}`
+
+  if ('id' in target && typeof target.id === 'string' && target.id.trim().length > 0)
+    return `custom:${target.id.trim()}:${index ?? -1}`
+
+  return `legacy:${index ?? -1}:${target.label}`
+}
+
+function getShortcutDisabledStateCacheKey(target: ShortcutActivationTarget, index?: number) {
+  syncShortcutDisabledStateCacheBucket()
+  return `${asRange() ? 'range' : 'single'}:${getShortcutCacheTargetKey(target, index)}`
+}
+
+function cacheShortcutDisabledState(
+  cacheKey: string,
+  state: ShortcutDisabledState,
+): ShortcutDisabledState {
+  shortcutDisabledStateCache.set(cacheKey, state)
+  return state
+}
+
 function getShortcutDisabledState(target: ShortcutActivationTarget, index?: number) {
+  const cacheKey = getShortcutDisabledStateCacheKey(target, index)
+  const cachedState = shortcutDisabledStateCache.get(cacheKey)
+  if (cachedState)
+    return cachedState
+
   if (typeof target === 'string') {
     const activation = getShortcutActivationState(target, index)
     if (!activation.ok && activation.payload.reason === 'blocked-date') {
-      return {
+      return cacheShortcutDisabledState(cacheKey, {
         isDisabled: true,
         disabledReason: 'blocked-date' as const,
-      }
+      })
     }
 
-    return {
+    return cacheShortcutDisabledState(cacheKey, {
       isDisabled: false,
       disabledReason: null,
-    }
+    })
   }
 
   const explicitlyDisabled = isShortcutDisabledByDefinition({
@@ -2139,26 +2183,26 @@ function getShortcutDisabledState(target: ShortcutActivationTarget, index?: numb
   })
 
   if (explicitlyDisabled) {
-    return {
+    return cacheShortcutDisabledState(cacheKey, {
       isDisabled: true,
       disabledReason: 'explicit' as const,
-    }
+    })
   }
 
   if (isTypedShortcutDefinition(target)) {
     const activation = getShortcutActivationState(target, index)
     if (!activation.ok && activation.payload.reason === 'blocked-date') {
-      return {
+      return cacheShortcutDisabledState(cacheKey, {
         isDisabled: true,
         disabledReason: 'blocked-date' as const,
-      }
+      })
     }
   }
 
-  return {
+  return cacheShortcutDisabledState(cacheKey, {
     isDisabled: false,
     disabledReason: null,
-  }
+  })
 }
 
 function isShortcutDisabled(target: ShortcutActivationTarget, index?: number) {
@@ -2197,6 +2241,12 @@ watch(
     }
   },
 )
+
+watch(() => props.modelValue, clearShortcutDisabledStateCache, { deep: true })
+watch(() => props.disableDate, clearShortcutDisabledStateCache)
+watch(() => props.useRange, clearShortcutDisabledStateCache)
+watch(() => props.shortcutPreset, clearShortcutDisabledStateCache)
+watch(() => props.shortcuts, clearShortcutDisabledStateCache, { deep: true })
 
 watchEffect(() => {
   if (!props.placeholder) {
