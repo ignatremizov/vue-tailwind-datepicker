@@ -69,4 +69,17 @@ describe.sequential('shortcut visibility matrix', () => {
       wrapper.unmount()
     })
   })
+
+  it('does not fall back to built-ins when custom shortcuts are provided as an empty list', async () => {
+    await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
+      const wrapper = await mountPicker({
+        useRange: true,
+        asSingle: true,
+        shortcutPreset: 'modern',
+        shortcuts: [],
+      })
+      expect(hasShortcutButtons(wrapper)).toBe(false)
+      wrapper.unmount()
+    })
+  })
 })

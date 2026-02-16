@@ -13,7 +13,7 @@ import {
 
 const DATE_FORMAT = 'YYYY-MM-DD HH:mm:ss'
 
-async function mountModernPresetPicker() {
+async function mountModernPresetPicker(props: Record<string, unknown> = {}) {
   const wrapper = mount(VueTailwindDatePicker, {
     attachTo: document.body,
     props: {
@@ -24,6 +24,7 @@ async function mountModernPresetPicker() {
       asSingle: true,
       autoApply: true,
       modelValue: [new Date('2026-01-15T12:00:00'), new Date('2026-01-15T12:00:00')],
+      ...props,
     },
   })
 
@@ -138,6 +139,44 @@ describe.sequential('shortcutPreset=modern', () => {
       await nextTick()
       expect(getLastRangeEmission(wrapper)).toEqual(
         expectedSingleRange(clampToNextMonth(now)),
+      )
+
+      wrapper.unmount()
+    })
+  })
+
+  it('supports localized modern shortcut labels from options.shortcuts', async () => {
+    const now = SHORTCUT_EDGE_FIXTURES.weekendSaturday.now
+    await withFixedNow(now, async () => {
+      const wrapper = await mountModernPresetPicker({
+        options: {
+          shortcuts: {
+            today: 'Hoy',
+            yesterday: 'Ayer',
+            past: (period: number) => `Ultimos ${period} dias`,
+            currentMonth: 'Este mes',
+            pastMonth: 'Mes pasado',
+            businessDays: (period: number) => `${period} dias habiles`,
+            nextWeek: 'Proxima semana',
+            nextMonth: 'Proximo mes',
+          },
+          footer: {
+            apply: 'Aplicar',
+            cancel: 'Cancelar',
+          },
+        },
+      })
+
+      expect(getShortcutLabels(wrapper)).toEqual([
+        'Hoy',
+        '3 dias habiles',
+        'Proxima semana',
+        'Proximo mes',
+      ])
+
+      await clickShortcut(wrapper, 'Proxima semana')
+      expect(getLastRangeEmission(wrapper)).toEqual(
+        expectedSingleRange(addCalendarDays(now, 7)),
       )
 
       wrapper.unmount()

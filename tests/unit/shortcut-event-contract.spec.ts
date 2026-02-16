@@ -1,4 +1,4 @@
-import { nextTick } from 'vue'
+import { h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
@@ -238,6 +238,54 @@ describe.sequential('invalid-shortcut event contract', () => {
       const button = getShortcutButton(wrapper, 'Typed Saturday')
       expect(button).toBeTruthy()
       expect(button!.attributes('disabled')).toBeDefined()
+      wrapper.unmount()
+    })
+  })
+
+  it('normalizes padded custom shortcut ids consistently for slot payload and events', async () => {
+    await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
+      const wrapper = mount(VueTailwindDatePicker, {
+        attachTo: document.body,
+        props: {
+          noInput: true,
+          shortcuts: [
+            {
+              id: '  typed-padded-id  ',
+              label: 'Padded id shortcut',
+              resolver: () => null as unknown as Date,
+            },
+          ],
+          autoApply: true,
+          asSingle: true,
+          useRange: true,
+          modelValue: [
+            createLocalDate(2026, 0, 15, 12, 0, 0),
+            createLocalDate(2026, 0, 15, 12, 0, 0),
+          ],
+        },
+        slots: {
+          'shortcut-item': ({ id, label, activate }: any) => h(
+            'button',
+            {
+              type: 'button',
+              class: 'slot-shortcut-item',
+              'data-shortcut-id': id,
+              onClick: activate,
+            },
+            label,
+          ),
+        },
+      })
+      await vi.advanceTimersByTimeAsync(320)
+      await nextTick()
+
+      const slotButton = wrapper.get('button.slot-shortcut-item')
+      expect(slotButton.attributes('data-shortcut-id')).toBe('typed-padded-id')
+      await slotButton.trigger('click')
+      await nextTick()
+
+      const payload = getLastInvalidPayload(wrapper)
+      expect(payload.id).toBe('typed-padded-id')
       wrapper.unmount()
     })
   })

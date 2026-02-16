@@ -99,6 +99,9 @@ export interface Props {
       past: (period: number) => string
       currentMonth: string
       pastMonth: string
+      businessDays?: (period: number) => string
+      nextWeek?: string
+      nextMonth?: string
     }
     footer: {
       apply: string
@@ -148,6 +151,9 @@ const props = withDefaults(defineProps<Props>(), {
       past: period => `Last ${period} Days`,
       currentMonth: 'This Month',
       pastMonth: 'Last Month',
+      businessDays: period => `${period} business days`,
+      nextWeek: 'Next week',
+      nextMonth: 'Next month',
     },
     footer: {
       apply: 'Apply',
@@ -243,13 +249,26 @@ function classifyWeekend(date: Dayjs) {
   }
 }
 
+function getModernShortcutLabel(id: 'today' | 'three-business-days' | 'next-week' | 'next-month') {
+  switch (id) {
+    case 'today':
+      return props.options.shortcuts.today
+    case 'three-business-days':
+      return props.options.shortcuts.businessDays?.(3) ?? '3 business days'
+    case 'next-week':
+      return props.options.shortcuts.nextWeek ?? 'Next week'
+    case 'next-month':
+      return props.options.shortcuts.nextMonth ?? 'Next month'
+  }
+}
+
 const builtInShortcutItems = computed(() => {
   if (props.shortcutPreset === 'modern') {
     return [
-      { id: 'today' as const, label: 'Today' },
-      { id: 'three-business-days' as const, label: '3 business days' },
-      { id: 'next-week' as const, label: 'Next week' },
-      { id: 'next-month' as const, label: 'Next month' },
+      { id: 'today' as const, label: getModernShortcutLabel('today') },
+      { id: 'three-business-days' as const, label: getModernShortcutLabel('three-business-days') },
+      { id: 'next-week' as const, label: getModernShortcutLabel('next-week') },
+      { id: 'next-month' as const, label: getModernShortcutLabel('next-month') },
     ]
   }
 
@@ -2064,19 +2083,19 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
     case 'three-business-days':
       return {
         id: 'modern-three-business-days',
-        label: '3 business days',
+        label: getModernShortcutLabel('three-business-days'),
         resolver: ({ now }) => resolveModernBuiltInDate('three-business-days', now),
       }
     case 'next-week':
       return {
         id: 'modern-next-week',
-        label: 'Next week',
+        label: getModernShortcutLabel('next-week'),
         resolver: ({ now }) => resolveModernBuiltInDate('next-week', now),
       }
     case 'next-month':
       return {
         id: 'modern-next-month',
-        label: 'Next month',
+        label: getModernShortcutLabel('next-month'),
         resolver: ({ now }) => resolveModernBuiltInDate('next-month', now),
       }
   }

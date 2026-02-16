@@ -51,9 +51,13 @@ const withShortcut = computed(() => {
   return false
 })
 
+const hasCustomShortcutSource = computed(() => {
+  return typeof props.shortcuts === 'function' || Array.isArray(props.shortcuts)
+})
+
 function resolveCustomShortcutId(item: ShortcutDefinition, index: number) {
   if ('id' in item && typeof item.id === 'string' && item.id.trim().length > 0)
-    return item.id
+    return item.id.trim()
 
   return legacyShortcutFallbackId(item.label, index)
 }
@@ -88,7 +92,7 @@ const builtInShortcutItems = computed<RenderShortcutItem[]>(() => {
     class="relative w-full border-t border-b-0 sm:border-t-0 sm:border-b lg:border-b-0 lg:border-r border-black/10 order-last sm:order-0 dark:border-vtd-secondary-700 sm:mt-1 lg:mr-1 sm:mb-1 lg:mb-0 sm:mx-1 lg:mx-0 sm:w-auto"
   >
     <ol
-      v-if="customShortcutItems.length > 0"
+      v-if="hasCustomShortcutSource"
       class="grid grid-cols-2 sm:grid-cols-3 gap-1 lg:block w-full lg:w-auto pr-5 sm:pr-6 mt-1.5 sm:mt-0 sm:mb-1.5 lg:mb-0"
     >
       <li v-for="item in customShortcutItems" :key="item.id">

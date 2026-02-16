@@ -41,7 +41,10 @@
       yesterday: 'Kemarin',
       past: period => period + ' hari terakhir',
       currentMonth: 'Bulan ini',
-      pastMonth: 'Bulan lalu'
+      pastMonth: 'Bulan lalu',
+      businessDays: period => `${period} hari kerja`,
+      nextWeek: 'Minggu depan',
+      nextMonth: 'Bulan depan',
     },
     footer: {
       apply: 'Terapkan',
@@ -266,6 +269,9 @@ const options = ref({
     past: (period) => period + " hari terakhir",
     currentMonth: "Bulan ini",
     pastMonth: "Bulan lalu",
+    businessDays: (period) => `${period} hari kerja`,
+    nextWeek: "Minggu depan",
+    nextMonth: "Bulan depan",
   },
   footer: {
     apply: "Terapkan",
