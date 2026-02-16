@@ -81,6 +81,13 @@
   - Recompute disabled state on every render: rejected due to unnecessary resolver work under reactive churn.
   - Infinite cache without time refresh: rejected because time-dependent disabled states could become stale without user interaction.
 
+## Decision 12: Legacy built-in activation-time snapshot consistency
+
+- Decision: Legacy built-ins that emit ranges (`Past 7 days`, `Past 30 days`, `This month`, `Last month`) derive both endpoints from a single activation-time dayjs baseline.
+- Rationale: Prevents endpoint drift when activation occurs near local midnight or month boundaries.
+- Alternatives considered:
+  - Multiple `dayjs()` calls per endpoint: rejected due to cross-boundary inconsistency risk.
+
 ## Risks and Mitigations
 
 - Risk: Date math regressions around month boundaries and weekends.

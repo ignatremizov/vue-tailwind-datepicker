@@ -73,6 +73,7 @@ As a keyboard or assistive-tech user, I can discover and activate shortcuts reli
 - Business-day calculation when "today" is Saturday/Sunday MUST start counting from the next Monday.
 - `Next month` rollover from dates that do not exist in the destination month MUST clamp to the destination month's final calendar day.
 - Timezone boundaries around midnight MUST resolve from browser-local click-time `now`; render-time date snapshots MUST NOT be reused.
+- Legacy built-ins that emit ranges (`Past 7 days`, `Past 30 days`, `This month`, `Last month`) MUST derive both endpoints from one activation-time baseline to avoid cross-midnight drift.
 - Shortcut disabled-state evaluation MUST avoid re-running typed resolvers on unrelated reactive rerenders and MUST invalidate when shortcut inputs/constraints materially change.
 
 ## Assumptions and External Dependencies
@@ -88,7 +89,7 @@ As a keyboard or assistive-tech user, I can discover and activate shortcuts reli
 - **FR-001**: System MUST provide two explicit built-in preset inventories: `legacy = {Today, Yesterday, Past 7 days, Past 30 days, This month, Last month}` and `modern = {Today, 3 business days, Next week, Next month}`.
 - **FR-002**: System MUST execute shortcut actions within the same picker panel (no secondary popup required).
 - **FR-003**: System MUST allow consumer-provided shortcut definitions and a per-item shortcut render slot/callback.
-- **FR-004**: System MUST use deterministic built-in date rules. `legacy`: `Today = [today, today]`; `Yesterday = [today-1, today-1]`; `Past 7 days = [today-6, today]`; `Past 30 days = [today-29, today]`; `This month = [first day of current month, last day of current month]`; `Last month = [first day of previous month, last day of previous month]`. `modern`: `3 business days = exclude today and count next 3 Mon-Fri days`; `Next week = +7 calendar days`; `Next month = clamp to last valid day`.
+- **FR-004**: System MUST use deterministic built-in date rules. `legacy`: `Today = [today, today]`; `Yesterday = [today-1, today-1]`; `Past 7 days = [today-6, today]`; `Past 30 days = [today-29, today]`; `This month = [first day of current month, last day of current month]`; `Last month = [first day of previous month, last day of previous month]`. `modern`: `3 business days = exclude today and count next 3 Mon-Fri days`; `Next week = +7 calendar days`; `Next month = clamp to last valid day`. Every built-in computation MUST derive all emitted endpoints from a single activation-time baseline timestamp.
 - **FR-005**: System MUST preserve backward compatibility when shortcuts are disabled or unspecified, including existing shortcut visibility behavior: render shortcuts when mode resolves range-capable (`useRange=false && asSingle=false`, `useRange=true && asSingle=false`, or `useRange=true && asSingle=true`) and hide shortcuts in pure single mode (`useRange=false && asSingle=true`).
 - **FR-006**: System MUST support keyboard interaction and accessibility semantics for shortcut actions: each shortcut is a focusable control with an accessible name, Enter/Space activation is supported, and tab order follows rendered shortcut order for both default-rendered and extension-rendered items.
 - **FR-007**: System MUST apply built-in shortcut calculations in browser local timezone.
@@ -156,3 +157,4 @@ As a keyboard or assistive-tech user, I can discover and activate shortcuts reli
 - **CL-028** Q: What are the minimum accessibility pass/fail requirements? -> A: Each shortcut is focusable, has an accessible name, supports Enter/Space activation, and follows rendered tab order in both default and extension render paths.
 - **CL-029** Q: What external dependencies can alter deterministic outcomes? -> A: Dayjs date-math semantics and browser-local timezone source at click time; both are part of deterministic assumptions.
 - **CL-030** Q: How is shortcut disabled-state performance handled for typed resolvers? -> A: Disabled-state computation is memoized by shortcut target and mode, invalidated on relevant input changes, and time-bucket refreshed to keep time-dependent shortcuts current.
+- **CL-031** Q: How are legacy built-in range endpoints kept consistent near midnight boundaries? -> A: Range endpoints are derived from one activation-time date snapshot per shortcut execution.

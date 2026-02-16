@@ -128,6 +128,7 @@ See executable example in `src/App.vue`.
 10. Confirm post-activation close/open/focus behavior matches existing mode semantics.
 11. Confirm `invalid-shortcut.reason` covers `disabled`, `blocked-date`, `mode-mismatch`, `resolver-error`, and `invalid-result`.
 12. Confirm typed shortcut disabled-state checks are stable across unrelated rerenders (e.g. visual prop changes) and recompute when `modelValue` changes.
+13. Confirm legacy range built-ins (`Past 7 days`, `Past 30 days`, `This month`, `Last month`) compute both endpoints from one activation snapshot (no start/end drift near midnight).
 
 ## 8. Timezone-boundary verification scenarios
 
@@ -135,6 +136,7 @@ See executable example in `src/App.vue`.
 2. Set local system time to `00:01` and click `Today`; verify emitted value matches local date, not UTC date.
 3. On `Jan 31 23:59` local time, click `Next month`; verify clamped local output (`Feb 28` or `Feb 29` when leap year).
 4. On Saturday local time near midnight, click `3 business days`; verify Monday-Friday counting excludes weekend and excludes today.
+5. Near local midnight, click a legacy range built-in (`Past 7 days` or `Past 30 days`) repeatedly and verify emitted start/end are internally consistent for each activation.
 
 ## 9. Final checks before implementation handoff
 
