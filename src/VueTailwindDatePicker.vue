@@ -2266,7 +2266,7 @@ function activateShortcut(
   index?: number,
 ) {
   const activation = getShortcutActivationState(target, index, {
-    preferCached: true,
+    preferCached: false,
     cacheResult: true,
   })
 

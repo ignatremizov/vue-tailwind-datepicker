@@ -1,9 +1,12 @@
+import dayjs from 'dayjs'
 import { h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
 import useShortcut from '../../src/composables/shortcut'
 import { SHORTCUT_EDGE_FIXTURES, createLocalDate, withFixedNow } from './shortcut-test-utils'
+
+const DATE_FORMAT = 'YYYY-MM-DD HH:mm:ss'
 
 async function mountPicker(props: Record<string, unknown> = {}) {
   const wrapper = mount(VueTailwindDatePicker, {
@@ -373,62 +376,32 @@ describe.sequential('invalid-shortcut event contract', () => {
     })
   })
 
-  it('invalidates cached activation state when the minute bucket changes under fake timers', async () => {
+  it('recomputes shortcut activation at click time for time-dependent shortcuts', async () => {
     const now = SHORTCUT_EDGE_FIXTURES.monthBoundary.now
     await withFixedNow(now, async () => {
-      const resolver = vi.fn(() => null as unknown as Date)
       const wrapper = await mountPicker({
         shortcuts: [
           {
-            id: 'typed-minute-bucket-cache',
-            label: 'Typed minute bucket cache',
-            resolver,
+            id: 'typed-click-time',
+            label: 'Typed click time',
+            resolver: ({ now }: { now: Date }) => now,
           },
         ],
       })
 
-      const initialCalls = resolver.mock.calls.length
-      expect(initialCalls).toBeGreaterThan(0)
-
-      const button = getShortcutButton(wrapper, 'Typed minute bucket cache')
+      const button = getShortcutButton(wrapper, 'Typed click time')
       expect(button).toBeTruthy()
-      await button!.trigger('click')
-      await nextTick()
-      expect(resolver).toHaveBeenCalledTimes(initialCalls)
 
-      vi.setSystemTime(new Date(now.getTime() + 61000))
-      await button!.trigger('click')
-      await nextTick()
-      expect(resolver.mock.calls.length).toBeGreaterThan(initialCalls)
-      wrapper.unmount()
-    })
-  })
-
-  it('reuses typed activation state cached during disabled-state evaluation on first click', async () => {
-    await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
-      const resolver = vi.fn(() => null as unknown as Date)
-      const wrapper = await mountPicker({
-        shortcuts: [
-          {
-            id: 'typed-first-click-cache',
-            label: 'Typed first click cache',
-            resolver,
-          },
-        ],
-      })
-
-      const initialCalls = resolver.mock.calls.length
-      expect(initialCalls).toBeGreaterThan(0)
-
-      const button = getShortcutButton(wrapper, 'Typed first click cache')
-      expect(button).toBeTruthy()
+      const clickNow = new Date(now.getTime() + 2000)
+      vi.setSystemTime(clickNow)
       await button!.trigger('click')
       await nextTick()
 
-      const payload = getLastInvalidPayload(wrapper)
-      expect(payload.id).toBe('typed-first-click-cache')
-      expect(payload.reason).toBe('invalid-result')
-      expect(resolver).toHaveBeenCalledTimes(initialCalls)
+      const emitted = wrapper.emitted('update:modelValue')
+      expect(emitted).toBeTruthy()
+      const payload = emitted!.at(-1)?.[0] as string[]
+      const expected = dayjs(clickNow).format(DATE_FORMAT)
+      expect(payload).toEqual([expected, expected])
       wrapper.unmount()
     })
   })
