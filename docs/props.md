@@ -734,3 +734,117 @@ Default is `true`.
   />
 </template>
 ```
+
+## timePickerStyle
+
+Choose whether time is off, text input, or wheel-based.
+Default is `none`.
+
+- `none`: date-only mode.
+- `input`: text input time below calendar.
+- `wheel-inline`: wheel controls always visible below calendar.
+- `wheel-page`: calendar and wheel controls are split into separate pages.
+
+Any non-`none` value enables integrated date + time selection and requires explicit **Apply**.
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    :auto-apply="true"
+    time-picker-style="input"
+    :formatter="{ date: 'YYYY-MM-DD HH:mm', month: 'MMM' }"
+  />
+</template>
+```
+
+## timePageMode
+
+Choose page-switch behavior when `timePickerStyle` is `wheel-page`.
+Default is `toggle`.
+
+- `toggle`: manual back-and-forth between calendar/time pages using the switch button.
+- `after-date`: automatically switch to the time page after date selection.
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    time-picker-style="wheel-page"
+    time-page-mode="after-date"
+    :formatter="{ date: 'YYYY-MM-DD HH:mm', month: 'MMM' }"
+  />
+</template>
+```
+
+### Supported `formatter.date` time token families in time-enabled modes
+
+- 24-hour: `HH:mm`, `HH:mm:ss`
+- 12-hour: `h:mm A`, `h:mm:ss A`, `hh:mm A`, `hh:mm:ss A`, and lowercase meridiem variants (`a`)
+
+Minutes are required. Seconds are optional.
+
+## defaultTime
+
+Optional default time used when a time-enabled mode hydrates an incoming value with date but no time.
+
+- Applies to single mode and range start endpoint.
+- Accepts both 24-hour and 12-hour inputs.
+- Normalized to the active `formatter.date` time format before use.
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    time-picker-style="input"
+    default-time="9:30 PM"
+    :formatter="{ date: 'YYYY-MM-DD h:mm A', month: 'MMM' }"
+  />
+</template>
+```
+
+## defaultEndTime
+
+Optional default time for range end hydration when a time-enabled mode is enabled.
+
+- Used for range end endpoint.
+- Falls back to `defaultTime` when `defaultEndTime` is not provided.
+- If neither is set, fallback is `00:00` (or `00:00:00` when seconds are enabled).
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="rangeValue"
+    use-range
+    as-single
+    time-picker-style="wheel-inline"
+    default-time="09:00"
+    default-end-time="17:30"
+    :formatter="{ date: 'YYYY-MM-DD HH:mm', month: 'MMM' }"
+  />
+</template>
+```
+
+## timeWheelScrollMode
+
+Choose wheel behavior when `timePickerStyle` is `wheel-inline` or `wheel-page`.
+Default is `boundary`.
+
+- `boundary`: wheel values change discretely at each row boundary.
+- `fractional`: wheel position drifts continuously using lower-order progress (for example hour wheel drift by minute progress).
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    time-picker-style="wheel-page"
+    time-page-mode="after-date"
+    time-wheel-scroll-mode="fractional"
+    :formatter="{ date: 'YYYY-MM-DD HH:mm:ss', month: 'MMM' }"
+  />
+</template>
+```

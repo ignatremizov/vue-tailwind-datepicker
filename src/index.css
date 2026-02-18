@@ -161,6 +161,26 @@
         display: none;
     }
 
+    .vtd-datepicker .vtd-time-wheel {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .vtd-datepicker .vtd-time-wheel::-webkit-scrollbar {
+        display: none;
+    }
+
+    .vtd-datepicker .vtd-time-wheel:focus,
+    .vtd-datepicker .vtd-time-wheel:focus-visible,
+    .vtd-datepicker .vtd-time-wheel:-moz-focusring {
+        outline: none;
+        box-shadow: none;
+    }
+
+    .vtd-datepicker .vtd-time-wheel button::-moz-focus-inner {
+        border: 0;
+    }
+
     .vtd-datepicker [role='listbox'] button[aria-selected]:focus-visible {
         outline: 0;
         box-shadow: 0 0 0 2px var(--color-vtd-primary-300), 0 0 0 5px rgb(14 165 233 / 10%);
