@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import dayjs from 'dayjs'
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { Dayjs } from 'dayjs'
 import type { InvalidShortcutEventPayload } from './types'
 import VueTailwindDatePicker from './VueTailwindDatePicker.vue'
@@ -60,6 +60,120 @@ const wheelInlineValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
 const wheelInlineBoundaryValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
 const wheelToggleValue = ref(dayjs().format('YYYY-MM-DD hh:mm A'))
 const wheelToggleSecondsValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
+const allFeaturesValue = ref({
+  startDate: dayjs().subtract(4, 'day').format('YYYY-MM-DD hh:mm:ss A'),
+  endDate: dayjs().add(6, 'day').format('YYYY-MM-DD hh:mm:ss A'),
+})
+const allFeaturesWeekendTintEnabled = ref(true)
+const allFeaturesSinglePanelRange = ref(true)
+const allFeaturesSelectorStyle = ref<'wheel' | 'page'>('wheel')
+const allFeaturesTimePickerStyle = ref<'none' | 'input' | 'wheel-page' | 'wheel-inline'>('wheel-page')
+const allFeaturesTimeInlinePosition = ref<'below' | 'right'>('below')
+const allFeaturesTimePageMode = ref<'toggle' | 'after-date'>('toggle')
+const allFeaturesTimeWheelScrollMode = ref<'boundary' | 'fractional'>('fractional')
+const allFeaturesTimeWheelFormat = ref<'HH:mm' | 'hh:mm A' | 'HH:mm:ss' | 'hh:mm:ss A'>('hh:mm:ss A')
+const allFeaturesCloseOnRangeSelection = ref(false)
+const allFeaturesUsesWheelPicker = computed(() => {
+  return allFeaturesTimePickerStyle.value === 'wheel-page' || allFeaturesTimePickerStyle.value === 'wheel-inline'
+})
+const allFeaturesWheelControlsDisabled = computed(() => !allFeaturesUsesWheelPicker.value)
+const allFeaturesSelectClass = 'w-full rounded border border-blue-300 bg-white px-2 py-1.5 text-xs text-blue-900'
+const allFeaturesSelectClassWithDisabled = `${allFeaturesSelectClass} disabled:opacity-50 disabled:cursor-not-allowed`
+// TODO(time-wheel-settings): add playground controls for
+// - timeWheelPageJump / timeWheelPageShiftJump
+// - timeWheelHomeJump / timeWheelEndJump
+// - timeWheelWrap
+// - timeWheelStepButtons
+// - timeWheelLinkedCarry
+// - timeAutoSwitchEndpoint
+// - timeCloseOnComplete
+// - timeWheelColumnMinWidth
+const allFeaturesFormatterDate = computed(() => `YYYY-MM-DD ${allFeaturesTimeWheelFormat.value}`)
+const allFeaturesKnownDateFormats = [
+  'YYYY-MM-DD HH:mm',
+  'YYYY-MM-DD hh:mm A',
+  'YYYY-MM-DD HH:mm:ss',
+  'YYYY-MM-DD hh:mm:ss A',
+]
+
+function parseAllFeaturesDate(value: unknown) {
+  if (dayjs.isDayjs(value))
+    return value
+  if (value instanceof Date)
+    return dayjs(value)
+  if (typeof value === 'string') {
+    for (const format of allFeaturesKnownDateFormats) {
+      const parsed = dayjs(value, format, true)
+      if (parsed.isValid())
+        return parsed
+    }
+  }
+  const parsed = dayjs(value as string | number | Date)
+  return parsed.isValid() ? parsed : dayjs()
+}
+
+watch(
+  allFeaturesTimeWheelFormat,
+  () => {
+    const startDate = parseAllFeaturesDate(allFeaturesValue.value.startDate)
+    const endDate = parseAllFeaturesDate(allFeaturesValue.value.endDate)
+    allFeaturesValue.value = {
+      startDate: startDate.format(allFeaturesFormatterDate.value),
+      endDate: endDate.format(allFeaturesFormatterDate.value),
+    }
+  },
+  { immediate: true },
+)
+const allFeaturesDemoShortcuts = [
+  {
+    id: 'today',
+    label: 'Today',
+    resolver: ({ now }: { now: Date }) => new Date(now),
+  },
+  {
+    id: 'next-3-business-days',
+    label: '3 business days',
+    resolver: ({ now }: { now: Date }) => {
+      const date = new Date(now)
+      let remaining = 3
+      while (remaining > 0) {
+        date.setDate(date.getDate() + 1)
+        const weekday = date.getDay()
+        if (weekday !== 0 && weekday !== 6)
+          remaining -= 1
+      }
+      return date
+    },
+  },
+  {
+    id: 'next-week',
+    label: 'Next week',
+    resolver: ({ now }: { now: Date }) => {
+      const date = new Date(now)
+      date.setDate(date.getDate() + 7)
+      return date
+    },
+  },
+  {
+    id: 'next-month',
+    label: 'Next month',
+    resolver: ({ now }: { now: Date }) => {
+      const current = dayjs(now)
+      return current.add(1, 'month').toDate()
+    },
+  },
+  {
+    id: 'highlight-next-week-range',
+    label: 'Highlight next week range',
+    resolver: ({ now, mode }: { now: Date; mode: 'single' | 'range' }) => {
+      const nextWeekStart = dayjs(now).add(1, 'week').startOf('week')
+      const nextWeekEnd = nextWeekStart.endOf('week')
+      if (mode === 'range')
+        return [nextWeekStart.toDate(), nextWeekEnd.toDate()] as [Date, Date]
+      return nextWeekStart.toDate()
+    },
+  },
+]
 
 const currentLocale = ref('en')
 const localeOptions = [
@@ -179,6 +293,175 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
     </label>
 
     <div class="grid gap-4">
+
+      <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <p class="mb-3 text-sm font-medium text-blue-900">
+          All-features playground (range + selector wheels + modern shortcuts + wheel time)
+        </p>
+        <div class="grid gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
+          <div class="rounded-md border border-blue-200/70 bg-white p-3">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
+              Settings
+            </p>
+            <div class="mb-3 rounded border border-blue-200 bg-blue-50 px-2 py-1.5 text-[11px] text-blue-800">
+              <p class="font-semibold">
+                Shortcuts panel
+              </p>
+              <p>
+                This playground uses modern-style typed shortcuts (including &quot;Highlight next week range&quot;), not the legacy preset.
+              </p>
+            </div>
+
+            <label class="mb-3 block">
+              <span class="mb-1 block text-xs font-medium text-blue-900">Month/year selector style</span>
+              <select v-model="allFeaturesSelectorStyle" :class="allFeaturesSelectClass">
+                <option value="wheel">
+                  wheel (selector-mode)
+                </option>
+                <option value="page">
+                  page (legacy month/year view)
+                </option>
+              </select>
+            </label>
+
+            <label class="mb-3 block">
+              <span class="mb-1 block text-xs font-medium text-blue-900">Time picker style</span>
+              <select v-model="allFeaturesTimePickerStyle" :class="allFeaturesSelectClass">
+                <option value="none">
+                  none
+                </option>
+                <option value="input">
+                  input
+                </option>
+                <option value="wheel-page">
+                  wheel-page
+                </option>
+                <option value="wheel-inline">
+                  wheel-inline
+                </option>
+              </select>
+            </label>
+
+            <label class="mb-3 block">
+              <span class="mb-1 block text-xs font-medium text-blue-900">Wheel scroll mode (selector + time)</span>
+              <select
+                v-model="allFeaturesTimeWheelScrollMode"
+                :disabled="allFeaturesWheelControlsDisabled"
+                :class="allFeaturesSelectClassWithDisabled"
+              >
+                <option value="fractional">
+                  fractional
+                </option>
+                <option value="boundary">
+                  boundary
+                </option>
+              </select>
+            </label>
+
+            <label class="mb-3 block">
+              <span class="mb-1 block text-xs font-medium text-blue-900">Time wheel format</span>
+              <select
+                v-model="allFeaturesTimeWheelFormat"
+                :disabled="allFeaturesWheelControlsDisabled"
+                :class="allFeaturesSelectClassWithDisabled"
+              >
+                <option value="HH:mm">
+                  HH:mm
+                </option>
+                <option value="hh:mm A">
+                  hh:mm A
+                </option>
+                <option value="HH:mm:ss">
+                  HH:mm:ss
+                </option>
+                <option value="hh:mm:ss A">
+                  hh:mm:ss A
+                </option>
+              </select>
+            </label>
+
+            <label class="mb-3 block">
+              <span class="mb-1 block text-xs font-medium text-blue-900">Wheel-inline position</span>
+              <select
+                v-model="allFeaturesTimeInlinePosition"
+                :disabled="allFeaturesTimePickerStyle !== 'wheel-inline'"
+                :class="allFeaturesSelectClassWithDisabled"
+              >
+                <option value="below">
+                  below calendar
+                </option>
+                <option value="right">
+                  right of calendar
+                </option>
+              </select>
+            </label>
+
+            <label class="mb-3 block">
+              <span class="mb-1 block text-xs font-medium text-blue-900">Page mode</span>
+              <select
+                v-model="allFeaturesTimePageMode"
+                :disabled="allFeaturesTimePickerStyle !== 'wheel-page'"
+                :class="allFeaturesSelectClassWithDisabled"
+              >
+                <option value="toggle">
+                  toggle (manual)
+                </option>
+                <option value="after-date">
+                  after-date
+                </option>
+              </select>
+            </label>
+
+            <div class="mb-3">
+              <span class="mb-1 block text-xs font-medium text-blue-900">Range layout</span>
+              <label class="mb-1 flex items-center gap-2 text-xs text-blue-900">
+                <input v-model="allFeaturesSinglePanelRange" :value="true" type="radio" name="all-features-range-layout">
+                Single page (`asSingle`)
+              </label>
+              <label class="flex items-center gap-2 text-xs text-blue-900">
+                <input v-model="allFeaturesSinglePanelRange" :value="false" type="radio" name="all-features-range-layout">
+                Double page (`asSingle=false`)
+              </label>
+            </div>
+
+            <label class="flex items-center gap-2 text-xs text-blue-900">
+              <input v-model="allFeaturesWeekendTintEnabled" type="checkbox">
+              Weekend red styling
+            </label>
+
+            <label class="mt-2 flex items-center gap-2 text-xs text-blue-900">
+              <input v-model="allFeaturesCloseOnRangeSelection" type="checkbox">
+              Auto-close after selecting range end
+            </label>
+          </div>
+
+          <div
+            :class="[
+              'rounded-md border border-blue-200/70 bg-white p-3',
+              allFeaturesWeekendTintEnabled ? 'all-features-weekend' : '',
+            ]"
+          >
+            <VueTailwindDatePicker
+              v-model="allFeaturesValue"
+              use-range
+              :as-single="allFeaturesSinglePanelRange"
+              :selector-mode="allFeaturesSelectorStyle === 'wheel'"
+              :selector-focus-tint="false"
+              :selector-year-scroll-mode="allFeaturesTimeWheelScrollMode"
+              :shortcuts="allFeaturesDemoShortcuts"
+              :auto-apply="false"
+              :time-picker-style="allFeaturesTimePickerStyle"
+              :time-inline-position="allFeaturesTimeInlinePosition"
+              :time-page-mode="allFeaturesTimePageMode"
+              :time-wheel-scroll-mode="allFeaturesTimeWheelScrollMode"
+              :close-on-range-selection="allFeaturesCloseOnRangeSelection"
+              :formatter="{ date: allFeaturesFormatterDate, month: 'MMM' }"
+              :i18n="currentLocale"
+            />
+          </div>
+        </div>
+      </div>
+      
       <div class="rounded-lg border border-slate-200 bg-white p-4">
         <p class="mb-3 text-sm font-medium text-slate-700">
           Legacy behavior (`selectorMode=false`, default)
@@ -574,6 +857,18 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
 }
 
 .weekend-tint-demo :deep(.vtd-datepicker-date.vtd-sunday:not(.vtd-datepicker-date-selected):not(:disabled)) {
+  color: rgb(185 28 28 / 100%);
+}
+
+.all-features-weekend :deep(.vtd-datepicker-date.vtd-weekend:not(.vtd-datepicker-date-selected):not(:disabled)) {
+  color: rgb(220 38 38 / 100%);
+}
+
+.all-features-weekend :deep(.vtd-datepicker-date.vtd-saturday:not(.vtd-datepicker-date-selected):not(:disabled)) {
+  color: rgb(234 88 12 / 100%);
+}
+
+.all-features-weekend :deep(.vtd-datepicker-date.vtd-sunday:not(.vtd-datepicker-date-selected):not(:disabled)) {
   color: rgb(185 28 28 / 100%);
 }
 </style>
