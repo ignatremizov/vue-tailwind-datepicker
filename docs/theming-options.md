@@ -46,11 +46,17 @@ When `selector-mode` is enabled, month/year wheel visuals can be tuned via CSS v
 .vtd-datepicker {
   --vtd-selector-wheel-cell-height: 40px;
 
+  /* Shared wheel text tokens (used by selector + time wheels) */
+  --vtd-wheel-text: rgb(82 82 91 / 100%);
+  --vtd-wheel-text-dark: rgb(163 163 163 / 100%);
+  --vtd-wheel-selected-text: rgb(3 105 161 / 100%);
+  --vtd-wheel-selected-text-dark: rgb(56 189 248 / 100%);
+
   --vtd-selector-month-font-family: inherit;
   --vtd-selector-month-font-size: 0.875rem;
   --vtd-selector-month-font-weight: 500;
   --vtd-selector-month-line-height: 1.5rem;
-  --vtd-selector-month-text: rgb(163 163 163 / 100%);
+  --vtd-selector-month-text: var(--vtd-wheel-text);
   --vtd-selector-month-hover-bg: rgb(14 165 233 / 10%);
   --vtd-selector-month-hover-border: rgb(56 189 248 / 45%);
   --vtd-selector-month-hover-border-width: 0.85px;
@@ -58,12 +64,12 @@ When `selector-mode` is enabled, month/year wheel visuals can be tuned via CSS v
   --vtd-selector-month-selected-bg: rgb(14 165 233 / 13%);
   --vtd-selector-month-selected-border: rgb(14 165 233 / 62%);
   --vtd-selector-month-selected-border-width: 0.85px;
-  --vtd-selector-month-selected-text: rgb(56 189 248 / 100%);
+  --vtd-selector-month-selected-text: var(--vtd-wheel-selected-text);
 
   --vtd-selector-year-font-family: inherit;
   --vtd-selector-year-font-size: 0.875rem;
   --vtd-selector-year-font-weight: 500;
-  --vtd-selector-year-text: rgb(163 163 163 / 100%);
+  --vtd-selector-year-text: var(--vtd-wheel-text);
   --vtd-selector-year-hover-bg: rgb(14 165 233 / 10%);
   --vtd-selector-year-hover-border: rgb(56 189 248 / 45%);
   --vtd-selector-year-hover-border-width: 0.85px;
@@ -71,7 +77,11 @@ When `selector-mode` is enabled, month/year wheel visuals can be tuned via CSS v
   --vtd-selector-year-selected-bg: rgb(14 165 233 / 13%);
   --vtd-selector-year-selected-border: rgb(14 165 233 / 62%);
   --vtd-selector-year-selected-border-width: 0.85px;
-  --vtd-selector-year-selected-text: rgb(56 189 248 / 100%);
+  --vtd-selector-year-selected-text: var(--vtd-wheel-selected-text);
+
+  /* Time wheel text tokens */
+  --vtd-time-wheel-text: var(--vtd-wheel-text);
+  --vtd-time-wheel-selected-text: var(--vtd-wheel-selected-text);
 
   /* Advanced year-canvas tuning */
   --vtd-selector-year-canvas-border-width-scale: 0.5;

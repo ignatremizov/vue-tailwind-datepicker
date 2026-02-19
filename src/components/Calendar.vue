@@ -209,10 +209,21 @@ function onDateKeydown(event: KeyboardEvent, date: any) {
 
   if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
     event.preventDefault()
-    emit('updateDate', date)
+    emit('updateDate', {
+      date,
+      source: 'keyboard',
+      activationKey: event.key,
+    })
     return
   }
 
+}
+
+function onDateClick(date: any) {
+  emit('updateDate', {
+    date,
+    source: 'pointer',
+  })
 }
 
 watch(
@@ -263,7 +274,7 @@ watch(
               weekendHookClasses(date),
               asRange ? 'transition-[color] duration-120 ease-out' : 'transition-colors',
               isCalendarFocusTarget(date) ? 'vtd-calendar-focus-target' : '',
-            ]" :disabled="isDateDisabled(date) || isDateInRange(date)" :data-date="date.toDate()" @click="emit('updateDate', date)"
+            ]" :disabled="isDateDisabled(date) || isDateInRange(date)" :data-date="date.toDate()" @click="onDateClick(date)"
             :data-date-key="getDateKey(date)"
             :tabindex="isCalendarFocusTarget(date) ? 0 : -1"
             @mouseenter="atMouseOver(date)" @focusin="onDateFocus(date)" @keydown="onDateKeydown($event, date)" v-text="date.date()"

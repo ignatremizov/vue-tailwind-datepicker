@@ -180,7 +180,7 @@
     "@antfu/eslint-config": "^0.43.1",
     "@commitlint/cli": "^20.4.1",
     "@commitlint/config-conventional": "^20.4.1",
-    "@headlessui/vue": "1.7.23",
+    "@headlessui/vue": "https://github.com/ignatremizov/headlessui/releases/download/v1.7.24-iremizov.1/headlessui-vue-1.7.24-iremizov.1.tgz",
     "@microsoft/api-extractor": "^7.56.3",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^13.0.1",

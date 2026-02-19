@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import dayjs from 'dayjs'
-import { computed, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import type { Dayjs } from 'dayjs'
 import type { InvalidShortcutEventPayload } from './types'
 import VueTailwindDatePicker from './VueTailwindDatePicker.vue'
@@ -73,6 +73,13 @@ const allFeaturesTimePageMode = ref<'toggle' | 'after-date'>('toggle')
 const allFeaturesTimeWheelScrollMode = ref<'boundary' | 'fractional'>('fractional')
 const allFeaturesTimeWheelFormat = ref<'HH:mm' | 'hh:mm A' | 'HH:mm:ss' | 'hh:mm:ss A'>('hh:mm:ss A')
 const allFeaturesCloseOnRangeSelection = ref(false)
+const allFeaturesDirectYearInput = ref(true)
+const allFeaturesPopoverTransition = ref(true)
+const allFeaturesPopoverRestoreFocus = ref(false)
+const allFeaturesYearNumberingMode = ref<'historical' | 'astronomical'>('historical')
+const allFeaturesShortcutsMode = ref<'off' | 'preset' | 'legacy' | 'custom'>('custom')
+const allFeaturesOpenFocusTarget = ref<'input' | 'calendar'>('input')
+const allFeaturesDebugInstrumentation = ref(false)
 const allFeaturesUsesWheelPicker = computed(() => {
   return allFeaturesTimePickerStyle.value === 'wheel-page' || allFeaturesTimePickerStyle.value === 'wheel-inline'
 })
@@ -174,6 +181,20 @@ const allFeaturesDemoShortcuts = [
     },
   },
 ]
+const allFeaturesShortcutPreset = computed(() => {
+  if (allFeaturesShortcutsMode.value === 'preset')
+    return 'modern'
+  if (allFeaturesShortcutsMode.value === 'legacy')
+    return 'legacy'
+  return 'legacy'
+})
+const allFeaturesShortcutsProp = computed(() => {
+  if (allFeaturesShortcutsMode.value === 'off')
+    return false
+  if (allFeaturesShortcutsMode.value === 'preset' || allFeaturesShortcutsMode.value === 'legacy')
+    return true
+  return allFeaturesDemoShortcuts
+})
 
 const currentLocale = ref('en')
 const localeOptions = [
@@ -182,6 +203,105 @@ const localeOptions = [
   { code: 'de', flag: '🇩🇪' },
 ]
 const isDark = ref(false)
+
+interface VtdPerfStore {
+  frameGaps: Array<{
+    at: number
+    gapMs: number
+    lastUserType: string
+    sinceLastUserMs: number
+    lastUserTarget: string
+    activeElement: string
+  }>
+  longTasks: Array<{
+    at: number
+    durationMs: number
+    name: string
+  }>
+}
+
+function getRuntimeWindow() {
+  return window as Window & {
+    __VTD_DEBUG_ENABLED__?: boolean
+    __VTD_DEBUG__?: {
+      mountedCount?: number
+      events?: Array<{
+        at?: number
+        type?: string
+        instance?: string
+        payload?: Record<string, unknown>
+      }>
+    }
+    __VTD_PERF__?: VtdPerfStore
+  }
+}
+
+function getPerfStore() {
+  if (typeof window === 'undefined')
+    return null
+  const runtimeWindow = getRuntimeWindow()
+  if (!runtimeWindow.__VTD_PERF__) {
+    runtimeWindow.__VTD_PERF__ = {
+      frameGaps: [],
+      longTasks: [],
+    }
+  }
+  return runtimeWindow.__VTD_PERF__
+}
+
+function describeActiveElementForPerf() {
+  if (typeof document === 'undefined')
+    return 'none'
+  const active = document.activeElement
+  if (!(active instanceof HTMLElement))
+    return 'none'
+  const id = active.id ? `#${active.id}` : ''
+  const className = typeof active.className === 'string' && active.className.trim().length > 0
+    ? `.${active.className.trim().split(/\s+/).slice(0, 2).join('.')}`
+    : ''
+  return `${active.tagName.toLowerCase()}${id}${className}`
+}
+
+let perfRafId: number | null = null
+let lastRafAt = 0
+let lastUserEventAt = 0
+let lastUserEventType = 'none'
+let lastUserEventTarget = 'none'
+let longTaskObserver: PerformanceObserver | null = null
+let perfTrackingEnabled = false
+
+function trackUserEvent(event: Event) {
+  lastUserEventAt = performance.now()
+  lastUserEventType = event.type
+  if (event.target instanceof HTMLElement)
+    lastUserEventTarget = event.target.tagName.toLowerCase()
+  else
+    lastUserEventTarget = 'unknown'
+}
+
+function trackFrameGap(now: number) {
+  const store = getPerfStore()
+  if (!store)
+    return
+  if (lastRafAt > 0) {
+    const gapMs = now - lastRafAt
+    if (gapMs >= 120) {
+      const sinceLastUserMs = lastUserEventAt > 0 ? now - lastUserEventAt : Number.POSITIVE_INFINITY
+      store.frameGaps.push({
+        at: now,
+        gapMs: Number(gapMs.toFixed(2)),
+        lastUserType: lastUserEventType,
+        sinceLastUserMs: Number(sinceLastUserMs.toFixed(2)),
+        lastUserTarget: lastUserEventTarget,
+        activeElement: describeActiveElementForPerf(),
+      })
+      if (store.frameGaps.length > 200)
+        store.frameGaps.splice(0, store.frameGaps.length - 200)
+    }
+  }
+  lastRafAt = now
+  perfRafId = requestAnimationFrame(trackFrameGap)
+}
 
 const shortcutSuccessDemoShortcuts = [
   {
@@ -261,6 +381,182 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
     ...shortcutFailureLog.value,
   ].slice(0, 3)
 }
+
+function logVtdDebugSnapshot() {
+  if (typeof window === 'undefined')
+    return
+
+  const runtimeWindow = getRuntimeWindow()
+  const snapshot = runtimeWindow.__VTD_DEBUG__
+  const mountedCount = snapshot?.mountedCount ?? 0
+  const events = snapshot?.events ?? []
+  const eventCount = events.length
+  console.log('[VTD DEBUG] mountedCount=%d eventCount=%d', mountedCount, eventCount)
+  const instanceCounts = new Map<string, number>()
+  for (const event of events) {
+    const key = event.instance ?? 'unknown'
+    instanceCounts.set(key, (instanceCounts.get(key) ?? 0) + 1)
+  }
+  const instanceSummary = Array.from(instanceCounts.entries())
+    .map(([instance, count]) => ({ instance, count }))
+    .sort((a, b) => b.count - a.count)
+  const primaryInstance = instanceSummary[0]?.instance ?? 'none'
+  const primaryEvents = primaryInstance === 'none'
+    ? []
+    : events.filter(event => event.instance === primaryInstance)
+
+  const recentPrimaryEvents = primaryEvents.slice(-40)
+  const slowPanelMeasures = primaryEvents
+    .filter(event => event.type === 'panel-measure')
+    .filter((event) => {
+      const duration = Number(event.payload?.durationMs ?? 0)
+      return Number.isFinite(duration) && duration >= 8
+    })
+    .slice(-20)
+  const longEventGaps = primaryEvents
+    .slice(1)
+    .map((event, index) => {
+      const previous = primaryEvents[index]
+      const previousAt = Number(previous?.at ?? 0)
+      const currentAt = Number(event.at ?? 0)
+      const gapMs = currentAt - previousAt
+      return {
+        gapMs,
+        previousType: previous?.type ?? 'unknown',
+        nextType: event.type ?? 'unknown',
+        previousAt: previousAt.toFixed(2),
+        nextAt: currentAt.toFixed(2),
+      }
+    })
+    .filter(item => Number.isFinite(item.gapMs) && item.gapMs >= 250)
+    .slice(-20)
+  console.log('[VTD DEBUG] primaryInstance=%s events=%d slowPanelMeasures(>=8ms)=%d', primaryInstance, primaryEvents.length, slowPanelMeasures.length)
+  if (instanceSummary.length > 0)
+    console.table(instanceSummary.slice(0, 10))
+  console.table(recentPrimaryEvents.map((event) => {
+    const payload = event.payload ?? {}
+    return {
+      at: Number(event.at ?? 0).toFixed(2),
+      type: event.type ?? 'unknown',
+      active: String(payload.activeElement ?? ''),
+      target: String(payload.target ?? ''),
+      closeDelayMs: payload.closeDelayMs ?? '',
+      durationMs: payload.durationMs ?? '',
+      source: payload.source ?? '',
+    }
+  }))
+  console.log('[VTD DEBUG] long primary instance event gaps (>=250ms)=%d', longEventGaps.length)
+  if (longEventGaps.length > 0)
+    console.table(longEventGaps)
+
+  const perf = runtimeWindow.__VTD_PERF__
+  const frameGaps = perf?.frameGaps ?? []
+  const longTasks = perf?.longTasks ?? []
+  console.log('[VTD PERF] frame gaps (>=120ms)=%d long tasks=%d', frameGaps.length, longTasks.length)
+  if (frameGaps.length > 0)
+    console.table(frameGaps.slice(-20).map(item => ({ ...item, at: item.at.toFixed(2) })))
+  if (longTasks.length > 0)
+    console.table(longTasks.slice(-20).map(item => ({ ...item, at: item.at.toFixed(2) })))
+
+  console.log(snapshot)
+}
+
+function clearVtdDebugSnapshot() {
+  if (typeof window === 'undefined')
+    return
+
+  const runtimeWindow = getRuntimeWindow()
+  if (!runtimeWindow.__VTD_DEBUG__) {
+    runtimeWindow.__VTD_DEBUG__ = { mountedCount: 0, events: [] }
+  }
+  runtimeWindow.__VTD_DEBUG__.events = []
+  if (runtimeWindow.__VTD_PERF__) {
+    runtimeWindow.__VTD_PERF__.frameGaps = []
+    runtimeWindow.__VTD_PERF__.longTasks = []
+  }
+}
+
+function startPerfTracking() {
+  if (typeof window === 'undefined' || perfTrackingEnabled)
+    return
+
+  perfTrackingEnabled = true
+  lastRafAt = 0
+  lastUserEventAt = 0
+  lastUserEventType = 'none'
+  lastUserEventTarget = 'none'
+
+  document.addEventListener('pointerdown', trackUserEvent, true)
+  document.addEventListener('click', trackUserEvent, true)
+  document.addEventListener('keydown', trackUserEvent, true)
+
+  perfRafId = requestAnimationFrame(trackFrameGap)
+
+  if (typeof PerformanceObserver !== 'undefined') {
+    try {
+      const supported = PerformanceObserver.supportedEntryTypes ?? []
+      if (supported.includes('longtask')) {
+        longTaskObserver = new PerformanceObserver((list) => {
+          const store = getPerfStore()
+          if (!store)
+            return
+          for (const entry of list.getEntries()) {
+            store.longTasks.push({
+              at: Number(entry.startTime.toFixed(2)),
+              durationMs: Number(entry.duration.toFixed(2)),
+              name: entry.name,
+            })
+          }
+          if (store.longTasks.length > 200)
+            store.longTasks.splice(0, store.longTasks.length - 200)
+        })
+        longTaskObserver.observe({ type: 'longtask', buffered: true })
+      }
+    }
+    catch {
+      // No-op: long task observer is best effort across browsers.
+    }
+  }
+}
+
+function stopPerfTracking() {
+  if (typeof window === 'undefined' || !perfTrackingEnabled)
+    return
+
+  document.removeEventListener('pointerdown', trackUserEvent, true)
+  document.removeEventListener('click', trackUserEvent, true)
+  document.removeEventListener('keydown', trackUserEvent, true)
+
+  if (perfRafId !== null)
+    cancelAnimationFrame(perfRafId)
+  perfRafId = null
+
+  if (longTaskObserver) {
+    longTaskObserver.disconnect()
+    longTaskObserver = null
+  }
+  perfTrackingEnabled = false
+}
+
+function setComponentDebugEnabled(enabled: boolean) {
+  if (typeof window === 'undefined')
+    return
+  getRuntimeWindow().__VTD_DEBUG_ENABLED__ = enabled
+}
+
+watch(allFeaturesDebugInstrumentation, (enabled) => {
+  setComponentDebugEnabled(enabled)
+  if (enabled)
+    startPerfTracking()
+  else
+    stopPerfTracking()
+}, { immediate: true })
+
+onUnmounted(() => {
+  stopPerfTracking()
+  setComponentDebugEnabled(false)
+})
+
 </script>
 
 <template>
@@ -308,9 +604,26 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
                 Shortcuts panel
               </p>
               <p>
-                This playground uses modern-style typed shortcuts (including &quot;Highlight next week range&quot;), not the legacy preset.
+                Choose `off`, `modern preset`, `legacy preset`, or custom typed shortcuts (includes &quot;Highlight next week range&quot;).
               </p>
             </div>
+            <label class="mb-3 block">
+              <span class="mb-1 block text-xs font-medium text-blue-900">Shortcuts panel mode</span>
+              <select v-model="allFeaturesShortcutsMode" :class="allFeaturesSelectClass">
+                <option value="custom">
+                  custom typed
+                </option>
+                <option value="preset">
+                  modern preset
+                </option>
+                <option value="legacy">
+                  legacy preset
+                </option>
+                <option value="off">
+                  off
+                </option>
+              </select>
+            </label>
 
             <label class="mb-3 block">
               <span class="mb-1 block text-xs font-medium text-blue-900">Month/year selector style</span>
@@ -320,6 +633,34 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
                 </option>
                 <option value="page">
                   page (legacy month/year view)
+                </option>
+              </select>
+            </label>
+
+            <label class="mb-3 block">
+              <span class="mb-1 block text-xs font-medium text-blue-900">Year numbering mode</span>
+              <select
+                v-model="allFeaturesYearNumberingMode"
+                :disabled="allFeaturesSelectorStyle !== 'wheel' || !allFeaturesDirectYearInput"
+                :class="allFeaturesSelectClassWithDisabled"
+              >
+                <option value="historical">
+                  historical (no year 0)
+                </option>
+                <option value="astronomical">
+                  astronomical (includes year 0)
+                </option>
+              </select>
+            </label>
+
+            <label class="mb-3 block">
+              <span class="mb-1 block text-xs font-medium text-blue-900">Open focus target</span>
+              <select v-model="allFeaturesOpenFocusTarget" :class="allFeaturesSelectClass">
+                <option value="input">
+                  keep focus on text input
+                </option>
+                <option value="calendar">
+                  focus calendar grid
                 </option>
               </select>
             </label>
@@ -424,19 +765,48 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
               </label>
             </div>
 
-            <label class="flex items-center gap-2 text-xs text-blue-900">
-              <input v-model="allFeaturesWeekendTintEnabled" type="checkbox">
-              Weekend red styling
-            </label>
+            <div class="flex flex-wrap items-center gap-3">
+              <label class="flex items-center gap-2 text-xs text-blue-900">
+                <input v-model="allFeaturesWeekendTintEnabled" type="checkbox">
+                Weekend red styling
+              </label>
+              <label class="flex items-center gap-2 text-xs text-blue-900" :class="allFeaturesSelectorStyle !== 'wheel' ? 'opacity-50' : ''">
+                <input v-model="allFeaturesDirectYearInput" type="checkbox" :disabled="allFeaturesSelectorStyle !== 'wheel'">
+                Direct year input
+              </label>
+            </div>
 
             <label class="mt-2 flex items-center gap-2 text-xs text-blue-900">
               <input v-model="allFeaturesCloseOnRangeSelection" type="checkbox">
               Auto-close after selecting range end
             </label>
+            <label class="mt-2 flex items-center gap-2 text-xs text-blue-900">
+              <input v-model="allFeaturesPopoverTransition" type="checkbox">
+              Animate popover transition
+            </label>
+            <label class="mt-2 flex items-center gap-2 text-xs text-blue-900">
+              <input v-model="allFeaturesPopoverRestoreFocus" type="checkbox">
+              Restore trigger focus on close
+            </label>
+
+            <div class="mt-3 rounded border border-blue-200 bg-blue-50 px-2 py-2 text-[11px] text-blue-900">
+              <label class="mb-2 flex items-center gap-2">
+                <input v-model="allFeaturesDebugInstrumentation" type="checkbox">
+                Enable debug instrumentation (dev only)
+              </label>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" class="rounded border border-blue-300 bg-white px-2 py-1 text-[11px] font-medium text-blue-900" @click="logVtdDebugSnapshot">
+                  Log debug snapshot
+                </button>
+                <button type="button" class="rounded border border-blue-300 bg-white px-2 py-1 text-[11px] font-medium text-blue-900" @click="clearVtdDebugSnapshot">
+                  Clear debug events
+                </button>
+              </div>
+            </div>
+
           </div>
 
-          <div
-            :class="[
+          <div :class="[
               'rounded-md border border-blue-200/70 bg-white p-3',
               allFeaturesWeekendTintEnabled ? 'all-features-weekend' : '',
             ]"
@@ -448,20 +818,26 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
               :selector-mode="allFeaturesSelectorStyle === 'wheel'"
               :selector-focus-tint="false"
               :selector-year-scroll-mode="allFeaturesTimeWheelScrollMode"
-              :shortcuts="allFeaturesDemoShortcuts"
+              :direct-year-input="allFeaturesDirectYearInput"
+              :year-numbering-mode="allFeaturesYearNumberingMode"
+              :shortcuts="allFeaturesShortcutsProp"
+              :shortcut-preset="allFeaturesShortcutPreset"
               :auto-apply="false"
               :time-picker-style="allFeaturesTimePickerStyle"
               :time-inline-position="allFeaturesTimeInlinePosition"
               :time-page-mode="allFeaturesTimePageMode"
               :time-wheel-scroll-mode="allFeaturesTimeWheelScrollMode"
               :close-on-range-selection="allFeaturesCloseOnRangeSelection"
+              :popover-transition="allFeaturesPopoverTransition"
+              :popover-restore-focus="allFeaturesPopoverRestoreFocus"
+              :open-focus-target="allFeaturesOpenFocusTarget"
               :formatter="{ date: allFeaturesFormatterDate, month: 'MMM' }"
               :i18n="currentLocale"
             />
           </div>
         </div>
       </div>
-      
+
       <div class="rounded-lg border border-slate-200 bg-white p-4">
         <p class="mb-3 text-sm font-medium text-slate-700">
           Legacy behavior (`selectorMode=false`, default)

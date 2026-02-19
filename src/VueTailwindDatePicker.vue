@@ -17,8 +17,11 @@ import weekOfYear from 'dayjs/plugin/weekOfYear'
 import type { Ref } from 'vue'
 import {
   computed,
+  getCurrentInstance,
   isProxy,
   nextTick,
+  onMounted,
+  onUnmounted,
   provide,
   reactive,
   ref,
@@ -41,7 +44,6 @@ import VtdMonth from './components/Month.vue'
 import VtdTimeWheel from './components/TimeWheel.vue'
 import {
   formatModelDateWithDirectYear,
-  formatSignedYearToken,
   parseModelDateWithDirectYear,
 } from './composables/directYearInput'
 import useDate from './composables/date'
@@ -63,7 +65,6 @@ import type {
   RangeDraftState,
   SelectionPanel,
   SelectorFocus,
-  SelectorYearInputEventPayload,
   ShortcutDefinition,
   ShortcutFactory,
   ShortcutPreset,
@@ -127,6 +128,9 @@ export interface Props {
   selectorYearPageJump?: number
   selectorYearPageShiftJump?: number
   closeOnRangeSelection?: boolean
+  openFocusTarget?: 'calendar' | 'input'
+  popoverTransition?: boolean
+  popoverRestoreFocus?: boolean
   options?: {
     shortcuts: {
       today: string
@@ -189,6 +193,9 @@ const props = withDefaults(defineProps<Props>(), {
   selectorYearPageJump: 10,
   selectorYearPageShiftJump: 100,
   closeOnRangeSelection: true,
+  openFocusTarget: 'input',
+  popoverTransition: true,
+  popoverRestoreFocus: false,
   options: () => ({
     shortcuts: {
       today: 'Today',
@@ -247,11 +254,12 @@ dayjs.extend(isBetween)
 dayjs.extend(duration)
 dayjs.extend(weekOfYear)
 
-const VtdRef = ref(null)
+const VtdRef = ref<HTMLElement | null>(null)
 const VtdStaticRef = ref<HTMLElement | null>(null)
 const VtdPanelContentRef = ref<HTMLElement | null>(null)
 const VtdInputRef = ref<HTMLInputElement | null>(null)
 const VtdPopoverButtonRef = ref<unknown>(null)
+let panelMeasureJobToken = 0
 const placement = ref<boolean | null>(null)
 const givenPlaceholder = ref('')
 const selection = ref<Dayjs | null>(null)
@@ -281,6 +289,85 @@ interface TimeWheelStepPayload {
 
 type ResolvedTimePickerStyle = 'none' | 'input' | 'wheel-inline' | 'wheel-page'
 
+interface VtdDebugEvent {
+  at: number
+  type: string
+  instance: string
+  payload?: Record<string, unknown>
+}
+
+interface VtdDebugStore {
+  mountedCount: number
+  events: VtdDebugEvent[]
+}
+
+interface VtdDebugWindow extends Window {
+  __VTD_DEBUG__?: VtdDebugStore
+  __VTD_DEBUG_ENABLED__?: boolean
+}
+
+const instanceUid = getCurrentInstance()?.uid ?? Math.round(Math.random() * 1_000_000)
+const debugInstanceLabel = `picker-${instanceUid}`
+
+function isDebugEnabled() {
+  if (!import.meta.env.DEV || typeof window === 'undefined')
+    return false
+
+  const runtimeWindow = window as VtdDebugWindow
+  return runtimeWindow.__VTD_DEBUG_ENABLED__ === true
+}
+
+function getDebugStore() {
+  if (typeof window === 'undefined')
+    return null
+
+  const runtimeWindow = window as VtdDebugWindow
+  if (!runtimeWindow.__VTD_DEBUG__) {
+    runtimeWindow.__VTD_DEBUG__ = {
+      mountedCount: 0,
+      events: [],
+    }
+  }
+  return runtimeWindow.__VTD_DEBUG__
+}
+
+function pushDebugEvent(type: string, payload?: Record<string, unknown>) {
+  if (!isDebugEnabled())
+    return
+
+  const store = getDebugStore()
+  if (!store)
+    return
+
+  const event: VtdDebugEvent = {
+    at: performance.now(),
+    type,
+    instance: debugInstanceLabel,
+  }
+  if (payload)
+    event.payload = payload
+  store.events.push(event)
+
+  // Keep the log bounded so long demo sessions do not balloon memory usage.
+  if (store.events.length > 2000)
+    store.events.splice(0, store.events.length - 2000)
+}
+
+function describeActiveElement() {
+  if (typeof document === 'undefined')
+    return 'none'
+
+  const active = document.activeElement
+  if (!(active instanceof HTMLElement))
+    return 'none'
+
+  const id = active.id ? `#${active.id}` : ''
+  const className = typeof active.className === 'string' && active.className.trim().length > 0
+    ? `.${active.className.trim().split(/\s+/).slice(0, 2).join('.')}`
+    : ''
+  return `${active.tagName.toLowerCase()}${id}${className}`
+}
+
 const DATE_TIME_TOKEN_PATTERN = /\s*(HH:mm(?::ss)?|h{1,2}:mm(?::ss)?\s*[Aa])/
 const TIME_WHEEL_STEP_DEDUP_WINDOW_MS = 90
 
@@ -299,6 +386,14 @@ const isPageAutoSwitchMode = computed(() => props.timePageMode === 'after-date')
 const autoApplyEnabled = computed(() => props.autoApply && !isDateTimeEnabled.value)
 const showApplyFooter = computed(() => !autoApplyEnabled.value)
 const showMobileCancelFooter = computed(() => autoApplyEnabled.value)
+
+const useLegacyNoTimeSelectorHeightClamp = computed(() => {
+  return props.selectorMode
+    && props.asSingle
+    && !isDateTimeEnabled.value
+    && !showApplyFooter.value
+    && !showMobileCancelFooter.value
+})
 const formatterTimeTokens = computed(() => analyzeFormatterTimeTokens(props.formatter.date))
 const datetimeModeConfig = computed<DateTimeModeConfig>(() => ({
   datetime: isDateTimeEnabled.value,
@@ -338,13 +433,13 @@ const hourWheelStepDirection = reactive<Record<DateTimeEndpointSelection, -1 | 0
   start: 0,
   end: 0,
 })
-const lastMinuteWheelStepSignature = reactive<Record<DateTimeEndpointSelection, { key: string; at: number }>>({
-  start: { key: '', at: 0 },
-  end: { key: '', at: 0 },
+const lastMinuteWheelStepSignature = reactive<Record<DateTimeEndpointSelection, { key: string; semanticKey: string; at: number }>>({
+  start: { key: '', semanticKey: '', at: 0 },
+  end: { key: '', semanticKey: '', at: 0 },
 })
-const lastSecondWheelStepSignature = reactive<Record<DateTimeEndpointSelection, { key: string; at: number }>>({
-  start: { key: '', at: 0 },
-  end: { key: '', at: 0 },
+const lastSecondWheelStepSignature = reactive<Record<DateTimeEndpointSelection, { key: string; semanticKey: string; at: number }>>({
+  start: { key: '', semanticKey: '', at: 0 },
+  end: { key: '', semanticKey: '', at: 0 },
 })
 const meridiemWheelSyncDirection = reactive<Record<DateTimeEndpointSelection, -1 | 0 | 1>>({
   start: 0,
@@ -418,7 +513,16 @@ const inlineRightHeightLockReady = ref(false)
 const shouldUseFillTimePanelLayout = computed(() => {
   if (showInlineTimePanelInline.value)
     return inlineRightHeightLockReady.value
-  return showPageTimePanelInline.value
+
+  if (!showPageTimePanelInline.value)
+    return false
+
+  // In dual wheel-page mode, defer "fill" layout until a valid panel lock is
+  // measured; otherwise the initial open can expand the wheel content height.
+  if (asRange() && !props.asSingle)
+    return panelContentLockState.height > 0
+
+  return true
 })
 
 const timePanelFillClass = computed(() => {
@@ -526,6 +630,7 @@ const datepickerShellLockStyle = computed(() => {
 })
 
 function resetPanelContentLockState() {
+  panelMeasureJobToken += 1
   panelContentLockState.shellWidth = 0
   panelContentLockState.width = 0
   panelContentLockState.height = 0
@@ -533,6 +638,7 @@ function resetPanelContentLockState() {
 }
 
 function measureAndLockPanelContentSize() {
+  const measurementStartAt = performance.now()
   if (!shouldLockPanelContentSize.value)
     return
   if (!shouldShowDatePanels.value)
@@ -560,45 +666,46 @@ function measureAndLockPanelContentSize() {
       panelElement.querySelectorAll<HTMLElement>('[data-vtd-selector-panel="previous"], [data-vtd-selector-panel="next"]'),
     )
     const calendarHeight = calendarPanels.reduce((maxHeight, el) => {
-      const panelStyle = getComputedStyle(el)
-      const panelPaddingTop = Number.parseFloat(panelStyle.paddingTop || '0') || 0
-      const panelPaddingBottom = Number.parseFloat(panelStyle.paddingBottom || '0') || 0
-      const visibleChildrenHeight = Array.from(el.children).reduce((sum, child) => {
-        if (!(child instanceof HTMLElement))
-          return sum
-
-        const childStyle = getComputedStyle(child)
-        if (childStyle.display === 'none' || childStyle.position === 'absolute')
-          return sum
-
-        const childRect = child.getBoundingClientRect()
-        if (!childRect.height)
-          return sum
-
-        const marginTop = Number.parseFloat(childStyle.marginTop || '0') || 0
-        const marginBottom = Number.parseFloat(childStyle.marginBottom || '0') || 0
-        return sum + childRect.height + marginTop + marginBottom
-      }, 0)
-
-      const intrinsicHeight = panelPaddingTop + visibleChildrenHeight + panelPaddingBottom
-      if (!intrinsicHeight)
+      const panelHeight = el.getBoundingClientRect().height
+      if (!panelHeight)
         return maxHeight
-
-      return Math.max(maxHeight, intrinsicHeight)
+      return Math.max(maxHeight, panelHeight)
     }, 0)
 
+    const panelContentStyle = getComputedStyle(panelElement)
+    const panelPaddingTop = Number.parseFloat(panelContentStyle.paddingTop || '0') || 0
+    const panelPaddingBottom = Number.parseFloat(panelContentStyle.paddingBottom || '0') || 0
+
     if (calendarHeight > 0)
-      measuredHeight = calendarHeight
+      measuredHeight = calendarHeight + panelPaddingTop + panelPaddingBottom
   }
 
   panelContentLockState.height = Math.max(panelContentLockState.height, Math.ceil(measuredHeight))
   if (showInlineTimePanelInline.value && panelContentLockState.height > 0)
     inlineRightHeightLockReady.value = true
+
+  const measurementDuration = performance.now() - measurementStartAt
+  if (measurementDuration >= 4 || isDebugEnabled()) {
+    pushDebugEvent('panel-measure', {
+      durationMs: Number(measurementDuration.toFixed(2)),
+      shellWidth: panelContentLockState.shellWidth,
+      width: panelContentLockState.width,
+      height: panelContentLockState.height,
+      inlineRight: showInlineTimePanelInline.value,
+      open: isPopoverOpen(),
+    })
+  }
 }
 
 function queuePanelContentMeasurement() {
+  const token = ++panelMeasureJobToken
+  pushDebugEvent('panel-measure-queued', { token, open: isPopoverOpen() })
   nextTick(() => {
+    if (token !== panelMeasureJobToken)
+      return
     requestAnimationFrame(() => {
+      if (token !== panelMeasureJobToken)
+        return
       measureAndLockPanelContentSize()
     })
   })
@@ -700,6 +807,7 @@ const shouldCenterTimePanelEndpointToggle = computed(() => {
     && !showDualRangeTimePanelsUi.value
     && showStackedDateTimeControls.value
     && !showInlineTimePanelInline.value
+    && !!props.shortcuts
 })
 
 const shouldShowInlineTimePanelEndpointToggle = computed(() => {
@@ -1444,18 +1552,65 @@ function resolveTimeWheelStepDelta(payload: TimeWheelStepPayload) {
   return Math.trunc(payload.delta)
 }
 
+function normalizeWheelCycleValue(
+  rawValue: number | string | null,
+  fallbackValue: number,
+  cycleSize: number,
+) {
+  const parsed = parseNumberValue(rawValue ?? fallbackValue, fallbackValue)
+  const normalized = ((parsed % cycleSize) + cycleSize) % cycleSize
+  return Math.min(Math.max(normalized, 0), cycleSize - 1)
+}
+
+function resolveCyclicWheelStepDelta(
+  payload: TimeWheelStepPayload,
+  cycleSize: number,
+  fallbackPreviousValue: number,
+) {
+  const rawDelta = resolveTimeWheelStepDelta(payload)
+  if (rawDelta === 0)
+    return 0
+
+  const direction = rawDelta > 0 ? 1 : -1
+  const previousValue = normalizeWheelCycleValue(payload.previousValue, fallbackPreviousValue, cycleSize)
+  const nextValue = normalizeWheelCycleValue(payload.value, previousValue, cycleSize)
+
+  // For boundary carries we prefer semantic 00<->(cycle-1) transitions over
+  // raw absolute-index deltas, which can be noisy around virtual-window rebase.
+  if (previousValue === cycleSize - 1 && nextValue === 0)
+    return 1
+  if (previousValue === 0 && nextValue === cycleSize - 1)
+    return -1
+
+  let semanticDelta = nextValue - previousValue
+  if (direction > 0 && semanticDelta < 0)
+    semanticDelta += cycleSize
+  else if (direction < 0 && semanticDelta > 0)
+    semanticDelta -= cycleSize
+
+  if (semanticDelta === 0)
+    return direction * cycleSize
+
+  return semanticDelta
+}
+
 function isDuplicateWheelStep(
   endpoint: DateTimeEndpointSelection,
   payload: TimeWheelStepPayload,
-  cache: Record<DateTimeEndpointSelection, { key: string; at: number }>,
+  cache: Record<DateTimeEndpointSelection, { key: string; semanticKey: string; at: number }>,
 ) {
   const key = `${payload.previousAbsoluteIndex}:${payload.absoluteIndex}:${String(payload.value)}`
+  const semanticKey = `${String(payload.previousValue)}:${String(payload.value)}`
   const now = Date.now()
   const previous = cache[endpoint]
-  if (previous.key === key && now - previous.at <= TIME_WHEEL_STEP_DEDUP_WINDOW_MS)
-    return true
+  if (now - previous.at <= TIME_WHEEL_STEP_DEDUP_WINDOW_MS) {
+    if (previous.key === key)
+      return true
+    if (previous.semanticKey === semanticKey)
+      return true
+  }
 
-  cache[endpoint] = { key, at: now }
+  cache[endpoint] = { key, semanticKey, at: now }
   return false
 }
 
@@ -1502,23 +1657,27 @@ function onDateTimeMinuteWheelStep(
   if (isDuplicateWheelStep(endpoint, payload, lastMinuteWheelStepSignature))
     return
 
+  if (payload.previousValue === null)
+    return
+
   // TODO(time-inline-day-boundary): evaluate optional day-boundary carry for
   // wheel-inline mode so hour/day updates can stay synchronized with calendar
   // dates when the hour wheel crosses midnight.
   const MINUTES_PER_HOUR = 60
   const currentMinute = Math.min(Math.max(getMinuteWheelValue(endpoint), 0), 59)
+  let expectedPreviousMinute = currentMinute
   if (payload.previousValue !== null) {
-    const expectedPreviousMinute = Math.min(
+    expectedPreviousMinute = Math.min(
       Math.max(parseNumberValue(payload.previousValue, currentMinute), 0),
       59,
     )
     if (expectedPreviousMinute !== currentMinute)
       return
   }
-  const minuteDelta = resolveTimeWheelStepDelta(payload)
+  const minuteDelta = resolveCyclicWheelStepDelta(payload, MINUTES_PER_HOUR, expectedPreviousMinute)
   if (minuteDelta === 0)
     return
-  const hourCarry = Math.floor((currentMinute + minuteDelta) / MINUTES_PER_HOUR)
+  const hourCarry = Math.floor((expectedPreviousMinute + minuteDelta) / MINUTES_PER_HOUR)
   if (hourCarry === 0)
     return
 
@@ -1533,20 +1692,24 @@ function onDateTimeSecondWheelStep(
   if (isDuplicateWheelStep(endpoint, payload, lastSecondWheelStepSignature))
     return
 
+  if (payload.previousValue === null)
+    return
+
   const SECONDS_PER_MINUTE = 60
   const currentSecond = Math.min(Math.max(getSecondWheelValue(endpoint), 0), 59)
+  let expectedPreviousSecond = currentSecond
   if (payload.previousValue !== null) {
-    const expectedPreviousSecond = Math.min(
+    expectedPreviousSecond = Math.min(
       Math.max(parseNumberValue(payload.previousValue, currentSecond), 0),
       59,
     )
     if (expectedPreviousSecond !== currentSecond)
       return
   }
-  const secondDelta = resolveTimeWheelStepDelta(payload)
+  const secondDelta = resolveCyclicWheelStepDelta(payload, SECONDS_PER_MINUTE, expectedPreviousSecond)
   if (secondDelta === 0)
     return
-  const minuteCarry = Math.floor((currentSecond + secondDelta) / SECONDS_PER_MINUTE)
+  const minuteCarry = Math.floor((expectedPreviousSecond + secondDelta) / SECONDS_PER_MINUTE)
   if (minuteCarry === 0)
     return
 
@@ -1957,13 +2120,6 @@ interface SelectorState {
   anchorYear: number
 }
 
-interface SelectorYearInputSessionState {
-  rawText: string
-  parsedYear: number | null
-  isValidToken: boolean
-  lastValidYear: number
-}
-
 interface RangeNormalizationState {
   hasTemporaryInversion: boolean
   normalizationBoundaryPending: boolean
@@ -1996,7 +2152,6 @@ interface CommitTypedYearOptions {
   emitModelUpdate?: boolean
   allowTemporaryInversion?: boolean
   syncSelectorStateAfterCommit?: boolean
-  updateSession?: boolean
 }
 
 const SELECTOR_YEAR_WINDOW_SIZE = 401
@@ -2005,17 +2160,12 @@ const SELECTOR_YEAR_REANCHOR_THRESHOLD = 24
 
 const pickerViewMode = ref<PickerViewMode>('calendar')
 const selectorFocus = ref<SelectorFocus>('month')
+const suppressSelectorColumnFocus = ref(false)
 const selectionContext = ref<SelectionContext>('single')
 const selectorState = reactive<SelectorState>({
   selectedMonth: datepicker.value.previous.month(),
   selectedYear: datepicker.value.previous.year(),
   anchorYear: datepicker.value.previous.year(),
-})
-const selectorYearInputSession = reactive<SelectorYearInputSessionState>({
-  rawText: formatSignedYearToken(datepicker.value.previous.year()),
-  parsedYear: datepicker.value.previous.year(),
-  isValidToken: true,
-  lastValidYear: datepicker.value.previous.year(),
 })
 const rangeNormalizationState = reactive<RangeNormalizationState>({
   hasTemporaryInversion: false,
@@ -2153,22 +2303,20 @@ function emitActiveContextModelValueForTypedYear(context: SelectionContext) {
 
   const isNextPanel = context === 'nextPanel'
   const { startDate, endDate } = resolveModelRangeDates()
+  const startFromApply = applyValue.value[0] ?? null
+  const endFromApply = applyValue.value[1] ?? null
   const nextStart = isNextPanel
-    ? (startDate ?? datepicker.value.previous)
-    : datepicker.value.previous
+    ? (startFromApply ?? startDate ?? datepicker.value.previous)
+    : (datetimeModeConfig.value.datetime
+        ? mergeDateWithDraftTime(datepicker.value.previous, 'start')
+        : datepicker.value.previous)
   const nextEnd = isNextPanel
-    ? datepicker.value.next
-    : (endDate ?? datepicker.value.next)
+    ? (datetimeModeConfig.value.datetime
+        ? mergeDateWithDraftTime(datepicker.value.next, 'end')
+        : datepicker.value.next)
+    : (endFromApply ?? endDate ?? datepicker.value.next)
 
   emitRangeModelValue(nextStart, nextEnd)
-}
-
-function syncSelectorYearInputSession(context: SelectionContext = selectionContext.value) {
-  const contextYear = resolveContextDate(context).year()
-  selectorYearInputSession.rawText = formatSignedYearToken(contextYear)
-  selectorYearInputSession.parsedYear = contextYear
-  selectorYearInputSession.isValidToken = true
-  selectorYearInputSession.lastValidYear = contextYear
 }
 
 function trackTemporaryRangeInversion() {
@@ -2238,27 +2386,14 @@ function isPopoverOpen() {
   return !!(VtdRef.value && document.body.contains(VtdRef.value))
 }
 
-function resolvePopoverButtonElement() {
-  const refValue = VtdPopoverButtonRef.value as
-    | HTMLElement
-    | { $el?: unknown; $?: { vnode?: { el?: unknown } } }
-    | null
-
-  if (!refValue)
-    return null
-  if (refValue instanceof HTMLElement)
-    return refValue
-  if (refValue.$el instanceof HTMLElement)
-    return refValue.$el
-  if (refValue.$?.vnode?.el instanceof HTMLElement)
-    return refValue.$.vnode.el
-  return VtdInputRef.value?.closest('label') ?? null
-}
-
 function triggerPopoverButtonClick() {
-  const buttonElement = resolvePopoverButtonElement()
-  if (buttonElement)
-    buttonElement.click()
+  const refValue = VtdPopoverButtonRef.value as HTMLElement | { $el?: unknown } | null
+  if (refValue instanceof HTMLElement) {
+    refValue.click()
+    return
+  }
+  if (refValue?.$el instanceof HTMLElement)
+    refValue.$el.click()
 }
 
 function focusHeaderValue(panel: SelectionPanel, focus: SelectorFocus) {
@@ -2292,13 +2427,6 @@ function focusSelectorModeTarget(
     }
   }
   else {
-    if (props.directYearInput) {
-      const yearInput = panelElement.querySelector<HTMLElement>('[data-vtd-selector-year-input]')
-      if (yearInput) {
-        yearInput.focus()
-        return true
-      }
-    }
     const yearSelector = panelElement.querySelector<HTMLElement>('[aria-label="Year selector"]')
     if (yearSelector) {
       yearSelector.focus()
@@ -2362,7 +2490,6 @@ function syncSelectorState(
   const contextDate = resolveContextDate(context)
   selectorState.selectedMonth = contextDate.month()
   selectorState.selectedYear = contextDate.year()
-  syncSelectorYearInputSession(context)
   if (syncAnchor)
     anchorSelectorYearWindow(contextDate.year())
 }
@@ -2400,7 +2527,6 @@ function commitTypedYearToActiveContext(
     emitModelUpdate = true,
     allowTemporaryInversion = true,
     syncSelectorStateAfterCommit = true,
-    updateSession = true,
   } = options
 
   if (context === 'nextPanel') {
@@ -2419,17 +2545,22 @@ function commitTypedYearToActiveContext(
   trackTemporaryRangeInversion()
 
   if (!props.autoApply) {
-    if (asRange())
-      applyValue.value = [datepicker.value.previous, datepicker.value.next]
-    else
+    if (asRange()) {
+      if (datetimeModeConfig.value.datetime) {
+        const nextStart = mergeDateWithDraftTime(datepicker.value.previous, 'start')
+        const nextEnd = mergeDateWithDraftTime(datepicker.value.next, 'end')
+        applyValue.value = [nextStart, nextEnd]
+      }
+      else {
+        applyValue.value = [datepicker.value.previous, datepicker.value.next]
+      }
+    }
+    else if (datetimeModeConfig.value.datetime) {
+      applyValue.value = [mergeDateWithDraftTime(resolveContextDate(context), 'start')]
+    }
+    else {
       applyValue.value = [resolveContextDate(context)]
-  }
-
-  if (updateSession) {
-    selectorYearInputSession.rawText = formatSignedYearToken(year)
-    selectorYearInputSession.parsedYear = year
-    selectorYearInputSession.isValidToken = true
-    selectorYearInputSession.lastValidYear = year
+    }
   }
 
   if (syncSelectorStateAfterCommit)
@@ -2533,15 +2664,34 @@ function getPanelPickerViewMode(panelName: SelectionPanel): PickerViewMode {
 }
 
 function getSelectorColumnClass(focus: SelectorFocus) {
+  const isFocusActive = !suppressSelectorColumnFocus.value && selectorFocus.value === focus
   if (!props.selectorFocusTint) {
-    return selectorFocus.value === focus
+    return isFocusActive
       ? 'border-vtd-primary-300 dark:border-vtd-primary-500'
       : 'border-black/[.08] dark:border-vtd-secondary-700/[1]'
   }
 
-  return selectorFocus.value === focus
+  return isFocusActive
     ? 'border-vtd-primary-300 bg-vtd-primary-50/40 ring-2 ring-vtd-primary-400/35 ring-offset-1 ring-offset-transparent dark:border-vtd-primary-500 dark:bg-vtd-secondary-700/50 dark:ring-vtd-primary-500/35'
     : 'border-black/[.08] dark:border-vtd-secondary-700/[1]'
+}
+
+function clearSelectorColumnFocusSuppression() {
+  suppressSelectorColumnFocus.value = false
+}
+
+function onTimeWheelInteraction(event: Event) {
+  if (!props.selectorMode || pickerViewMode.value !== 'selector')
+    return
+
+  const target = event.target
+  if (!(target instanceof HTMLElement))
+    return
+
+  if (!target.closest('.vtd-time-wheel'))
+    return
+
+  suppressSelectorColumnFocus.value = true
 }
 
 function onSelectorColumnFocus(panelName: SelectionPanel, focus: SelectorFocus) {
@@ -2549,6 +2699,7 @@ function onSelectorColumnFocus(panelName: SelectionPanel, focus: SelectorFocus) 
     return
   selectionContext.value = resolveSelectionContext(panelName)
   selectorFocus.value = focus
+  clearSelectorColumnFocusSuppression()
 }
 
 function requestSelectorColumnFocus(panelName: SelectionPanel, focus: SelectorFocus) {
@@ -2558,6 +2709,7 @@ function requestSelectorColumnFocus(panelName: SelectionPanel, focus: SelectorFo
   const context = resolveSelectionContext(panelName)
   selectionContext.value = context
   selectorFocus.value = focus
+  clearSelectorColumnFocusSuppression()
   nextTick(() => {
     focusSelectorModeTargetDeferred(context, focus)
   })
@@ -2569,6 +2721,7 @@ function enterSelectorMode(payload: HeaderInteractionPayload) {
   const { panel, focus } = payload
 
   selectorFocus.value = focus
+  clearSelectorColumnFocusSuppression()
   selectionContext.value = resolveSelectionContext(panel)
   if (isDualPanelRangeMode())
     selectorPanels[panel] = true
@@ -2593,6 +2746,7 @@ function togglePickerViewMode(
   const { panel, focus } = payload
 
   selectorFocus.value = focus
+  clearSelectorColumnFocusSuppression()
   selectionContext.value = resolveSelectionContext(panel)
   const isDualPanel = isDualPanelRangeMode()
 
@@ -2700,77 +2854,6 @@ function onSelectorYearUpdate(panelName: SelectionPanel, year: number) {
   closeLegacyPanels()
 }
 
-function resetSelectorYearInputToLastValidYear() {
-  const lastValidYear = selectorYearInputSession.lastValidYear
-  selectorYearInputSession.rawText = formatSignedYearToken(lastValidYear)
-  selectorYearInputSession.parsedYear = lastValidYear
-  selectorYearInputSession.isValidToken = true
-}
-
-function commitValidSelectorYearInput(context: SelectionContext, year: number) {
-  const currentYear = resolveContextDate(context).year()
-  if (currentYear !== year) {
-    commitTypedYearToActiveContext(context, year, {
-      emitModelUpdate: true,
-      allowTemporaryInversion: true,
-      syncSelectorStateAfterCommit: true,
-      updateSession: false,
-    })
-  }
-  else {
-    syncSelectorState(context, { syncAnchor: false })
-  }
-
-  selectorYearInputSession.rawText = formatSignedYearToken(year)
-  selectorYearInputSession.parsedYear = year
-  selectorYearInputSession.isValidToken = true
-  selectorYearInputSession.lastValidYear = year
-
-  if (shouldReanchorSelectorYearWindow(selectorState.selectedYear))
-    anchorSelectorYearWindow(selectorState.selectedYear)
-  closeLegacyPanels()
-}
-
-function onSelectorYearInput(panelName: SelectionPanel, payload: SelectorYearInputEventPayload) {
-  if (!props.selectorMode || !props.directYearInput)
-    return
-
-  selectorFocus.value = 'year'
-  const context = resolveSelectionContext(panelName)
-  selectionContext.value = context
-  const token = payload
-
-  selectorYearInputSession.rawText = payload.rawText
-  selectorYearInputSession.parsedYear = token.parsedYear
-  selectorYearInputSession.isValidToken = token.isValidToken
-
-  if (payload.trigger === 'input') {
-    if (token.parsedYear !== null)
-      commitValidSelectorYearInput(context, token.parsedYear)
-    return
-  }
-
-  if (payload.trigger === 'enter') {
-    if (token.parsedYear !== null)
-      commitValidSelectorYearInput(context, token.parsedYear)
-    else
-      resetSelectorYearInputToLastValidYear()
-    return
-  }
-
-  if (payload.trigger === 'escape') {
-    resetSelectorYearInputToLastValidYear()
-    return
-  }
-
-  if (payload.trigger === 'blur') {
-    if (token.parsedYear !== null)
-      commitValidSelectorYearInput(context, token.parsedYear)
-    else
-      resetSelectorYearInputToLastValidYear()
-  }
-}
-
 function onHeaderMonthStep(payload: HeaderMonthStepPayload) {
   if (!props.selectorMode || pickerViewMode.value !== 'selector')
     return
@@ -2803,10 +2886,50 @@ function resetPickerViewMode() {
     closeLegacyPanels()
 }
 
-function onPopoverButtonClick(open: boolean) {
-  if (open)
+function onPopoverButtonClick(open: boolean, event?: MouseEvent) {
+  pushDebugEvent('trigger-click', {
+    open,
+    target: event?.target instanceof HTMLElement ? event.target.tagName.toLowerCase() : 'unknown',
+    activeElement: describeActiveElement(),
+  })
+
+  if (open && event && isTextInputLikeTarget(event.target)) {
+    event.stopPropagation()
+    pushDebugEvent('trigger-click-ignored-while-open')
+    return
+  }
+
+  if (open) {
     normalizeRangeAtBoundaryAndPersist('closeWithPersist')
+  }
   resetPickerViewMode()
+}
+
+function onPopoverButtonCaptureClick(open: boolean, event: MouseEvent) {
+  if (!open)
+    return
+  if (!isTextInputLikeTarget(event.target))
+    return
+
+  event.preventDefault()
+  event.stopPropagation()
+  event.stopImmediatePropagation()
+  pushDebugEvent('trigger-click-capture-blocked', {
+    target: event.target instanceof HTMLElement ? event.target.tagName.toLowerCase() : 'unknown',
+    activeElement: describeActiveElement(),
+  })
+}
+
+function onInputMouseDown(open: boolean, event: MouseEvent) {
+  if (!open)
+    return
+  event.stopPropagation()
+}
+
+function onInputClick(open: boolean, event: MouseEvent) {
+  if (!open)
+    return
+  event.stopPropagation()
 }
 
 function isVisibleElement(element: HTMLElement) {
@@ -2833,6 +2956,35 @@ function isDisabledFocusTarget(element: HTMLElement) {
   return false
 }
 
+interface FooterActionFocusTargets {
+  cancelButton: HTMLButtonElement | null
+  switchButton: HTMLButtonElement | null
+  applyButton: HTMLButtonElement | null
+}
+
+function resolveFooterActionFocusTargets(queryRoot: HTMLElement): FooterActionFocusTargets {
+  const footerButtons = Array.from(queryRoot.querySelectorAll<HTMLButtonElement>('.away-cancel-picker, .away-apply-picker'))
+    .filter(button => isVisibleElement(button) && !isDisabledFocusTarget(button))
+
+  const cancelButton = footerButtons.find((button) => {
+    return button.classList.contains('away-cancel-picker')
+      && getElementLabelText(button) !== timePanelSwitchLabel.value
+  }) ?? null
+
+  const switchButton = footerButtons.find((button) => {
+    return button.classList.contains('away-cancel-picker')
+      && getElementLabelText(button) === timePanelSwitchLabel.value
+  }) ?? null
+
+  const applyButton = footerButtons.find(button => button.classList.contains('away-apply-picker')) ?? null
+
+  return {
+    cancelButton,
+    switchButton,
+    applyButton,
+  }
+}
+
 function getSelectorFocusCycleTargets() {
   const queryRoot = getPickerQueryRoot()
   if (!queryRoot)
@@ -2853,7 +3005,6 @@ function getSelectorFocusCycleTargets() {
     if (!panelElement)
       return
     pushTarget(panelElement.querySelector<HTMLElement>('[aria-label="Month selector"]'))
-    pushTarget(panelElement.querySelector<HTMLElement>('[data-vtd-selector-year-input]'))
     pushTarget(panelElement.querySelector<HTMLElement>('[aria-label="Year selector"]'))
   }
 
@@ -2863,6 +3014,10 @@ function getSelectorFocusCycleTargets() {
 
   // Shortcuts are treated as a single focus stop in selector tab order.
   pushTarget(queryRoot.querySelector<HTMLElement>('.vtd-shortcuts'))
+  const footerActions = resolveFooterActionFocusTargets(queryRoot)
+  pushTarget(footerActions.cancelButton)
+  pushTarget(footerActions.switchButton)
+  pushTarget(footerActions.applyButton)
   return targets
 }
 
@@ -2884,7 +3039,10 @@ function getCalendarFocusCycleTargets() {
     const panelElement = queryRoot.querySelector<HTMLElement>(`[data-vtd-selector-panel="${panel}"]`)
     if (!panelElement)
       return
-    pushTarget(panelElement.querySelector<HTMLElement>('.vtd-calendar-focus-target'))
+    const focusTarget
+      = panelElement.querySelector<HTMLElement>('.vtd-calendar-focus-target')
+        ?? panelElement.querySelector<HTMLElement>('.vtd-datepicker-date:not(:disabled)')
+    pushTarget(focusTarget)
   }
 
   const isDoublePanel = asRange() && !props.asSingle
@@ -2893,7 +3051,8 @@ function getCalendarFocusCycleTargets() {
   const shortcutContainer = queryRoot.querySelector<HTMLElement>('.vtd-shortcuts')
 
   // Calendar mode tab order:
-  // previous calendar -> (next header -> next calendar) -> shortcuts -> previous header -> repeat
+  // previous calendar -> (next header -> next calendar) -> shortcuts -> previous header
+  // -> cancel -> time/calendar switch -> apply -> repeat
   appendCalendarTarget('previous')
   if (isDoublePanel) {
     pushTarget(nextHeader)
@@ -2901,6 +3060,10 @@ function getCalendarFocusCycleTargets() {
   }
   pushTarget(shortcutContainer)
   pushTarget(previousHeader)
+  const footerActions = resolveFooterActionFocusTargets(queryRoot)
+  pushTarget(footerActions.cancelButton)
+  pushTarget(footerActions.switchButton)
+  pushTarget(footerActions.applyButton)
   return targets
 }
 
@@ -2920,8 +3083,28 @@ function getTimeModeFocusCycleTargets() {
     targets.push(element)
   }
 
+  const appendCalendarTarget = (panel: SelectionPanel) => {
+    const panelElement = queryRoot.querySelector<HTMLElement>(`[data-vtd-selector-panel="${panel}"]`)
+    if (!panelElement)
+      return
+    const focusTarget
+      = panelElement.querySelector<HTMLElement>('.vtd-calendar-focus-target')
+        ?? panelElement.querySelector<HTMLElement>('.vtd-datepicker-date:not(:disabled)')
+    pushTarget(focusTarget)
+  }
+
+  // Inline wheel mode keeps date panels visible, so keep calendar focusable in the cycle.
+  appendCalendarTarget('previous')
+  if (asRange() && !props.asSingle)
+    appendCalendarTarget('next')
+
   // Keep shortcuts as a single focus stop in time mode.
   pushTarget(queryRoot.querySelector<HTMLElement>('.vtd-shortcuts'))
+
+  // Keep header navigation available between shortcuts and time controls.
+  pushTarget(queryRoot.querySelector<HTMLElement>('#vtd-header-previous-month'))
+  if (asRange() && !props.asSingle)
+    pushTarget(queryRoot.querySelector<HTMLElement>('#vtd-header-next-month'))
 
   const endpointToggleButtons = Array.from(queryRoot.querySelectorAll<HTMLButtonElement>('button'))
     .filter((button) => {
@@ -2930,69 +3113,131 @@ function getTimeModeFocusCycleTargets() {
       const label = getElementLabelText(button)
       return label === 'Start' || label === 'End'
     })
-  endpointToggleButtons.forEach(button => pushTarget(button))
+  const activeEndpointLabel = activeDateTimeEndpoint.value === 'start' ? 'Start' : 'End'
+  const activeEndpointToggle = endpointToggleButtons.find(button => getElementLabelText(button) === activeEndpointLabel)
+    ?? endpointToggleButtons[0]
+    ?? null
+  pushTarget(activeEndpointToggle)
 
   const wheelTargets = Array.from(queryRoot.querySelectorAll<HTMLElement>('.vtd-time-wheel[role="listbox"]'))
     .filter(target => isVisibleElement(target) && !isDisabledFocusTarget(target))
   wheelTargets.forEach(target => pushTarget(target))
 
-  const footerButtons = Array.from(queryRoot.querySelectorAll<HTMLButtonElement>('.away-cancel-picker, .away-apply-picker'))
-    .filter(button => isVisibleElement(button) && !isDisabledFocusTarget(button))
-
-  const footerCancelButton = footerButtons.find((button) => {
-    return button.classList.contains('away-cancel-picker')
-      && getElementLabelText(button) !== timePanelSwitchLabel.value
-  })
-  const footerSwitchButton = footerButtons.find((button) => {
-    return button.classList.contains('away-cancel-picker')
-      && getElementLabelText(button) === timePanelSwitchLabel.value
-  })
-  const footerApplyButton = footerButtons.find(button => button.classList.contains('away-apply-picker'))
-
-  pushTarget(footerCancelButton ?? null)
-  pushTarget(footerSwitchButton ?? null)
-  pushTarget(footerApplyButton ?? null)
+  const footerActions = resolveFooterActionFocusTargets(queryRoot)
+  pushTarget(footerActions.cancelButton)
+  pushTarget(footerActions.switchButton)
+  pushTarget(footerActions.applyButton)
 
   return targets
 }
 
 type PopoverCloseFn = (ref?: Ref | HTMLElement) => void
 
-function closePopoverFromPanel(close?: PopoverCloseFn) {
-  resetPickerViewMode()
-  if (close) {
-    if (VtdInputRef.value) {
-      close(VtdInputRef.value)
-      return
-    }
-    close()
-    return
-  }
-  if (!props.noInput)
-    triggerPopoverButtonClick()
+function closePopover(close?: PopoverCloseFn) {
+  close?.()
 }
 
-function isEventTargetInsideSelectorYearInput(target: EventTarget | null) {
+function closePopoverFromPanel(close?: PopoverCloseFn) {
+  resetPickerViewMode()
+  close?.()
+}
+
+function handleFooterActionArrowNavigation(event: KeyboardEvent) {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')
+    return false
+
+  const target = event.target
   if (!(target instanceof HTMLElement))
     return false
-  return !!target.closest('[data-vtd-selector-year-input]')
+  if (!target.classList.contains('away-cancel-picker') && !target.classList.contains('away-apply-picker'))
+    return false
+
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return false
+
+  const footerActions = resolveFooterActionFocusTargets(queryRoot)
+  const orderedTargets = [footerActions.cancelButton, footerActions.switchButton, footerActions.applyButton]
+    .filter((item): item is HTMLButtonElement => !!item)
+  if (orderedTargets.length <= 1)
+    return false
+
+  const currentIndex = orderedTargets.findIndex(item => item === target)
+  if (currentIndex < 0)
+    return false
+
+  event.preventDefault()
+  event.stopPropagation()
+  const delta = event.key === 'ArrowRight' ? 1 : -1
+  const nextIndex = (currentIndex + delta + orderedTargets.length) % orderedTargets.length
+  orderedTargets[nextIndex]?.focus()
+  return true
+}
+
+function resolveTimeEndpointToggleButton(
+  queryRoot: HTMLElement,
+  endpoint: DateTimeEndpointSelection,
+) {
+  const targetLabel = endpoint === 'start' ? 'Start' : 'End'
+  const toggleButtons = Array.from(queryRoot.querySelectorAll<HTMLButtonElement>('button'))
+    .filter((button) => {
+      if (!isVisibleElement(button) || isDisabledFocusTarget(button))
+        return false
+      return getElementLabelText(button) === targetLabel
+    })
+  return toggleButtons[0] ?? null
+}
+
+function handleTimeEndpointToggleArrowNavigation(event: KeyboardEvent) {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')
+    return false
+  if (!asRange() || !isTimePickerWheelStyle.value || !shouldShowDateTimeControls.value)
+    return false
+
+  const target = event.target
+  if (!(target instanceof HTMLElement))
+    return false
+
+  const targetLabel = getElementLabelText(target)
+  if (targetLabel !== 'Start' && targetLabel !== 'End')
+    return false
+
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return false
+
+  const nextEndpoint: DateTimeEndpointSelection = event.key === 'ArrowLeft' ? 'start' : 'end'
+  const nextToggleButton = resolveTimeEndpointToggleButton(queryRoot, nextEndpoint)
+  if (!nextToggleButton)
+    return false
+
+  event.preventDefault()
+  event.stopPropagation()
+  markActiveDateTimeEndpoint(nextEndpoint)
+
+  nextTick(() => {
+    const refreshedQueryRoot = getPickerQueryRoot()
+    if (!refreshedQueryRoot)
+      return
+    resolveTimeEndpointToggleButton(refreshedQueryRoot, nextEndpoint)?.focus()
+  })
+
+  return true
 }
 
 function onPickerPanelKeydown(event: KeyboardEvent, close?: PopoverCloseFn) {
   if (event.key === 'Escape') {
-    if (
-      props.selectorMode
-      && pickerViewMode.value === 'selector'
-      && props.directYearInput
-      && isEventTargetInsideSelectorYearInput(event.target)
-    ) {
-      return
-    }
     event.preventDefault()
     event.stopPropagation()
     closePopoverFromPanel(close)
     return
   }
+
+  if (handleFooterActionArrowNavigation(event))
+    return
+
+  if (handleTimeEndpointToggleArrowNavigation(event))
+    return
 
   if (event.key !== 'Tab')
     return
@@ -3005,6 +3250,13 @@ function onPickerPanelKeydown(event: KeyboardEvent, close?: PopoverCloseFn) {
 
       const activeElement = document.activeElement as HTMLElement | null
       let currentIndex = timeWheelTargets.findIndex(target => target === activeElement || target.contains(activeElement))
+      if (currentIndex < 0 && activeElement) {
+        const activeLabel = getElementLabelText(activeElement)
+        if (activeLabel === 'Start' || activeLabel === 'End') {
+          const activeEndpointLabel = activeDateTimeEndpoint.value === 'start' ? 'Start' : 'End'
+          currentIndex = timeWheelTargets.findIndex(target => getElementLabelText(target) === activeEndpointLabel)
+        }
+      }
       if (currentIndex < 0)
         currentIndex = event.shiftKey ? 0 : -1
 
@@ -3032,9 +3284,8 @@ function onPickerPanelKeydown(event: KeyboardEvent, close?: PopoverCloseFn) {
       const panel = resolveContextPanel(selectionContext.value)
       const expectedHeader = target.id === `vtd-header-${panel}-month`
       const expectedMonth = selectorFocus.value === 'month' && target.getAttribute('aria-label') === 'Month selector'
-      const expectedYearInput = selectorFocus.value === 'year' && target.hasAttribute('data-vtd-selector-year-input')
       const expectedYear = selectorFocus.value === 'year' && target.getAttribute('aria-label') === 'Year selector'
-      return expectedHeader || expectedMonth || expectedYearInput || expectedYear
+      return expectedHeader || expectedMonth || expectedYear
     })
   }
   if (currentIndex < 0)
@@ -3045,7 +3296,50 @@ function onPickerPanelKeydown(event: KeyboardEvent, close?: PopoverCloseFn) {
   targets[nextIndex].focus()
 }
 
+function isTextInputLikeTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement))
+    return false
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)
+    return true
+  return target.isContentEditable
+}
+
+function focusFirstPickerCycleTarget() {
+  if (isTimePickerWheelStyle.value && shouldShowDateTimeControls.value) {
+    const timeWheelTargets = getTimeModeFocusCycleTargets()
+    if (timeWheelTargets.length > 0) {
+      timeWheelTargets[0].focus()
+      return true
+    }
+  }
+
+  const inSelectorMode = props.selectorMode && pickerViewMode.value === 'selector'
+  const targets = inSelectorMode
+    ? getSelectorFocusCycleTargets()
+    : getCalendarFocusCycleTargets()
+  if (targets.length > 0) {
+    targets[0].focus()
+    return true
+  }
+
+  return focusCalendarModeTarget()
+}
+
 function onInputKeydown(event: KeyboardEvent) {
+  if (!isTextInputLikeTarget(event.target))
+    return
+
+  if (event.key === 'Tab' && !event.shiftKey) {
+    if (!isPopoverOpen())
+      return
+    const focused = focusFirstPickerCycleTarget()
+    if (!focused)
+      return
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+
   if (event.key !== 'Enter' || event.altKey || event.ctrlKey || event.metaKey)
     return
 
@@ -3057,11 +3351,16 @@ function onInputKeydown(event: KeyboardEvent) {
     triggerPopoverButtonClick()
 
   nextTick(() => {
+    if (props.openFocusTarget === 'input' && !props.noInput) {
+      VtdInputRef.value?.focus()
+      return
+    }
     focusCalendarModeTargetDeferred()
   })
 }
 
 function onPopoverAfterEnter() {
+  pushDebugEvent('after-enter', { activeElement: describeActiveElement() })
   // Preserve lock dimensions across reopen cycles so inline-right wheels remain
   // bounded while a fresh measurement is queued.
   if (panelContentLockState.width <= 0 || panelContentLockState.height <= 0)
@@ -3072,9 +3371,39 @@ function onPopoverAfterEnter() {
       focusSelectorModeTargetDeferred(selectionContext.value, selectorFocus.value)
       return
     }
+    if (props.openFocusTarget === 'input' && !props.noInput) {
+      VtdInputRef.value?.focus()
+      return
+    }
     focusCalendarModeTargetDeferred()
   })
 }
+
+function onPopoverAfterLeave() {
+  pushDebugEvent('after-leave', { activeElement: describeActiveElement() })
+}
+
+onMounted(() => {
+  const store = getDebugStore()
+  if (!store)
+    return
+
+  store.mountedCount += 1
+  pushDebugEvent('mounted', {
+    mountedCount: store.mountedCount,
+  })
+})
+
+onUnmounted(() => {
+  const store = getDebugStore()
+  if (!store)
+    return
+
+  store.mountedCount = Math.max(0, store.mountedCount - 1)
+  pushDebugEvent('unmounted', {
+    mountedCount: store.mountedCount,
+  })
+})
 
 watch(
   () => props.selectorMode,
@@ -3486,13 +3815,50 @@ function keyUp() {
   }
 }
 
-function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
+type DateSelectionSource = 'keyboard' | 'pointer'
+interface DateSelectionPayload {
+  date: Dayjs
+  source?: DateSelectionSource
+  activationKey?: string
+}
+
+function normalizeDateSelectionPayload(payload: Dayjs | DateSelectionPayload) {
+  if (dayjs.isDayjs(payload)) {
+    return {
+      date: payload,
+      source: 'pointer' as DateSelectionSource,
+      activationKey: null as string | null,
+    }
+  }
+
+  return {
+    date: payload.date,
+    source: payload.source === 'keyboard' ? 'keyboard' : 'pointer',
+    activationKey: typeof payload.activationKey === 'string' ? payload.activationKey : null,
+  }
+}
+
+function setDate(payload: Dayjs | DateSelectionPayload, close?: (ref?: Ref | HTMLElement) => void) {
+  const { date, source, activationKey } = normalizeDateSelectionPayload(payload)
+
   if (datetimeModeConfig.value.datetime) {
     datetimeApplyError.value = null
     resetDateTimeDraftValidationState()
   }
 
   if (asRange()) {
+    const selectedRangeEndDate = applyValue.value.length >= 2 ? applyValue.value[1] : null
+    const shouldApplyKeyboardRange
+      = !autoApplyEnabled.value
+        && source === 'keyboard'
+        && activationKey === 'Enter'
+        && !!selectedRangeEndDate
+        && selectedRangeEndDate.isSame(date, 'date')
+    if (shouldApplyKeyboardRange) {
+      applyDate(close)
+      return
+    }
+
     if (previous.value) {
       datetimeDraftState.activeEndpoint = 'end'
       next.value = date
@@ -3547,7 +3913,7 @@ function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
         // In `no-input` static mode there is no popover close callback, so
         // this option intentionally becomes a no-op.
         if (shouldClosePopover)
-          close()
+          closePopover(close)
 
         applyValue.value = []
         if (
@@ -3613,7 +3979,7 @@ function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
         emit('update:modelValue', pickerValue.value)
       }
       if (close)
-        close()
+        closePopover(close)
 
       applyValue.value = []
       force()
@@ -3720,7 +4086,7 @@ function applyDate(close?: (ref?: Ref | HTMLElement) => void) {
     }
   }
   if (close)
-    close()
+    closePopover(close)
 }
 
 function atMouseOver(date: Dayjs) {
@@ -4398,7 +4764,7 @@ function activateShortcut(
       && (!asRange() || props.closeOnRangeSelection)
 
   if (shouldCloseAfterShortcutSelection)
-    close()
+    closePopover(close)
 }
 
 watch(
@@ -4656,10 +5022,25 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
 </script>
 
 <template>
-  <Popover v-if="!props.noInput" id="vtd" v-slot="{ open }: { open: boolean }" as="div" class="relative w-full">
+  <Popover
+    v-if="!props.noInput"
+    id="vtd"
+    v-slot="{ open }: { open: boolean }"
+    as="div"
+    class="relative w-full"
+    :restore-focus="props.popoverRestoreFocus"
+  >
     <PopoverOverlay v-if="props.overlay && !props.disabled" class="fixed inset-0 bg-black opacity-30" />
 
-    <PopoverButton ref="VtdPopoverButtonRef" as="label" class="relative block" @click="onPopoverButtonClick(open)">
+    <PopoverButton
+      ref="VtdPopoverButtonRef"
+      as="label"
+      data-vtd-popover-button="true"
+      class="relative block"
+      @click.capture="onPopoverButtonCaptureClick(open, $event)"
+      @click="onPopoverButtonClick(open, $event)"
+      @keydown.capture="onInputKeydown"
+    >
       <slot :value="pickerValue" :placeholder="givenPlaceholder" :clear="clearPicker">
         <input ref="VtdInputRef" v-bind="$attrs" v-model="pickerValue" type="text" class="relative block w-full"
           :disabled="props.disabled" :class="[
@@ -4667,10 +5048,11 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
             inputClasses
             || 'pl-3 pr-12 py-2.5 rounded-lg overflow-hidden border-solid text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 transition-colors bg-white border border-vtd-secondary-300 focus:border-vtd-primary-300 focus:ring focus:ring-vtd-primary-500/10 focus:outline-none dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/20',
           ]" autocomplete="off" data-lpignore="true" data-form-type="other" :placeholder="givenPlaceholder"
+          @mousedown="onInputMouseDown(open, $event)" @click="onInputClick(open, $event)"
           @keyup.stop="keyUp" @keydown.stop="onInputKeydown">
         <div class="absolute inset-y-0 right-0 inline-flex items-center rounded-md overflow-hidden">
           <button type="button" :disabled="props.disabled" :class="props.disabled ? 'cursor-default opacity-50' : 'opacity-100'
-            " class="px-2 py-1 mr-1 focus:outline-none text-vtd-secondary-400 dark:text-vtd-secondary-400/70 rounded-md" @click="
+            " class="px-2 py-1 mr-1 focus:outline-none text-vtd-secondary-400 dark:text-vtd-secondary-400/70 rounded-md" @click.stop="
     props.disabled
       ? false
       : pickerValue
@@ -4691,10 +5073,10 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
       </slot>
     </PopoverButton>
 
-    <transition enter-from-class="opacity-0 translate-y-3" enter-to-class="opacity-100 translate-y-0"
+    <transition :css="props.popoverTransition" enter-from-class="opacity-0 translate-y-3" enter-to-class="opacity-100 translate-y-0"
       enter-active-class="transform transition ease-out duration-200"
       leave-active-class="transform transition ease-in duration-150" leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 translate-y-3" @after-enter="onPopoverAfterEnter">
+      leave-to-class="opacity-0 translate-y-3" @after-enter="onPopoverAfterEnter" @after-leave="onPopoverAfterLeave">
       <PopoverPanel v-if="!props.disabled" v-slot="{ close }: { close: (ref?: Ref | HTMLElement) => void }" as="div"
         class="relative z-50">
         <div class="absolute z-50 top-full sm:mt-2.5" :class="getAbsoluteParentClass(open)">
@@ -4705,12 +5087,14 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
               :class="[
                 getAbsoluteClass(open),
                 props.selectorMode && props.asSingle ? 'sm:w-[28.5rem]' : '',
-                props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-[23.5rem]' : '',
+                useLegacyNoTimeSelectorHeightClamp ? 'sm:h-[23.5rem]' : '',
                 collapseDualRangeInlineRightTimePanel ? 'sm:min-w-[78rem]' : '',
               ]"
               :style="datepickerShellLockStyle"
-              @keydown.capture="(event) => onPickerPanelKeydown(event, close)">
-              <div class="flex flex-wrap lg:flex-nowrap" :class="props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-full' : ''">
+              @keydown.capture="(event) => onPickerPanelKeydown(event, close)"
+              @focusin.capture="onTimeWheelInteraction"
+              @pointerdown.capture="onTimeWheelInteraction">
+              <div class="flex flex-wrap lg:flex-nowrap" :class="useLegacyNoTimeSelectorHeightClamp ? 'sm:h-full' : ''">
                 <VtdShortcut v-if="props.shortcuts" :shortcuts="props.shortcuts" :as-range="asRange()"
                   :as-single="props.asSingle" :built-in-shortcuts="builtInShortcutItems" :close="close">
                   <template #shortcut-item="slotProps">
@@ -4721,7 +5105,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                   ref="VtdPanelContentRef"
                   class="relative flex flex-wrap sm:flex-nowrap p-1 w-full"
                   :class="[
-                    props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-full' : '',
+                    useLegacyNoTimeSelectorHeightClamp ? 'sm:h-full' : '',
                     showAnyInlineTimePanel ? 'sm:flex-1 sm:min-w-0' : 'sm:w-auto',
                   ]"
                   :style="panelContentLockStyle"
@@ -4737,10 +5121,10 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                       'mb-3 sm:mb-0 sm:mr-2 md:flex-1 md:min-w-0 lg:w-auto':
                         asRange() && !props.asSingle && showInlineTimePanelInline,
                       'lg:w-80': props.asSingle && !!props.shortcuts,
-                      'sm:min-h-[21.625rem]': props.asSingle && !props.selectorMode,
+                      'sm:min-h-[21.75rem]': props.asSingle && !props.selectorMode && !showInlineTimePanelInline,
                       'overflow-visible': isSelectorPanel('previous'),
                       'overflow-hidden': !isSelectorPanel('previous'),
-                      'sm:h-full': props.selectorMode && props.asSingle && !isDateTimeEnabled,
+                      'sm:h-full': useLegacyNoTimeSelectorHeightClamp,
                     }">
                     <VtdHeader
                       :panel="panel.previous"
@@ -4754,7 +5138,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                       @step-month="onHeaderMonthStep"
                     />
                     <div class="px-0.5 sm:px-2" :class="{
-                      'sm:min-h-[17.625rem]': props.selectorMode,
+                      'sm:min-h-[17.75rem]': props.selectorMode,
                     }">
                       <template v-if="isSelectorPanel('previous')">
                         <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
@@ -4783,6 +5167,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                               panel-name="previous"
                               :years="selectorYears"
                               selector-mode
+                              :direct-year-input="props.directYearInput"
                               :selected-month="getPanelSelectedMonth('previous')"
                               :selected-year="getPanelSelectedYear('previous')"
                               :selector-focus="selectorFocus"
@@ -4796,7 +5181,6 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                               @request-focus-month="requestSelectorColumnFocus('previous', 'month')"
                               @update-year="(year) => onSelectorYearUpdate('previous', year)"
                               @scroll-year="(year) => onSelectorYearUpdate('previous', year)"
-                              @year-input="(payload) => onSelectorYearInput('previous', payload)"
                             />
                           </div>
                         </div>
@@ -4837,7 +5221,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                       @step-month="onHeaderMonthStep"
                     />
                     <div class="px-0.5 sm:px-2" :class="{
-                      'sm:min-h-[17.625rem]': props.selectorMode,
+                      'sm:min-h-[17.75rem]': props.selectorMode,
                     }">
                       <template v-if="isSelectorPanel('next')">
                         <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
@@ -4867,6 +5251,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                               panel-name="next"
                               :years="selectorYears"
                               selector-mode
+                              :direct-year-input="props.directYearInput"
                               :selected-month="getPanelSelectedMonth('next')"
                               :selected-year="getPanelSelectedYear('next')"
                               :selector-focus="selectorFocus"
@@ -4880,7 +5265,6 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                               @request-focus-month="requestSelectorColumnFocus('next', 'month')"
                               @update-year="(year) => onSelectorYearUpdate('next', year)"
                               @scroll-year="(year) => onSelectorYearUpdate('next', year)"
-                              @year-input="(payload) => onSelectorYearInput('next', payload)"
                             />
                           </div>
                         </div>
@@ -4899,7 +5283,12 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                     </div>
                   </template>
                   <template v-if="shouldRenderInlineTimePanels">
-                    <div v-show="showPageTimePanelInline || showInlineTimePanelInline" class="w-full min-w-0 sm:flex-1 px-0.5 sm:px-2 flex flex-col sm:h-full">
+                    <div
+                      v-show="showPageTimePanelInline || showInlineTimePanelInline"
+                      class="w-full min-w-0 sm:flex-1 px-0.5 sm:px-2 flex flex-col sm:h-full"
+                      @focusin.capture="onTimeWheelInteraction"
+                      @pointerdown.capture="onTimeWheelInteraction"
+                    >
                       <div class="mt-2 w-full min-w-0 rounded-md border border-black/[.08] p-2 dark:border-vtd-secondary-700/[1]"
                         :class="timePanelFillClass">
                         <div class="flex flex-col gap-2" :class="shouldUseFillTimePanelLayout ? 'h-full' : ''">
@@ -4921,7 +5310,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                                 End time
                               </p>
                             </div>
-                            <div v-if="shouldCenterTimePanelEndpointToggle" :class="timePanelCenteredToggleWrapperClass">
+                            <div v-if="shouldCenterTimePanelEndpointToggle" data-vtd-time-endpoint-toggle-centered :class="timePanelCenteredToggleWrapperClass">
                               <div :class="timePanelEndpointToggleGroupClass">
                                 <button
                                   type="button"
@@ -5077,7 +5466,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                         End time
                       </p>
                     </div>
-                    <div v-if="shouldCenterTimePanelEndpointToggle" :class="timePanelCenteredToggleWrapperClass">
+                    <div v-if="shouldCenterTimePanelEndpointToggle" data-vtd-time-endpoint-toggle-centered :class="timePanelCenteredToggleWrapperClass">
                       <div :class="timePanelEndpointToggleGroupClass">
                         <button
                           type="button"
@@ -5225,7 +5614,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                     </button>
                     <button type="button"
                       class="mt-3 away-cancel-picker w-full transition ease-out duration-300 inline-flex justify-center rounded-md border border-vtd-secondary-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-vtd-secondary-700 hover:bg-vtd-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vtd-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm dark:ring-offset-vtd-secondary-800"
-                      @click="close()" v-text="props.options.footer.cancel" />
+                      @click="closePopover(close)" v-text="props.options.footer.cancel" />
                   </div>
                 </div>
               </div>
@@ -5234,7 +5623,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                   <div class="mt-1.5 sm:flex sm:flex-row-reverse">
                     <button type="button"
                       class="away-cancel-picker w-full transition ease-out duration-300 inline-flex justify-center rounded-md border border-vtd-secondary-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-vtd-secondary-700 hover:bg-vtd-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vtd-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm dark:ring-offset-vtd-secondary-800"
-                      @click="close()" v-text="props.options.footer.cancel" />
+                      @click="closePopover(close)" v-text="props.options.footer.cancel" />
                   </div>
                 </div>
               </div>
@@ -5250,11 +5639,13 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
       class="bg-white rounded-lg shadow-sm border border-black/[.1] px-3 py-3 sm:px-4 sm:py-4 dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700/[1]"
       :class="[
         props.selectorMode && props.asSingle ? 'sm:w-[28.5rem]' : '',
-        props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-[23.5rem]' : '',
+        useLegacyNoTimeSelectorHeightClamp ? 'sm:h-[23.5rem]' : '',
         collapseDualRangeInlineRightTimePanel ? 'sm:min-w-[78rem]' : '',
       ]"
-      @keydown.capture="onPickerPanelKeydown">
-      <div class="flex flex-wrap lg:flex-nowrap" :class="props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-full' : ''">
+      @keydown.capture="onPickerPanelKeydown"
+      @focusin.capture="onTimeWheelInteraction"
+      @pointerdown.capture="onTimeWheelInteraction">
+      <div class="flex flex-wrap lg:flex-nowrap" :class="useLegacyNoTimeSelectorHeightClamp ? 'sm:h-full' : ''">
         <VtdShortcut v-if="props.shortcuts" :shortcuts="props.shortcuts" :as-range="asRange()" :as-single="props.asSingle"
           :built-in-shortcuts="builtInShortcutItems">
           <template #shortcut-item="slotProps">
@@ -5265,7 +5656,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
           ref="VtdPanelContentRef"
           class="relative flex flex-wrap sm:flex-nowrap p-1 w-full"
           :class="[
-            props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-full' : '',
+            useLegacyNoTimeSelectorHeightClamp ? 'sm:h-full' : '',
             showAnyInlineTimePanel ? 'sm:flex-1 sm:min-w-0' : 'sm:w-auto',
           ]"
           :style="panelContentLockStyle"
@@ -5279,8 +5670,8 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
               'mb-3 sm:mb-0 sm:mr-2 md:w-1/2 lg:w-80': asRange() && !props.asSingle && !showInlineTimePanelInline,
               'mb-3 sm:mb-0 sm:mr-2 md:flex-1 md:min-w-0 lg:w-auto': asRange() && !props.asSingle && showInlineTimePanelInline,
               'lg:w-80': props.asSingle && !!props.shortcuts,
-              'sm:min-h-[21.625rem]': props.asSingle && !props.selectorMode,
-              'sm:h-full': props.selectorMode && props.asSingle && !isDateTimeEnabled,
+              'sm:min-h-[21.75rem]': props.asSingle && !props.selectorMode && !showInlineTimePanelInline,
+              'sm:h-full': useLegacyNoTimeSelectorHeightClamp,
               'overflow-visible': isSelectorPanel('previous'),
               'overflow-hidden': !isSelectorPanel('previous'),
             }">
@@ -5296,7 +5687,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
               @step-month="onHeaderMonthStep"
             />
             <div class="px-0.5 sm:px-2" :class="{
-              'sm:min-h-[17.625rem]': props.selectorMode,
+              'sm:min-h-[17.75rem]': props.selectorMode,
             }">
               <template v-if="isSelectorPanel('previous')">
                 <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
@@ -5325,6 +5716,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                       panel-name="previous"
                       :years="selectorYears"
                       selector-mode
+                      :direct-year-input="props.directYearInput"
                       :selected-month="getPanelSelectedMonth('previous')"
                       :selected-year="getPanelSelectedYear('previous')"
                       :selector-focus="selectorFocus"
@@ -5338,7 +5730,6 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                       @request-focus-month="requestSelectorColumnFocus('previous', 'month')"
                       @update-year="(year) => onSelectorYearUpdate('previous', year)"
                       @scroll-year="(year) => onSelectorYearUpdate('previous', year)"
-                      @year-input="(payload) => onSelectorYearInput('previous', payload)"
                     />
                   </div>
                 </div>
@@ -5378,7 +5769,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
               @step-month="onHeaderMonthStep"
             />
             <div class="px-0.5 sm:px-2" :class="{
-              'sm:min-h-[17.625rem]': props.selectorMode,
+              'sm:min-h-[17.75rem]': props.selectorMode,
             }">
               <template v-if="isSelectorPanel('next')">
                 <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
@@ -5408,6 +5799,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                       panel-name="next"
                       :years="selectorYears"
                       selector-mode
+                      :direct-year-input="props.directYearInput"
                       :selected-month="getPanelSelectedMonth('next')"
                       :selected-year="getPanelSelectedYear('next')"
                       :selector-focus="selectorFocus"
@@ -5421,7 +5813,6 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                       @request-focus-month="requestSelectorColumnFocus('next', 'month')"
                       @update-year="(year) => onSelectorYearUpdate('next', year)"
                       @scroll-year="(year) => onSelectorYearUpdate('next', year)"
-                      @year-input="(payload) => onSelectorYearInput('next', payload)"
                     />
                   </div>
                 </div>
@@ -5440,7 +5831,12 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
             </div>
           </template>
           <template v-if="shouldRenderInlineTimePanels">
-            <div v-show="showPageTimePanelInline || showInlineTimePanelInline" class="w-full min-w-0 sm:flex-1 px-0.5 sm:px-2 flex flex-col sm:h-full">
+            <div
+              v-show="showPageTimePanelInline || showInlineTimePanelInline"
+              class="w-full min-w-0 sm:flex-1 px-0.5 sm:px-2 flex flex-col sm:h-full"
+              @focusin.capture="onTimeWheelInteraction"
+              @pointerdown.capture="onTimeWheelInteraction"
+            >
               <div class="mt-2 w-full min-w-0 rounded-md border border-black/[.08] p-2 dark:border-vtd-secondary-700/[1]"
                 :class="timePanelFillClass">
                 <div class="flex flex-col gap-2" :class="shouldUseFillTimePanelLayout ? 'h-full' : ''">
@@ -5462,7 +5858,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                         End time
                       </p>
                     </div>
-                    <div v-if="shouldCenterTimePanelEndpointToggle" :class="timePanelCenteredToggleWrapperClass">
+                    <div v-if="shouldCenterTimePanelEndpointToggle" data-vtd-time-endpoint-toggle-centered :class="timePanelCenteredToggleWrapperClass">
                       <div :class="timePanelEndpointToggleGroupClass">
                         <button
                           type="button"
@@ -5618,7 +6014,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                 End time
               </p>
             </div>
-            <div v-if="shouldCenterTimePanelEndpointToggle" :class="timePanelCenteredToggleWrapperClass">
+            <div v-if="shouldCenterTimePanelEndpointToggle" data-vtd-time-endpoint-toggle-centered :class="timePanelCenteredToggleWrapperClass">
               <div :class="timePanelEndpointToggleGroupClass">
                 <button
                   type="button"

@@ -44,6 +44,7 @@ const USER_SCROLL_IDLE_MS = 90
 const PROGRAMMATIC_SCROLL_SYNC_MS = 120
 const SMOOTH_SCROLL_SYNC_MS = 420
 const FALLBACK_ROW_HEIGHT = 44
+const MONTH_TYPEAHEAD_IDLE_MS = 900
 
 const selectorContainerRef = ref<HTMLDivElement | null>(null)
 const selectorScrollTop = ref(0)
@@ -58,6 +59,8 @@ let scrollFrameId: number | null = null
 let scrollIdleTimeoutId: ReturnType<typeof setTimeout> | null = null
 let programmaticSyncTimeoutId: ReturnType<typeof setTimeout> | null = null
 let lastEmittedScrollKey: string | null = null
+const monthTypeaheadText = ref('')
+let monthTypeaheadTimeoutId: ReturnType<typeof setTimeout> | null = null
 
 function normalizeMonthYear(rawMonth: number, rawYear: number): SelectorMonthPayload {
   const totalMonths = (rawYear * 12) + rawMonth
@@ -282,6 +285,42 @@ function onSelectorKeydown(event: KeyboardEvent) {
   if (!props.selectorMode)
     return
 
+  if (!event.altKey && !event.ctrlKey && !event.metaKey) {
+    if (event.key.length === 1 && /\p{L}/u.test(event.key)) {
+      event.preventDefault()
+      const typed = event.key.toLocaleLowerCase()
+      monthTypeaheadText.value += typed
+
+      const applied = applyMonthTypeahead(monthTypeaheadText.value)
+      if (!applied) {
+        monthTypeaheadText.value = typed
+        applyMonthTypeahead(monthTypeaheadText.value)
+      }
+
+      scheduleMonthTypeaheadReset()
+      return
+    }
+
+    if (event.key === 'Backspace' && monthTypeaheadText.value.length > 0) {
+      event.preventDefault()
+      monthTypeaheadText.value = monthTypeaheadText.value.slice(0, -1)
+      if (!monthTypeaheadText.value)
+        clearMonthTypeaheadState()
+      else {
+        applyMonthTypeahead(monthTypeaheadText.value)
+        scheduleMonthTypeaheadReset()
+      }
+      return
+    }
+
+    if (event.key === 'Escape' && monthTypeaheadText.value.length > 0) {
+      event.preventDefault()
+      event.stopPropagation()
+      clearMonthTypeaheadState()
+      return
+    }
+  }
+
   // Intentional: both Tab and Shift+Tab switch between month/year wheels.
   // Although this local handler always requests the sibling wheel, reverse
   // traversal is preserved at the picker level by the parent focus cycle logic.
@@ -353,6 +392,58 @@ function applyKeyboardMonthDelta(delta: number) {
   })
 }
 
+function clearMonthTypeaheadState() {
+  monthTypeaheadText.value = ''
+  if (monthTypeaheadTimeoutId !== null) {
+    clearTimeout(monthTypeaheadTimeoutId)
+    monthTypeaheadTimeoutId = null
+  }
+}
+
+function scheduleMonthTypeaheadReset() {
+  if (monthTypeaheadTimeoutId !== null)
+    clearTimeout(monthTypeaheadTimeoutId)
+  monthTypeaheadTimeoutId = setTimeout(() => {
+    clearMonthTypeaheadState()
+  }, MONTH_TYPEAHEAD_IDLE_MS)
+}
+
+function findTypeaheadMonthIndex(typedText: string) {
+  const normalized = typedText.trim().toLocaleLowerCase()
+  if (!normalized)
+    return -1
+  return props.months.findIndex(month => month.toLocaleLowerCase().startsWith(normalized))
+}
+
+function applyMonthTypeahead(typedText: string) {
+  const matchedMonth = findTypeaheadMonthIndex(typedText)
+  if (matchedMonth < 0)
+    return false
+
+  const current = getKeyboardBaseSelection()
+  const next = { month: matchedMonth, year: current.year }
+  emitScrollMonth(next)
+
+  const targetItem = selectorMonthItems.value.find(
+    item => item.month === next.month && item.year === next.year,
+  )
+
+  if (targetItem) {
+    markProgrammaticScrollSync(SMOOTH_SCROLL_SYNC_MS)
+    scrollToIndex(targetItem.index, 'smooth')
+  }
+  else {
+    anchorSelection.value = next
+    nextTick(() => {
+      markProgrammaticScrollSync(SMOOTH_SCROLL_SYNC_MS)
+      updateSelectorMetrics()
+      scrollToIndex(SELECTOR_CENTER_INDEX, 'smooth')
+    })
+  }
+
+  return true
+}
+
 function onMonthClick(item: SelectorMonthItem) {
   if (!props.selectorMode) {
     emit('updateMonth', item.month)
@@ -369,6 +460,7 @@ function onSelectorStepClick(delta: number) {
   if (!props.selectorMode)
     return
 
+  clearMonthTypeaheadState()
   applyKeyboardMonthDelta(delta)
   selectorContainerRef.value?.focus({ preventScroll: true })
 }
@@ -377,11 +469,13 @@ function stepBy(delta: number) {
   if (!props.selectorMode)
     return
 
+  clearMonthTypeaheadState()
   applyKeyboardMonthDelta(delta)
   selectorContainerRef.value?.focus({ preventScroll: true })
 }
 
 function onSelectorFocus() {
+  clearMonthTypeaheadState()
   emit('focusMonth')
 }
 
@@ -464,6 +558,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  clearMonthTypeaheadState()
   if (scrollFrameId !== null)
     cancelAnimationFrame(scrollFrameId)
   if (scrollIdleTimeoutId !== null)

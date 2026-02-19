@@ -134,7 +134,6 @@ export interface DateTimeErrorEventPayload {
 export type SelectorFocus = 'month' | 'year'
 export type SelectionPanel = 'previous' | 'next'
 export type YearNumberingMode = 'historical' | 'astronomical'
-export type SelectorYearInputTrigger = 'input' | 'enter' | 'escape' | 'blur'
 
 export interface DirectYearInputConfig {
   directYearInput: boolean
@@ -146,9 +145,4 @@ export interface SelectorYearInputTokenState {
   normalizedText: string
   parsedYear: number | null
   isValidToken: boolean
-}
-
-export interface SelectorYearInputEventPayload extends SelectorYearInputTokenState {
-  panel: SelectionPanel
-  trigger: SelectorYearInputTrigger
 }

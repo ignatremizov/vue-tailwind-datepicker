@@ -132,6 +132,363 @@ describe('Selector wheel keyboard behavior', () => {
     expect(wrapper.emitted('requestFocusMonth')).toHaveLength(2)
   })
 
+  it('supports direct year typing on focused year wheel without inline textbox', async () => {
+    const years = Array.from({ length: 401 }, (_, index) => 1900 + index)
+    let wrapper: ReturnType<typeof mount>
+    wrapper = mount(Year, {
+      props: {
+        years,
+        selectorMode: true,
+        directYearInput: true,
+        selectedYear: 1950,
+        selectedMonth: 0,
+        onUpdateYear: (value: number) => {
+          wrapper.setProps({ selectedYear: value })
+        },
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Year selector"]')
+    await selector.trigger('keydown', { key: '1' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '9' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '8' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '9' })
+    await nextTick()
+
+    expect(wrapper.emitted('updateYear')).toEqual([
+      [1985],
+      [1989],
+    ])
+  })
+
+  it('allows direct year typing to target values outside the current wheel window', async () => {
+    const years = Array.from({ length: 401 }, (_, index) => 1826 + index)
+    let wrapper: ReturnType<typeof mount>
+    wrapper = mount(Year, {
+      props: {
+        years,
+        selectorMode: true,
+        directYearInput: true,
+        selectedYear: 1950,
+        selectedMonth: 0,
+        onUpdateYear: (value: number) => {
+          wrapper.setProps({ selectedYear: value })
+        },
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Year selector"]')
+    await selector.trigger('keydown', { key: '5' })
+    await nextTick()
+
+    expect(wrapper.emitted('updateYear')).toEqual([
+      [5950],
+    ])
+  })
+
+  it('clears direct-year typeahead state when selector mode closes and reopens', async () => {
+    const wrapper = mount(Year, {
+      props: {
+        years: Array.from({ length: 401 }, (_, index) => 1900 + index),
+        selectorMode: true,
+        directYearInput: true,
+        selectedYear: 2201,
+        selectedMonth: 0,
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Year selector"]')
+    await selector.trigger('keydown', { key: '1' })
+    await nextTick()
+
+    await wrapper.setProps({ selectorMode: false, selectedYear: 2026 })
+    await nextTick()
+
+    await wrapper.setProps({ selectorMode: true })
+    await nextTick()
+
+    const reopenedSelector = wrapper.get('[aria-label="Year selector"]')
+    await reopenedSelector.trigger('keydown', { key: '9' })
+    await nextTick()
+
+    const emitted = wrapper.emitted('updateYear') ?? []
+    expect(emitted).toHaveLength(2)
+    expect(emitted[0]).toEqual([1950])
+    expect(emitted[1]).toEqual([9026])
+  })
+
+  it('clears direct-year typeahead buffer on Escape', async () => {
+    const wrapper = mount(Year, {
+      props: {
+        years: Array.from({ length: 12001 }, (_, index) => -6000 + index),
+        selectorMode: true,
+        directYearInput: true,
+        selectedYear: 2026,
+        selectedMonth: 0,
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Year selector"]')
+    await selector.trigger('keydown', { key: '1' })
+    await nextTick()
+    await selector.trigger('keydown', { key: 'Escape' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '9' })
+    await nextTick()
+
+    expect(wrapper.emitted('updateYear')).toEqual([
+      [1950],
+      [9026],
+    ])
+  })
+
+  it('uses the 1900s anchor when direct typing starts with 1', async () => {
+    const years = Array.from({ length: 8001 }, (_, index) => -2000 + index)
+    let wrapper: ReturnType<typeof mount>
+    wrapper = mount(Year, {
+      props: {
+        years,
+        selectorMode: true,
+        directYearInput: true,
+        selectedYear: 2201,
+        selectedMonth: 0,
+        onUpdateYear: (value: number) => {
+          wrapper.setProps({ selectedYear: value })
+        },
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Year selector"]')
+    await selector.trigger('keydown', { key: '1' })
+    await nextTick()
+
+    expect(wrapper.emitted('updateYear')).toEqual([
+      [1950],
+    ])
+  })
+
+  it('uses mid-century anchoring for two-digit direct year prefixes', async () => {
+    const years = Array.from({ length: 8001 }, (_, index) => -2000 + index)
+    let wrapper: ReturnType<typeof mount>
+    wrapper = mount(Year, {
+      props: {
+        years,
+        selectorMode: true,
+        directYearInput: true,
+        selectedYear: 2201,
+        selectedMonth: 0,
+        onUpdateYear: (value: number) => {
+          wrapper.setProps({ selectedYear: value })
+        },
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Year selector"]')
+    await selector.trigger('keydown', { key: '1' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '2' })
+    await nextTick()
+
+    expect(wrapper.emitted('updateYear')).toEqual([
+      [1950],
+      [1250],
+    ])
+  })
+
+  it('uses middle-century suffix for two-digit prefixes regardless of previous selection suffix', async () => {
+    const years = Array.from({ length: 8001 }, (_, index) => -2000 + index)
+    let wrapper: ReturnType<typeof mount>
+    wrapper = mount(Year, {
+      props: {
+        years,
+        selectorMode: true,
+        directYearInput: true,
+        selectedYear: 2026,
+        selectedMonth: 0,
+        onUpdateYear: (value: number) => {
+          wrapper.setProps({ selectedYear: value })
+        },
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Year selector"]')
+    await selector.trigger('keydown', { key: '3' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '4' })
+    await nextTick()
+
+    expect(wrapper.emitted('updateYear')).toEqual([
+      [3026],
+      [3450],
+    ])
+  })
+
+  it('uses middle-decade suffix for three-digit prefixes regardless of previous selection suffix', async () => {
+    const years = Array.from({ length: 8001 }, (_, index) => -2000 + index)
+    let wrapper: ReturnType<typeof mount>
+    wrapper = mount(Year, {
+      props: {
+        years,
+        selectorMode: true,
+        directYearInput: true,
+        selectedYear: 2026,
+        selectedMonth: 0,
+        onUpdateYear: (value: number) => {
+          wrapper.setProps({ selectedYear: value })
+        },
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Year selector"]')
+    await selector.trigger('keydown', { key: '3' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '4' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '5' })
+    await nextTick()
+
+    expect(wrapper.emitted('updateYear')).toEqual([
+      [3026],
+      [3450],
+      [3455],
+    ])
+  })
+
+  it('uses the current-year anchor when direct typing starts with 2', async () => {
+    const years = Array.from({ length: 8001 }, (_, index) => -2000 + index)
+    const expectedYear = new Date().getFullYear()
+    let wrapper: ReturnType<typeof mount>
+    wrapper = mount(Year, {
+      props: {
+        years,
+        selectorMode: true,
+        directYearInput: true,
+        selectedYear: 1950,
+        selectedMonth: 0,
+        onUpdateYear: (value: number) => {
+          wrapper.setProps({ selectedYear: value })
+        },
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Year selector"]')
+    await selector.trigger('keydown', { key: '2' })
+    await nextTick()
+
+    expect(wrapper.emitted('updateYear')).toEqual([
+      [expectedYear],
+    ])
+  })
+
+  it('supports signed direct year typing in astronomical mode', async () => {
+    const years = Array.from({ length: 12001 }, (_, index) => -6000 + index)
+    let wrapper: ReturnType<typeof mount>
+    wrapper = mount(Year, {
+      props: {
+        years,
+        selectorMode: true,
+        directYearInput: true,
+        yearNumberingMode: 'astronomical',
+        selectedYear: 1950,
+        selectedMonth: 0,
+        onUpdateYear: (value: number) => {
+          wrapper.setProps({ selectedYear: value })
+        },
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Year selector"]')
+    await selector.trigger('keydown', { key: '-' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '1' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '9' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '8' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '9' })
+    await nextTick()
+
+    expect(wrapper.emitted('updateYear')).toEqual([
+      [-1950],
+      [-1985],
+      [-1989],
+    ])
+  })
+
+  it('supports explicit positive sign typing from a negative anchor in astronomical mode', async () => {
+    const years = Array.from({ length: 12001 }, (_, index) => -6000 + index)
+    let wrapper: ReturnType<typeof mount>
+    wrapper = mount(Year, {
+      props: {
+        years,
+        selectorMode: true,
+        directYearInput: true,
+        yearNumberingMode: 'astronomical',
+        selectedYear: -1950,
+        selectedMonth: 0,
+        onUpdateYear: (value: number) => {
+          wrapper.setProps({ selectedYear: value })
+        },
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Year selector"]')
+    await selector.trigger('keydown', { key: '+' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '1' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '9' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '8' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '9' })
+    await nextTick()
+
+    expect(wrapper.emitted('updateYear')).toEqual([
+      [1950],
+      [1985],
+      [1989],
+    ])
+  })
+
+  it('does not emit year zero via direct typing in historical mode', async () => {
+    const years = Array.from({ length: 401 }, (_, index) => -200 + index)
+    let wrapper: ReturnType<typeof mount>
+    wrapper = mount(Year, {
+      props: {
+        years,
+        selectorMode: true,
+        directYearInput: true,
+        yearNumberingMode: 'historical',
+        selectedYear: -50,
+        selectedMonth: 0,
+        onUpdateYear: (value: number) => {
+          wrapper.setProps({ selectedYear: value })
+        },
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Year selector"]')
+    await selector.trigger('keydown', { key: '+' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '0' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '0' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '0' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '0' })
+    await nextTick()
+
+    expect(wrapper.emitted('updateYear')).toEqual([
+      [50],
+    ])
+  })
+
   it('supports configurable Home/End keyboard jumps for year wheel', async () => {
     const years = Array.from({ length: 401 }, (_, index) => 1900 + index)
     let wrapper: ReturnType<typeof mount>
@@ -204,6 +561,28 @@ describe('Selector wheel keyboard behavior', () => {
     expect(wrapper.emitted('scrollMonth')).toEqual([
       [{ month: 11, year: 2024 }],
       [{ month: 1, year: 2025 }],
+    ])
+  })
+
+  it('supports month letter typeahead on focused month wheel', async () => {
+    const wrapper = mount(Month, {
+      props: {
+        months: MONTHS,
+        selectorMode: true,
+        selectedMonth: 11,
+        selectedYear: 2025,
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Month selector"]')
+    await selector.trigger('keydown', { key: 'j' })
+    await nextTick()
+    await selector.trigger('keydown', { key: 'u' })
+    await nextTick()
+
+    expect(wrapper.emitted('scrollMonth')).toEqual([
+      [{ month: 0, year: 2025 }],
+      [{ month: 5, year: 2025 }],
     ])
   })
 
@@ -357,6 +736,41 @@ describe('Selector wheel keyboard behavior', () => {
     )
     expect(previousAfter).toBe(previousBefore)
     expect(nextSelected).not.toBe(previousAfter)
+
+    wrapper.unmount()
+  })
+
+  it('re-anchors year wheel for direct typeahead beyond current virtual window', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(VueTailwindDatePicker, {
+      attachTo: document.body,
+      props: {
+        noInput: true,
+        selectorMode: true,
+        directYearInput: true,
+        selectorYearScrollMode: 'boundary',
+        useRange: false,
+        asSingle: true,
+        shortcuts: false,
+        autoApply: true,
+        modelValue: '2026-02-15 00:00:00',
+      },
+    })
+
+    vi.advanceTimersByTime(260)
+    await nextTick()
+
+    await wrapper.get('#vtd-header-previous-month').trigger('click')
+    await nextTick()
+
+    const yearSelector = wrapper.get('[aria-label="Year selector"]')
+    await yearSelector.trigger('keydown', { key: '1' })
+    await nextTick()
+    await yearSelector.trigger('keydown', { key: '2' })
+    await nextTick()
+    await nextTick()
+
+    expect(yearSelector.attributes('aria-valuenow')).toBe('1250')
 
     wrapper.unmount()
   })

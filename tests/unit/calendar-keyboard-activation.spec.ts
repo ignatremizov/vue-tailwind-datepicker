@@ -69,5 +69,17 @@ describe('Calendar keyboard activation', () => {
 
     const emissions = wrapper.emitted('updateDate') ?? []
     expect(emissions).toHaveLength(3)
+    expect(emissions[0]?.[0]).toMatchObject({
+      source: 'keyboard',
+      activationKey: 'Enter',
+    })
+    expect(emissions[1]?.[0]).toMatchObject({
+      source: 'keyboard',
+      activationKey: ' ',
+    })
+    expect(emissions[2]?.[0]).toMatchObject({
+      source: 'keyboard',
+      activationKey: 'Spacebar',
+    })
   })
 })

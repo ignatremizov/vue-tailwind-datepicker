@@ -84,6 +84,52 @@ const builtInShortcutItems = computed<RenderShortcutItem[]>(() => {
     activate: () => activateShortcut(item.id, props.close),
   }))
 })
+
+function onShortcutKeydown(event: KeyboardEvent) {
+  const currentButton = event.currentTarget
+  if (!(currentButton instanceof HTMLButtonElement))
+    return
+
+  if (
+    event.key !== 'ArrowDown'
+    && event.key !== 'ArrowUp'
+    && event.key !== 'ArrowRight'
+    && event.key !== 'ArrowLeft'
+    && event.key !== 'Home'
+    && event.key !== 'End'
+  ) {
+    return
+  }
+
+  const list = currentButton.closest('ol')
+  if (!list)
+    return
+
+  const focusableButtons = Array.from(list.querySelectorAll<HTMLButtonElement>('button.vtd-shortcuts:not(:disabled)'))
+  if (focusableButtons.length <= 1)
+    return
+
+  const currentIndex = focusableButtons.findIndex(button => button === currentButton)
+  if (currentIndex < 0)
+    return
+
+  let nextIndex = currentIndex
+  if (event.key === 'ArrowDown' || event.key === 'ArrowRight')
+    nextIndex = (currentIndex + 1) % focusableButtons.length
+  else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft')
+    nextIndex = (currentIndex - 1 + focusableButtons.length) % focusableButtons.length
+  else if (event.key === 'Home')
+    nextIndex = 0
+  else if (event.key === 'End')
+    nextIndex = focusableButtons.length - 1
+
+  if (nextIndex === currentIndex)
+    return
+
+  event.preventDefault()
+  event.stopPropagation()
+  focusableButtons[nextIndex]?.focus()
+}
 </script>
 
 <template>
@@ -107,6 +153,7 @@ const builtInShortcutItems = computed<RenderShortcutItem[]>(() => {
             :aria-label="item.label"
             class="vtd-shortcuts block text-sm lg:text-xs px-2 py-2 sm:leading-4 whitespace-nowrap font-medium rounded-sm text-vtd-primary-600 hover:text-vtd-primary-700 transition-colors hover:bg-vtd-secondary-100 focus:bg-vtd-secondary-100 focus:text-vtd-primary-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-vtd-primary-600 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-primary-300 dark:text-vtd-primary-400 dark:focus:bg-vtd-secondary-700 dark:focus:text-vtd-primary-300 dark:disabled:hover:bg-transparent dark:disabled:hover:text-vtd-primary-400"
             @click="item.activate"
+            @keydown="onShortcutKeydown"
             @keydown.enter.prevent="item.activate"
             @keyup.space.prevent="item.activate"
             v-text="item.label"
@@ -129,6 +176,7 @@ const builtInShortcutItems = computed<RenderShortcutItem[]>(() => {
             :aria-label="item.label"
             class="vtd-shortcuts block text-sm lg:text-xs px-2 py-2 sm:leading-4 whitespace-nowrap font-medium rounded-sm text-vtd-primary-600 hover:text-vtd-primary-700 transition-colors hover:bg-vtd-secondary-100 focus:bg-vtd-secondary-100 focus:text-vtd-primary-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-vtd-primary-600 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-primary-300 dark:text-vtd-primary-400 dark:focus:bg-vtd-secondary-700 dark:focus:text-vtd-primary-300 dark:disabled:hover:bg-transparent dark:disabled:hover:text-vtd-primary-400"
             @click="item.activate"
+            @keydown="onShortcutKeydown"
             @keydown.enter.prevent="item.activate"
             @keyup.space.prevent="item.activate"
           >

@@ -590,7 +590,7 @@ function applyKeyboardDelta(delta: number) {
   const targetItem = wheelItems.value.find(item => item.absoluteIndex === targetAbsoluteIndex)
   if (targetItem) {
     markProgrammaticScrollSync(SMOOTH_SCROLL_SYNC_MS, false)
-    scrollToIndex(targetItem.index, 'smooth')
+    scrollToIndex(targetItem.index + normalizeFractionalOffset(), 'smooth')
     return
   }
 
@@ -792,8 +792,8 @@ onMounted(() => {
           class="w-full rounded-[8px] border px-2 py-1 text-sm font-medium tabular-nums transition-colors focus:outline-none focus-visible:outline-none"
           :class="[
             item.absoluteIndex === activeAbsoluteIndex
-              ? 'border-vtd-primary-400 bg-vtd-primary-100 text-vtd-primary-700 dark:border-vtd-primary-500 dark:bg-vtd-primary-500/20 dark:text-vtd-primary-300'
-              : 'border-transparent text-vtd-secondary-600 hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-100',
+              ? 'vtd-time-wheel-option-selected border-vtd-primary-400 bg-vtd-primary-100 dark:border-vtd-primary-500 dark:bg-vtd-primary-500/20'
+              : 'vtd-time-wheel-option-default border-transparent hover:bg-vtd-secondary-100 dark:hover:bg-vtd-secondary-700',
             props.disabled ? 'opacity-50 cursor-not-allowed' : '',
           ]"
           :disabled="props.disabled"
@@ -812,3 +812,13 @@ onMounted(() => {
     />
   </div>
 </template>
+
+<style scoped>
+.vtd-time-wheel-option-selected {
+  color: var(--vtd-time-wheel-selected-text, var(--vtd-wheel-selected-text, rgb(56 189 248 / 100%)));
+}
+
+.vtd-time-wheel-option-default {
+  color: var(--vtd-time-wheel-text, var(--vtd-wheel-text, rgb(163 163 163 / 100%)));
+}
+</style>

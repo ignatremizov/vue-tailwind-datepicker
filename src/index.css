@@ -59,11 +59,15 @@
         --vtd-calendar-day-selected-end-radius: 0 9999px 9999px 0;
 
         --vtd-selector-wheel-cell-height: 40px;
+        --vtd-wheel-text: rgb(82 82 91 / 100%);
+        --vtd-wheel-text-dark: rgb(163 163 163 / 100%);
+        --vtd-wheel-selected-text: rgb(3 105 161 / 100%);
+        --vtd-wheel-selected-text-dark: rgb(56 189 248 / 100%);
         --vtd-selector-month-font-family: inherit;
         --vtd-selector-month-font-size: 0.875rem;
         --vtd-selector-month-font-weight: 500;
         --vtd-selector-month-line-height: 1.5rem;
-        --vtd-selector-month-text: rgb(163 163 163 / 100%);
+        --vtd-selector-month-text: var(--vtd-wheel-text);
         --vtd-selector-month-cell-shadow: none;
         --vtd-selector-month-hover-bg: rgb(14 165 233 / 10%);
         --vtd-selector-month-hover-border: rgb(56 189 248 / 45%);
@@ -72,7 +76,7 @@
         --vtd-selector-month-selected-bg: rgb(14 165 233 / 13%);
         --vtd-selector-month-selected-border: rgb(14 165 233 / 62%);
         --vtd-selector-month-selected-border-width: 0.85px;
-        --vtd-selector-month-selected-text: rgb(56 189 248 / 100%);
+        --vtd-selector-month-selected-text: var(--vtd-wheel-selected-text);
 
         --vtd-selector-year-hover-bg: rgb(14 165 233 / 10%);
         --vtd-selector-year-hover-border: rgb(56 189 248 / 45%);
@@ -82,19 +86,22 @@
         --vtd-selector-year-selected-border: rgb(14 165 233 / 62%);
         --vtd-selector-year-selected-border-width: 0.85px;
         --vtd-selector-year-canvas-border-width-scale: 0.5;
-        --vtd-selector-year-selected-text: rgb(56 189 248 / 100%);
-        --vtd-selector-year-text: rgb(163 163 163 / 100%);
+        --vtd-selector-year-selected-text: var(--vtd-wheel-selected-text);
+        --vtd-selector-year-text: var(--vtd-wheel-text);
         --vtd-selector-year-canvas-dpr: 4;
         --vtd-selector-year-text-offset-y: 0px;
         --vtd-selector-year-font-family: inherit;
         --vtd-selector-year-font-size: 0.875rem;
         --vtd-selector-year-font-weight: 500;
+
+        --vtd-time-wheel-text: var(--vtd-wheel-text);
+        --vtd-time-wheel-selected-text: var(--vtd-wheel-selected-text);
     }
 
     .dark .vtd-datepicker {
         --vtd-calendar-day-focus-shadow: inset 0 0 0 2px var(--color-vtd-primary-400);
-        --vtd-selector-month-text: rgb(163 163 163 / 100%);
-        --vtd-selector-year-text: rgb(163 163 163 / 100%);
+        --vtd-wheel-text: var(--vtd-wheel-text-dark);
+        --vtd-wheel-selected-text: var(--vtd-wheel-selected-text-dark);
         --vtd-selector-month-hover-bg: rgb(56 189 248 / 18%);
         --vtd-selector-month-hover-border: rgb(56 189 248 / 55%);
         --vtd-selector-month-hover-text: rgb(125 211 252 / 100%);

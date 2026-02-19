@@ -145,6 +145,27 @@ describe.sequential('shortcutPreset=modern', () => {
     })
   })
 
+  it('moves shortcut focus with arrow keys', async () => {
+    await withFixedNow(SHORTCUT_EDGE_FIXTURES.weekendSaturday.now, async () => {
+      const wrapper = await mountModernPresetPicker()
+      const buttons = getShortcutButtons(wrapper)
+      expect(buttons.length).toBeGreaterThan(1)
+
+      ;(buttons[0]!.element as HTMLElement).focus()
+      expect(document.activeElement).toBe(buttons[0]!.element)
+
+      await buttons[0]!.trigger('keydown', { key: 'ArrowDown' })
+      await nextTick()
+      expect(document.activeElement).toBe(buttons[1]!.element)
+
+      await buttons[1]!.trigger('keydown', { key: 'ArrowUp' })
+      await nextTick()
+      expect(document.activeElement).toBe(buttons[0]!.element)
+
+      wrapper.unmount()
+    })
+  })
+
   it('supports localized modern shortcut labels from options.shortcuts', async () => {
     const now = SHORTCUT_EDGE_FIXTURES.weekendSaturday.now
     await withFixedNow(now, async () => {
