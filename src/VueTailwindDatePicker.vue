@@ -2255,44 +2255,145 @@ function resolveModelRangeDates() {
   return { startDate, endDate }
 }
 
-function emitRangeModelValue(startDate: Dayjs, endDate: Dayjs) {
-  const formattedStart = formatModelDateWithDirectYear(startDate, props.formatter.date)
-  const formattedEnd = formatModelDateWithDirectYear(endDate, props.formatter.date)
+function resolveModelValueKeys() {
+  if (typeof props.modelValue !== 'object' || !props.modelValue) {
+    return {
+      startKey: 'startDate',
+      endKey: 'endDate',
+    }
+  }
 
+  const [startKey = 'startDate', endKey = 'endDate'] = Object.keys(props.modelValue)
+  return { startKey, endKey }
+}
+
+function emitRangeModelValueFromFormatted(
+  startValue: string,
+  endValue: string,
+  stringValue: string = `${startValue}${props.separator}${endValue}`,
+) {
   if (Array.isArray(props.modelValue)) {
-    emit('update:modelValue', [formattedStart, formattedEnd])
+    emit('update:modelValue', [startValue, endValue])
     return
   }
 
   if (typeof props.modelValue === 'object') {
     const payload: Record<string, string> = {}
-    const [startKey = 'startDate', endKey = 'endDate'] = Object.keys(props.modelValue ?? {})
-    payload[startKey] = formattedStart
-    payload[endKey] = formattedEnd
+    const { startKey, endKey } = resolveModelValueKeys()
+    payload[startKey] = startValue
+    payload[endKey] = endValue
     emit('update:modelValue', payload)
     return
   }
 
-  emit('update:modelValue', `${formattedStart}${props.separator}${formattedEnd}`)
+  emit('update:modelValue', stringValue)
+}
+
+function emitSingleModelValueFromFormatted(
+  value: string,
+  stringValue: string = value,
+) {
+  if (Array.isArray(props.modelValue)) {
+    emit('update:modelValue', [value])
+    return
+  }
+
+  if (typeof props.modelValue === 'object') {
+    const payload: Record<string, string> = {}
+    const { startKey } = resolveModelValueKeys()
+    payload[startKey] = value
+    emit('update:modelValue', payload)
+    return
+  }
+
+  emit('update:modelValue', stringValue)
+}
+
+function emitEmptyModelValue() {
+  if (Array.isArray(props.modelValue)) {
+    emit('update:modelValue', [])
+    return
+  }
+
+  if (typeof props.modelValue === 'object') {
+    const payload: Record<string, string> = {}
+    const { startKey, endKey } = resolveModelValueKeys()
+    payload[startKey] = ''
+    payload[endKey] = ''
+    emit('update:modelValue', payload)
+    return
+  }
+
+  emit('update:modelValue', '')
+}
+
+function emitRangeModelValue(startDate: Dayjs, endDate: Dayjs) {
+  const formattedStart = formatModelDateWithDirectYear(startDate, props.formatter.date)
+  const formattedEnd = formatModelDateWithDirectYear(endDate, props.formatter.date)
+  emitRangeModelValueFromFormatted(formattedStart, formattedEnd)
 }
 
 function emitSingleModelValue(value: Dayjs) {
   const formattedValue = formatModelDateWithDirectYear(value, props.formatter.date)
+  emitSingleModelValueFromFormatted(formattedValue)
+}
 
-  if (Array.isArray(props.modelValue)) {
-    emit('update:modelValue', [formattedValue])
-    return
+interface SelectionRangeValue {
+  start: Dayjs | null
+  end: Dayjs | null
+}
+
+type SelectionRangeSource = 'model' | 'apply' | 'hover' | 'interactive'
+
+function resolveModelSelectionRange(): SelectionRangeValue {
+  const { startDate, endDate } = resolveModelRangeDates()
+  return {
+    start: startDate,
+    end: endDate,
+  }
+}
+
+function resolveApplySelectionRange(): SelectionRangeValue {
+  const [start, end] = applyValue.value
+  return {
+    start: parseModelDateCandidate(start),
+    end: parseModelDateCandidate(end),
+  }
+}
+
+function resolveHoverSelectionRange(): SelectionRangeValue {
+  if (hoverValue.value.length < 2) {
+    return {
+      start: null,
+      end: null,
+    }
   }
 
-  if (typeof props.modelValue === 'object') {
-    const payload: Record<string, string> = {}
-    const [startKey = 'startDate'] = Object.keys(props.modelValue ?? {})
-    payload[startKey] = formattedValue
-    emit('update:modelValue', payload)
-    return
+  const [start, end] = hoverValue.value
+  return {
+    start: parseModelDateCandidate(start),
+    end: parseModelDateCandidate(end),
   }
+}
 
-  emit('update:modelValue', formattedValue)
+function resolveSelectionRange(source: SelectionRangeSource): SelectionRangeValue {
+  switch (source) {
+    case 'model':
+      return resolveModelSelectionRange()
+    case 'apply':
+      return resolveApplySelectionRange()
+    case 'hover':
+      return resolveHoverSelectionRange()
+    case 'interactive':
+      return autoApplyEnabled.value
+        ? resolveModelSelectionRange()
+        : resolveApplySelectionRange()
+    default:
+      return {
+        start: null,
+        end: null,
+      }
+  }
 }
 
 function emitActiveContextModelValueForTypedYear(context: SelectionContext) {
@@ -2921,12 +3022,14 @@ function onPopoverButtonCaptureClick(open: boolean, event: MouseEvent) {
 }
 
 function onInputMouseDown(open: boolean, event: MouseEvent) {
-  if (!open)
-    return
-  event.stopPropagation()
+  stopInputEventWhenOpen(open, event)
 }
 
 function onInputClick(open: boolean, event: MouseEvent) {
+  stopInputEventWhenOpen(open, event)
+}
+
+function stopInputEventWhenOpen(open: boolean, event: MouseEvent) {
   if (!open)
     return
   event.stopPropagation()
@@ -2985,19 +3088,59 @@ function resolveFooterActionFocusTargets(queryRoot: HTMLElement): FooterActionFo
   }
 }
 
-function getSelectorFocusCycleTargets() {
-  const queryRoot = getPickerQueryRoot()
-  if (!queryRoot)
-    return []
+interface FocusTargetCollectorOptions {
+  skipDisabled?: boolean
+}
 
+type FocusTargetPusher = (element: HTMLElement | null) => void
+
+function createFocusTargetCollector(options: FocusTargetCollectorOptions = {}) {
   const targets: HTMLElement[] = []
-  const pushTarget = (element: HTMLElement | null) => {
+  const pushTarget: FocusTargetPusher = (element) => {
     if (!element || !isVisibleElement(element))
+      return
+    if (options.skipDisabled && isDisabledFocusTarget(element))
       return
     if (targets.includes(element))
       return
     targets.push(element)
   }
+
+  return {
+    targets,
+    pushTarget,
+  }
+}
+
+function appendCalendarPanelFocusTarget(
+  queryRoot: HTMLElement,
+  panel: SelectionPanel,
+  pushTarget: FocusTargetPusher,
+) {
+  const panelElement = queryRoot.querySelector<HTMLElement>(`[data-vtd-selector-panel="${panel}"]`)
+  if (!panelElement)
+    return
+  const focusTarget
+    = panelElement.querySelector<HTMLElement>('.vtd-calendar-focus-target')
+      ?? panelElement.querySelector<HTMLElement>('.vtd-datepicker-date:not(:disabled)')
+  pushTarget(focusTarget)
+}
+
+function appendFooterActionFocusTargets(
+  footerActions: FooterActionFocusTargets,
+  pushTarget: FocusTargetPusher,
+) {
+  pushTarget(footerActions.cancelButton)
+  pushTarget(footerActions.switchButton)
+  pushTarget(footerActions.applyButton)
+}
+
+function getSelectorFocusCycleTargets() {
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return []
+
+  const { targets, pushTarget } = createFocusTargetCollector()
 
   const appendPanelTargets = (panel: SelectionPanel) => {
     pushTarget(queryRoot.querySelector<HTMLElement>(`#vtd-header-${panel}-month`))
@@ -3015,9 +3158,7 @@ function getSelectorFocusCycleTargets() {
   // Shortcuts are treated as a single focus stop in selector tab order.
   pushTarget(queryRoot.querySelector<HTMLElement>('.vtd-shortcuts'))
   const footerActions = resolveFooterActionFocusTargets(queryRoot)
-  pushTarget(footerActions.cancelButton)
-  pushTarget(footerActions.switchButton)
-  pushTarget(footerActions.applyButton)
+  appendFooterActionFocusTargets(footerActions, pushTarget)
   return targets
 }
 
@@ -3026,24 +3167,7 @@ function getCalendarFocusCycleTargets() {
   if (!queryRoot)
     return []
 
-  const targets: HTMLElement[] = []
-  const pushTarget = (element: HTMLElement | null) => {
-    if (!element || !isVisibleElement(element))
-      return
-    if (targets.includes(element))
-      return
-    targets.push(element)
-  }
-
-  const appendCalendarTarget = (panel: SelectionPanel) => {
-    const panelElement = queryRoot.querySelector<HTMLElement>(`[data-vtd-selector-panel="${panel}"]`)
-    if (!panelElement)
-      return
-    const focusTarget
-      = panelElement.querySelector<HTMLElement>('.vtd-calendar-focus-target')
-        ?? panelElement.querySelector<HTMLElement>('.vtd-datepicker-date:not(:disabled)')
-    pushTarget(focusTarget)
-  }
+  const { targets, pushTarget } = createFocusTargetCollector()
 
   const isDoublePanel = asRange() && !props.asSingle
   const previousHeader = queryRoot.querySelector<HTMLElement>('#vtd-header-previous-month')
@@ -3053,17 +3177,15 @@ function getCalendarFocusCycleTargets() {
   // Calendar mode tab order:
   // previous calendar -> (next header -> next calendar) -> shortcuts -> previous header
   // -> cancel -> time/calendar switch -> apply -> repeat
-  appendCalendarTarget('previous')
+  appendCalendarPanelFocusTarget(queryRoot, 'previous', pushTarget)
   if (isDoublePanel) {
     pushTarget(nextHeader)
-    appendCalendarTarget('next')
+    appendCalendarPanelFocusTarget(queryRoot, 'next', pushTarget)
   }
   pushTarget(shortcutContainer)
   pushTarget(previousHeader)
   const footerActions = resolveFooterActionFocusTargets(queryRoot)
-  pushTarget(footerActions.cancelButton)
-  pushTarget(footerActions.switchButton)
-  pushTarget(footerActions.applyButton)
+  appendFooterActionFocusTargets(footerActions, pushTarget)
   return targets
 }
 
@@ -3072,31 +3194,12 @@ function getTimeModeFocusCycleTargets() {
   if (!queryRoot)
     return []
 
-  const targets: HTMLElement[] = []
-  const pushTarget = (element: HTMLElement | null) => {
-    if (!element || !isVisibleElement(element))
-      return
-    if (isDisabledFocusTarget(element))
-      return
-    if (targets.includes(element))
-      return
-    targets.push(element)
-  }
-
-  const appendCalendarTarget = (panel: SelectionPanel) => {
-    const panelElement = queryRoot.querySelector<HTMLElement>(`[data-vtd-selector-panel="${panel}"]`)
-    if (!panelElement)
-      return
-    const focusTarget
-      = panelElement.querySelector<HTMLElement>('.vtd-calendar-focus-target')
-        ?? panelElement.querySelector<HTMLElement>('.vtd-datepicker-date:not(:disabled)')
-    pushTarget(focusTarget)
-  }
+  const { targets, pushTarget } = createFocusTargetCollector({ skipDisabled: true })
 
   // Inline wheel mode keeps date panels visible, so keep calendar focusable in the cycle.
-  appendCalendarTarget('previous')
+  appendCalendarPanelFocusTarget(queryRoot, 'previous', pushTarget)
   if (asRange() && !props.asSingle)
-    appendCalendarTarget('next')
+    appendCalendarPanelFocusTarget(queryRoot, 'next', pushTarget)
 
   // Keep shortcuts as a single focus stop in time mode.
   pushTarget(queryRoot.querySelector<HTMLElement>('.vtd-shortcuts'))
@@ -3124,9 +3227,7 @@ function getTimeModeFocusCycleTargets() {
   wheelTargets.forEach(target => pushTarget(target))
 
   const footerActions = resolveFooterActionFocusTargets(queryRoot)
-  pushTarget(footerActions.cancelButton)
-  pushTarget(footerActions.switchButton)
-  pushTarget(footerActions.applyButton)
+  appendFooterActionFocusTargets(footerActions, pushTarget)
 
   return targets
 }
@@ -3225,6 +3326,50 @@ function handleTimeEndpointToggleArrowNavigation(event: KeyboardEvent) {
   return true
 }
 
+function resolveActiveFocusTargetIndex(targets: HTMLElement[], activeElement: HTMLElement | null) {
+  return targets.findIndex(target => target === activeElement || target.contains(activeElement))
+}
+
+interface FocusCycleOptions {
+  backward: boolean
+  fallbackIndex?: number
+  resolveCurrentIndex?: (targets: HTMLElement[], activeElement: HTMLElement | null) => number
+}
+
+function moveFocusInCycle(targets: HTMLElement[], options: FocusCycleOptions) {
+  if (targets.length < 1)
+    return false
+
+  const activeElement = document.activeElement as HTMLElement | null
+  let currentIndex = options.resolveCurrentIndex
+    ? options.resolveCurrentIndex(targets, activeElement)
+    : resolveActiveFocusTargetIndex(targets, activeElement)
+  if (currentIndex < 0)
+    currentIndex = options.fallbackIndex ?? (options.backward ? 0 : -1)
+
+  const delta = options.backward ? -1 : 1
+  const nextIndex = (currentIndex + delta + targets.length) % targets.length
+  targets[nextIndex]?.focus()
+  return true
+}
+
+function resolveSelectorFocusFallbackIndex(targets: HTMLElement[]) {
+  return targets.findIndex((target) => {
+    const panel = resolveContextPanel(selectionContext.value)
+    const expectedHeader = target.id === `vtd-header-${panel}-month`
+    const expectedMonth = selectorFocus.value === 'month' && target.getAttribute('aria-label') === 'Month selector'
+    const expectedYear = selectorFocus.value === 'year' && target.getAttribute('aria-label') === 'Year selector'
+    return expectedHeader || expectedMonth || expectedYear
+  })
+}
+
+function focusFirstTarget(targets: HTMLElement[]) {
+  if (targets.length < 1)
+    return false
+  targets[0].focus()
+  return true
+}
+
 function onPickerPanelKeydown(event: KeyboardEvent, close?: PopoverCloseFn) {
   if (event.key === 'Escape') {
     event.preventDefault()
@@ -3247,22 +3392,21 @@ function onPickerPanelKeydown(event: KeyboardEvent, close?: PopoverCloseFn) {
     if (timeWheelTargets.length > 0) {
       event.preventDefault()
       event.stopPropagation()
+      moveFocusInCycle(timeWheelTargets, {
+        backward: event.shiftKey,
+        fallbackIndex: event.shiftKey ? 0 : -1,
+        resolveCurrentIndex(targets, activeElement) {
+          let currentIndex = resolveActiveFocusTargetIndex(targets, activeElement)
+          if (currentIndex >= 0 || !activeElement)
+            return currentIndex
 
-      const activeElement = document.activeElement as HTMLElement | null
-      let currentIndex = timeWheelTargets.findIndex(target => target === activeElement || target.contains(activeElement))
-      if (currentIndex < 0 && activeElement) {
-        const activeLabel = getElementLabelText(activeElement)
-        if (activeLabel === 'Start' || activeLabel === 'End') {
+          const activeLabel = getElementLabelText(activeElement)
+          if (activeLabel !== 'Start' && activeLabel !== 'End')
+            return -1
           const activeEndpointLabel = activeDateTimeEndpoint.value === 'start' ? 'Start' : 'End'
-          currentIndex = timeWheelTargets.findIndex(target => getElementLabelText(target) === activeEndpointLabel)
-        }
-      }
-      if (currentIndex < 0)
-        currentIndex = event.shiftKey ? 0 : -1
-
-      const delta = event.shiftKey ? -1 : 1
-      const nextIndex = (currentIndex + delta + timeWheelTargets.length) % timeWheelTargets.length
-      timeWheelTargets[nextIndex].focus()
+          return targets.findIndex(target => getElementLabelText(target) === activeEndpointLabel)
+        },
+      })
       return
     }
   }
@@ -3276,24 +3420,16 @@ function onPickerPanelKeydown(event: KeyboardEvent, close?: PopoverCloseFn) {
 
   event.preventDefault()
   event.stopPropagation()
-
-  const activeElement = document.activeElement as HTMLElement | null
-  let currentIndex = targets.findIndex(target => target === activeElement || target.contains(activeElement))
-  if (currentIndex < 0) {
-    currentIndex = targets.findIndex((target) => {
-      const panel = resolveContextPanel(selectionContext.value)
-      const expectedHeader = target.id === `vtd-header-${panel}-month`
-      const expectedMonth = selectorFocus.value === 'month' && target.getAttribute('aria-label') === 'Month selector'
-      const expectedYear = selectorFocus.value === 'year' && target.getAttribute('aria-label') === 'Year selector'
-      return expectedHeader || expectedMonth || expectedYear
-    })
-  }
-  if (currentIndex < 0)
-    currentIndex = 0
-
-  const delta = event.shiftKey ? -1 : 1
-  const nextIndex = (currentIndex + delta + targets.length) % targets.length
-  targets[nextIndex].focus()
+  moveFocusInCycle(targets, {
+    backward: event.shiftKey,
+    fallbackIndex: 0,
+    resolveCurrentIndex(nextTargets, activeElement) {
+      const activeIndex = resolveActiveFocusTargetIndex(nextTargets, activeElement)
+      if (activeIndex >= 0)
+        return activeIndex
+      return resolveSelectorFocusFallbackIndex(nextTargets)
+    },
+  })
 }
 
 function isTextInputLikeTarget(target: EventTarget | null) {
@@ -3307,20 +3443,16 @@ function isTextInputLikeTarget(target: EventTarget | null) {
 function focusFirstPickerCycleTarget() {
   if (isTimePickerWheelStyle.value && shouldShowDateTimeControls.value) {
     const timeWheelTargets = getTimeModeFocusCycleTargets()
-    if (timeWheelTargets.length > 0) {
-      timeWheelTargets[0].focus()
+    if (focusFirstTarget(timeWheelTargets))
       return true
-    }
   }
 
   const inSelectorMode = props.selectorMode && pickerViewMode.value === 'selector'
   const targets = inSelectorMode
     ? getSelectorFocusCycleTargets()
     : getCalendarFocusCycleTargets()
-  if (targets.length > 0) {
-    targets[0].focus()
+  if (focusFirstTarget(targets))
     return true
-  }
 
   return focusCalendarModeTarget()
 }
@@ -3480,13 +3612,7 @@ function shuffleWeekdays(days: dayjs.WeekdayNames): dayjs.WeekdayNames {
 }
 
 function asRange() {
-  if (!props.useRange && !props.asSingle)
-    return true
-  else if (!props.useRange && props.asSingle)
-    return false
-  else if (props.useRange && !props.asSingle)
-    return true
-  else return !!(props.useRange && props.asSingle)
+  return props.useRange || !props.asSingle
 }
 
 function inRangeDate(date: Dayjs) {
@@ -3494,28 +3620,13 @@ function inRangeDate(date: Dayjs) {
     return false
   if (pickerValue.value === '')
     return false
-  let s, e
-  if (Array.isArray(props.modelValue)) {
-    const [start, end] = props.modelValue
-    s = start
-    e = end
-  }
-  else if (typeof props.modelValue === 'object') {
-    if (props.modelValue) {
-      const [start, end] = Object.values(props.modelValue)
-      s = start
-      e = end
-    }
-  }
-  else {
-    const [start, end] = props.modelValue.split(props.separator)
-    s = start
-    e = end
-  }
+  const { start: s, end: e } = resolveSelectionRange('model')
+  if (!s || !e)
+    return false
 
   return date.isBetween(
-    dayjs(s, props.formatter.date, true),
-    dayjs(e, props.formatter.date, true),
+    s,
+    e,
     'date',
     '[]',
   )
@@ -3530,19 +3641,7 @@ function force() {
 
 function clearPicker() {
   pickerValue.value = ''
-  if (Array.isArray(props.modelValue)) {
-    emit('update:modelValue', [])
-  }
-  else if (typeof props.modelValue === 'object') {
-    const obj: Record<string, string> = {}
-    const [start, end] = Object.keys(props.modelValue)
-    obj[start] = ''
-    obj[end] = ''
-    emit('update:modelValue', obj)
-  }
-  else {
-    emit('update:modelValue', '')
-  }
+  emitEmptyModelValue()
   applyValue.value = []
   VtdInputRef.value && VtdInputRef.value.focus()
 }
@@ -3771,46 +3870,24 @@ function keyUp() {
     if (sd.isValid() && ed.isValid()) {
       setDate(sd)
       setDate(ed)
-      if (Array.isArray(props.modelValue)) {
-        emit('update:modelValue', [s, e])
-      }
-      else if (typeof props.modelValue === 'object') {
-        const obj: Record<string, string> = {}
-        const [start, end] = Object.keys(props.modelValue)
-        obj[start] = s
-        obj[end] = e
-        emit('update:modelValue', obj)
-      }
-      else {
-        emit(
-          'update:modelValue',
-          useToValueFromArray(
-            {
-              previous: sd,
-              next: ed,
-            },
-            props,
-          ),
-        )
-      }
+      emitRangeModelValueFromFormatted(
+        s,
+        e,
+        useToValueFromArray(
+          {
+            previous: sd,
+            next: ed,
+          },
+          props,
+        ),
+      )
     }
   }
   else {
     const d = dayjs(pickerValue.value, props.formatter.date, true)
     if (d.isValid()) {
       setDate(d)
-      if (Array.isArray(props.modelValue)) {
-        emit('update:modelValue', [pickerValue.value])
-      }
-      else if (typeof props.modelValue === 'object') {
-        const obj: Record<string, string> = {}
-        const [start] = Object.keys(props.modelValue)
-        obj[start] = pickerValue.value
-        emit('update:modelValue', obj)
-      }
-      else {
-        emit('update:modelValue', pickerValue.value)
-      }
+      emitSingleModelValueFromFormatted(pickerValue.value)
     }
   }
 }
@@ -3882,32 +3959,19 @@ function setDate(payload: Dayjs | DateSelectionPayload, close?: (ref?: Ref | HTM
           )
         }
         const [s, e] = pickerValue.value.split(props.separator)
-
-        if (Array.isArray(props.modelValue)) {
-          emit('update:modelValue', [
-            dayjs(s, props.formatter.date, true).format(props.formatter.date),
-            dayjs(e, props.formatter.date, true).format(props.formatter.date),
-          ])
-        }
-        else if (typeof props.modelValue === 'object') {
-          const obj: Record<string, string> = {}
-          const [start, end] = Object.keys(props.modelValue)
-          obj[start] = s
-          obj[end] = e
-          emit('update:modelValue', obj)
-        }
-        else {
-          emit(
-            'update:modelValue',
-            useToValueFromArray(
-              {
-                previous: dayjs(s, props.formatter.date, true),
-                next: dayjs(e, props.formatter.date, true),
-              },
-              props,
-            ),
-          )
-        }
+        const startDate = dayjs(s, props.formatter.date, true)
+        const endDate = dayjs(e, props.formatter.date, true)
+        emitRangeModelValueFromFormatted(
+          startDate.format(props.formatter.date),
+          endDate.format(props.formatter.date),
+          useToValueFromArray(
+            {
+              previous: startDate,
+              next: endDate,
+            },
+            props,
+          ),
+        )
         const shouldClosePopover
           = props.closeOnRangeSelection && typeof close === 'function'
         // In `no-input` static mode there is no popover close callback, so
@@ -3966,18 +4030,7 @@ function setDate(payload: Dayjs | DateSelectionPayload, close?: (ref?: Ref | HTM
   else {
     if (autoApplyEnabled.value) {
       pickerValue.value = useToValueFromString(date, props)
-      if (Array.isArray(props.modelValue)) {
-        emit('update:modelValue', [pickerValue.value])
-      }
-      else if (typeof props.modelValue === 'object') {
-        const obj: Record<string, string> = {}
-        const [start] = Object.keys(props.modelValue)
-        obj[start] = pickerValue.value
-        emit('update:modelValue', obj)
-      }
-      else {
-        emit('update:modelValue', pickerValue.value)
-      }
+      emitSingleModelValueFromFormatted(pickerValue.value)
       if (close)
         closePopover(close)
 
@@ -4042,48 +4095,24 @@ function applyDate(close?: (ref?: Ref | HTMLElement) => void) {
   }
   if (asRange()) {
     const [s, e] = (date as string).split(props.separator)
-
-    if (Array.isArray(props.modelValue)) {
-      emit('update:modelValue', [
-        dayjs(s, props.formatter.date, true).format(props.formatter.date),
-        dayjs(e, props.formatter.date, true).format(props.formatter.date),
-      ])
-    }
-    else if (typeof props.modelValue === 'object') {
-      const obj: Record<string, string> = {}
-      const [start, end] = Object.keys(props.modelValue)
-      obj[start] = s
-      obj[end] = e
-      emit('update:modelValue', obj)
-    }
-    else {
-      emit(
-        'update:modelValue',
-        useToValueFromArray(
-          {
-            previous: dayjs(s, props.formatter.date, true),
-            next: dayjs(e, props.formatter.date, true),
-          },
-          props,
-        ),
-      )
-    }
+    const startDate = dayjs(s, props.formatter.date, true)
+    const endDate = dayjs(e, props.formatter.date, true)
+    emitRangeModelValueFromFormatted(
+      startDate.format(props.formatter.date),
+      endDate.format(props.formatter.date),
+      useToValueFromArray(
+        {
+          previous: startDate,
+          next: endDate,
+        },
+        props,
+      ),
+    )
     pickerValue.value = date as string
   }
   else {
     pickerValue.value = (date as Dayjs).format(props.formatter.date)
-    if (Array.isArray(props.modelValue)) {
-      emit('update:modelValue', [pickerValue.value])
-    }
-    else if (typeof props.modelValue === 'object') {
-      const obj: Record<string, string> = {}
-      const [start] = Object.keys(props.modelValue)
-      obj[start] = pickerValue.value
-      emit('update:modelValue', obj)
-    }
-    else {
-      emit('update:modelValue', pickerValue.value)
-    }
+    emitSingleModelValueFromFormatted(pickerValue.value)
   }
   if (close)
     closePopover(close)
@@ -4104,54 +4133,10 @@ function atMouseOver(date: Dayjs) {
 function isBetweenRange(date: DatePickerDay) {
   if (previous.value && autoApplyEnabled.value)
     return false
-  let s, e
-  if (hoverValue.value.length > 1) {
-    const [start, end] = hoverValue.value
-    s = dayjs(start, props.formatter.date, true)
-    e = dayjs(end, props.formatter.date, true)
-  }
-  else {
-    if (Array.isArray(props.modelValue)) {
-      if (autoApplyEnabled.value) {
-        const [start, end] = props.modelValue
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-      else {
-        const [start, end] = applyValue.value
-        s = dayjs(start, props.formatter.date, true)
-        e = dayjs(end, props.formatter.date, true)
-      }
-    }
-    else if (typeof props.modelValue === 'object') {
-      if (autoApplyEnabled.value) {
-        if (props.modelValue) {
-          const [start, end] = Object.values(props.modelValue)
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
-        }
-      }
-      else {
-        const [start, end] = applyValue.value
-        s = dayjs(start, props.formatter.date, true)
-        e = dayjs(end, props.formatter.date, true)
-      }
-    }
-    else {
-      if (autoApplyEnabled.value) {
-        const [start, end] = props.modelValue
-          ? props.modelValue.split(props.separator)
-          : [null, null]
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-      else {
-        const [start, end] = applyValue.value
-        s = dayjs(start, props.formatter.date, true)
-        e = dayjs(end, props.formatter.date, true)
-      }
-    }
-  }
+  const range = hoverValue.value.length > 1
+    ? resolveSelectionRange('hover')
+    : resolveSelectionRange('interactive')
+  const { start: s, end: e } = range
   if (s && e) {
     return useBetweenRange(date, {
       previous: s,
@@ -4163,114 +4148,26 @@ function isBetweenRange(date: DatePickerDay) {
 
 function datepickerClasses(date: DatePickerDay) {
   const { today, active, off, disabled } = date
-  let classes, s, e
+  let classes: string | undefined
+  let s: Dayjs | null = null
+  let e: Dayjs | null = null
   if (asRange()) {
-    if (Array.isArray(props.modelValue)) {
-      if (selection.value) {
-        const [start, end] = hoverValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-      else {
-        if (autoApplyEnabled.value) {
-          const [start, end] = props.modelValue
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
-        }
-        else {
-          const [start, end] = applyValue.value
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
-        }
-      }
-    }
-    else if (typeof props.modelValue === 'object') {
-      if (selection.value) {
-        const [start, end] = hoverValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-      else {
-        if (autoApplyEnabled.value) {
-          const [start, end] = props.modelValue
-            ? Object.values(props.modelValue)
-            : [null, null]
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
-        }
-        else {
-          const [start, end] = applyValue.value
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
-        }
-      }
-    }
-    else {
-      if (selection.value) {
-        const [start, end] = hoverValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-      else {
-        if (autoApplyEnabled.value) {
-          const [start, end] = props.modelValue
-            ? props.modelValue.split(props.separator)
-            : [null, null]
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
-        }
-        else {
-          const [start, end] = applyValue.value
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
-        }
-      }
-    }
+    const range = selection.value
+      ? resolveSelectionRange('hover')
+      : resolveSelectionRange('interactive')
+    s = range.start
+    e = range.end
   }
   else {
-    if (Array.isArray(props.modelValue)) {
-      if (autoApplyEnabled.value) {
-        if (props.modelValue.length > 0) {
-          const [start] = props.modelValue
-          s = dayjs(start, props.formatter.date, true)
-        }
-      }
-      else {
-        const [start] = applyValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-      }
-    }
-    else if (typeof props.modelValue === 'object') {
-      if (autoApplyEnabled.value) {
-        if (props.modelValue) {
-          const [start] = Object.values(props.modelValue)
-          s = dayjs(start, props.formatter.date, true)
-        }
-      }
-      else {
-        const [start] = applyValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-      }
-    }
-    else {
-      if (autoApplyEnabled.value) {
-        if (props.modelValue) {
-          const [start] = props.modelValue.split(props.separator)
-          s = dayjs(start, props.formatter.date, true)
-        }
-      }
-      else {
-        const [start] = applyValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-      }
-    }
+    const range = resolveSelectionRange(autoApplyEnabled.value ? 'model' : 'apply')
+    s = range.start
   }
   if (active) {
     classes = today
       ? 'text-vtd-primary-500 font-semibold dark:text-vtd-primary-400 rounded-full focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring focus:ring-vtd-primary-500/10 focus:outline-none dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600/50 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/25'
         : disabled
           ? 'text-vtd-secondary-600 font-normal disabled:text-vtd-secondary-500 disabled:cursor-not-allowed rounded-full'
-          : date.isBetween(s as Dayjs, e as Dayjs, 'date', '()')
+          : !!(s && e && date.isBetween(s, e, 'date', '()'))
             ? 'text-vtd-secondary-700 font-medium dark:text-vtd-secondary-100'
             : 'text-vtd-secondary-600 font-medium dark:text-vtd-secondary-200 rounded-full'
   }
@@ -4308,71 +4205,14 @@ function datepickerClasses(date: DatePickerDay) {
 }
 
 function betweenRangeClasses(date: Dayjs) {
-  let classes, s, e
-  classes = ''
+  let classes = ''
   if (!asRange())
     return classes
-  if (Array.isArray(props.modelValue)) {
-    if (hoverValue.value.length > 1) {
-      const [start, end] = hoverValue.value
-      s = start && dayjs(start, props.formatter.date, true)
-      e = end && dayjs(end, props.formatter.date, true)
-    }
-    else {
-      if (autoApplyEnabled.value) {
-        const [start, end] = props.modelValue
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-      else {
-        const [start, end] = applyValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-    }
-  }
-  else if (typeof props.modelValue === 'object') {
-    if (hoverValue.value.length > 1) {
-      const [start, end] = hoverValue.value
-      s = start && dayjs(start, props.formatter.date, true)
-      e = end && dayjs(end, props.formatter.date, true)
-    }
-    else {
-      if (autoApplyEnabled.value) {
-        if (props.modelValue) {
-          const [start, end] = Object.values(props.modelValue)
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
-        }
-      }
-      else {
-        const [start, end] = applyValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-    }
-  }
-  else {
-    if (hoverValue.value.length > 1) {
-      const [start, end] = hoverValue.value
-      s = start && dayjs(start, props.formatter.date, true)
-      e = end && dayjs(end, props.formatter.date, true)
-    }
-    else {
-      if (autoApplyEnabled.value) {
-        const [start, end] = props.modelValue
-          ? props.modelValue.split(props.separator)
-          : [null, null]
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-      else {
-        const [start, end] = applyValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-    }
-  }
+  const range = hoverValue.value.length > 1
+    ? resolveSelectionRange('hover')
+    : resolveSelectionRange('interactive')
+  const s = range.start
+  const e = range.end
 
   const startDate = dayjs.isDayjs(s) && s.isValid() ? s : null
   const endDate = dayjs.isDayjs(e) && e.isValid() ? e : null
@@ -4417,7 +4257,42 @@ function betweenRangeClasses(date: Dayjs) {
   return classes
 }
 
-function forceEmit(s: string, e: string) {
+function emitShortcut(s: string, e: string) {
+  if (asRange()) {
+    if (autoApplyEnabled.value) {
+      emitRangeModelValueFromFormatted(
+        s,
+        e,
+        useToValueFromArray(
+          {
+            previous: dayjs(s, props.formatter.date, true),
+            next: dayjs(e, props.formatter.date, true),
+          },
+          props,
+        ),
+      )
+      pickerValue.value = `${s}${props.separator}${e}`
+    }
+    else {
+      applyValue.value = [
+        dayjs(s, props.formatter.date, true),
+        dayjs(e, props.formatter.date, true),
+      ]
+    }
+  }
+  else {
+    if (autoApplyEnabled.value) {
+      emitSingleModelValueFromFormatted(s)
+      pickerValue.value = s
+    }
+    else {
+      applyValue.value = [
+        dayjs(s, props.formatter.date, true),
+        dayjs(e, props.formatter.date, true),
+      ]
+    }
+  }
+
   datepicker.value.previous = dayjs(s, props.formatter.date, true)
   datepicker.value.next = dayjs(e, props.formatter.date, true)
 
@@ -4438,67 +4313,7 @@ function forceEmit(s: string, e: string) {
     datepicker.value.next.isSame(datepicker.value.previous, 'month')
     || datepicker.value.next.isBefore(datepicker.value.previous)
   )
-    datepicker.value.next = datepicker.value.previous.add(1, 'month')
-}
-
-function emitShortcut(s: string, e: string) {
-  if (asRange()) {
-    if (autoApplyEnabled.value) {
-      if (Array.isArray(props.modelValue)) {
-        emit('update:modelValue', [s, e])
-      }
-      else if (typeof props.modelValue === 'object') {
-        const obj: Record<string, string> = {}
-        const [start, end] = Object.keys(props.modelValue)
-        obj[start] = s
-        obj[end] = e
-        emit('update:modelValue', obj)
-      }
-      else {
-        emit(
-          'update:modelValue',
-          useToValueFromArray(
-            {
-              previous: dayjs(s, props.formatter.date, true),
-              next: dayjs(e, props.formatter.date, true),
-            },
-            props,
-          ),
-        )
-      }
-      pickerValue.value = `${s}${props.separator}${e}`
-    }
-    else {
-      applyValue.value = [
-        dayjs(s, props.formatter.date, true),
-        dayjs(e, props.formatter.date, true),
-      ]
-    }
-  }
-  else {
-    if (autoApplyEnabled.value) {
-      if (Array.isArray(props.modelValue)) {
-        emit('update:modelValue', [s])
-      }
-      else if (typeof props.modelValue === 'object') {
-        const obj: Record<string, string> = {}
-        const [start] = Object.keys(props.modelValue)
-        obj[start] = s
-        emit('update:modelValue', obj)
-      }
-      else {
-        emit('update:modelValue', s)
-      }
-      pickerValue.value = s
-    }
-    else {
-      applyValue.value = [
-        dayjs(s, props.formatter.date, true),
-        dayjs(e, props.formatter.date, true),
-      ]
-    }
-  }
-  forceEmit(s, e)
+  datepicker.value.next = datepicker.value.previous.add(1, 'month')
 }
 
 function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition | TypedShortcutDefinition {
@@ -4852,10 +4667,7 @@ watchEffect(() => {
               'font-style: italic; color: #42b883;',
               ', but you can replace manually.',
             )
-            emit('update:modelValue', {
-              startDate: '',
-              endDate: '',
-            })
+            emitEmptyModelValue()
           }
         }
         if (modelValueCloned) {
