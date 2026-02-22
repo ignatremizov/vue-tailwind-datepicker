@@ -80,6 +80,7 @@ const PREANCHOR_EMIT_COOLDOWN_MS = 90
 const STEP_BUTTON_FOCUS_SUPPRESS_MS = 650
 const YEAR_TYPEAHEAD_IDLE_MS = 900
 const YEAR_TYPEAHEAD_DIGITS = 4
+const YEAR_TYPEAHEAD_MAX_DIGITS = 5
 let suppressFocusAutoCenterUntil = 0
 const yearTypeaheadDigits = ref('')
 const yearTypeaheadExplicitSign = ref<-1 | 0 | 1>(0)
@@ -905,75 +906,78 @@ function applyTypeaheadYearCandidate() {
     queueCanvasDraw()
 }
 
+function handleDirectYearInput(event: KeyboardEvent) {
+  if (!props.directYearInput || event.altKey || event.ctrlKey || event.metaKey)
+    return false
+
+  if (event.key === '-' || event.key === '+') {
+    event.preventDefault()
+    yearTypeaheadAnchorYear = getKeyboardBaseYear()
+    yearTypeaheadDigits.value = ''
+    yearTypeaheadExplicitSign.value = event.key === '-' ? -1 : 1
+    pendingScrollYear = null
+    scheduleYearTypeaheadReset()
+    return true
+  }
+
+  if (event.key.length === 1 && /^\d$/.test(event.key)) {
+    event.preventDefault()
+    if (yearTypeaheadDigits.value.length === 0)
+      yearTypeaheadAnchorYear = getKeyboardBaseYear()
+
+    if (yearTypeaheadDigits.value.length >= YEAR_TYPEAHEAD_MAX_DIGITS) {
+      yearTypeaheadAnchorYear = getKeyboardBaseYear()
+      yearTypeaheadDigits.value = event.key
+    } else {
+      yearTypeaheadDigits.value += event.key
+    }
+
+    applyTypeaheadYearCandidate()
+    scheduleYearTypeaheadReset()
+    return true
+  }
+
+  if (
+    event.key === 'Backspace'
+    && (yearTypeaheadDigits.value.length > 0 || yearTypeaheadExplicitSign.value !== 0)
+  ) {
+    event.preventDefault()
+    if (yearTypeaheadDigits.value.length > 0) {
+      yearTypeaheadDigits.value = yearTypeaheadDigits.value.slice(0, -1)
+    } else if (yearTypeaheadExplicitSign.value !== 0) {
+      yearTypeaheadExplicitSign.value = 0
+    }
+
+    if (!yearTypeaheadDigits.value && yearTypeaheadExplicitSign.value === 0) {
+      clearYearTypeaheadState()
+    } else if (yearTypeaheadDigits.value.length > 0) {
+      applyTypeaheadYearCandidate()
+      scheduleYearTypeaheadReset()
+    } else {
+      scheduleYearTypeaheadReset()
+    }
+    return true
+  }
+
+  if (
+    event.key === 'Escape'
+    && (yearTypeaheadDigits.value.length > 0 || yearTypeaheadExplicitSign.value !== 0)
+  ) {
+    event.preventDefault()
+    event.stopPropagation()
+    clearYearTypeaheadState()
+    return true
+  }
+
+  return false
+}
+
 function onSelectorKeydown(event: KeyboardEvent) {
   if (!props.selectorMode)
     return
 
-  if (
-    props.directYearInput
-    && !event.altKey
-    && !event.ctrlKey
-    && !event.metaKey
-  ) {
-    if (event.key === '-' || event.key === '+') {
-      event.preventDefault()
-      yearTypeaheadAnchorYear = getKeyboardBaseYear()
-      yearTypeaheadDigits.value = ''
-      yearTypeaheadExplicitSign.value = event.key === '-' ? -1 : 1
-      pendingScrollYear = null
-      scheduleYearTypeaheadReset()
-      return
-    }
-
-    if (event.key.length === 1 && /^\d$/.test(event.key)) {
-      event.preventDefault()
-      if (yearTypeaheadDigits.value.length === 0)
-        yearTypeaheadAnchorYear = getKeyboardBaseYear()
-
-      if (yearTypeaheadDigits.value.length >= YEAR_TYPEAHEAD_DIGITS) {
-        yearTypeaheadAnchorYear = getKeyboardBaseYear()
-        yearTypeaheadDigits.value = event.key
-      } else {
-        yearTypeaheadDigits.value += event.key
-      }
-
-      applyTypeaheadYearCandidate()
-      scheduleYearTypeaheadReset()
-      return
-    }
-
-    if (
-      event.key === 'Backspace'
-      && (yearTypeaheadDigits.value.length > 0 || yearTypeaheadExplicitSign.value !== 0)
-    ) {
-      event.preventDefault()
-      if (yearTypeaheadDigits.value.length > 0) {
-        yearTypeaheadDigits.value = yearTypeaheadDigits.value.slice(0, -1)
-      } else if (yearTypeaheadExplicitSign.value !== 0) {
-        yearTypeaheadExplicitSign.value = 0
-      }
-
-      if (!yearTypeaheadDigits.value && yearTypeaheadExplicitSign.value === 0) {
-        clearYearTypeaheadState()
-      } else if (yearTypeaheadDigits.value.length > 0) {
-        applyTypeaheadYearCandidate()
-        scheduleYearTypeaheadReset()
-      } else {
-        scheduleYearTypeaheadReset()
-      }
-      return
-    }
-
-    if (
-      event.key === 'Escape'
-      && (yearTypeaheadDigits.value.length > 0 || yearTypeaheadExplicitSign.value !== 0)
-    ) {
-      event.preventDefault()
-      event.stopPropagation()
-      clearYearTypeaheadState()
-      return
-    }
-  }
+  if (handleDirectYearInput(event))
+    return
 
   // Intentional: both Tab and Shift+Tab switch between year/month wheels.
   // Although this local handler always requests the sibling wheel, reverse

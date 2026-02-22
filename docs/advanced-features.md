@@ -72,6 +72,10 @@ You can also access to advanced features like if you need different `model` valu
 | Header (selector wheels open) | `ArrowLeft` / `ArrowRight` | Steps month while keeping focus on header toggle. |
 | Header (selector wheels open) | `ArrowUp` / `ArrowDown` | Moves focus into selector wheel column. |
 | Header (selector wheels open) | `Enter` / `Space` / `Escape` | Closes wheels and returns to calendar view. |
+| Time wheel (`HH/mm/ss`, meridiem) | `ArrowUp` / `ArrowDown` | Moves one option backward/forward in the active wheel. |
+| Time wheel (`HH/mm/ss`, meridiem) | `Home` / `End` | Jumps to cycle boundaries (with rollover behavior at edges). |
+| Time wheel (`HH/mm/ss`, meridiem) | `Tab` / `Shift+Tab` / `ArrowLeft` / `ArrowRight` | Moves focus across visible time-wheel columns. |
+| Time wheel (`HH/mm/ss`, meridiem) | `PageUp` / `PageDown` | Applies wheel-specific coarse steps (for faster traversal). |
 
 ## Use Array
 

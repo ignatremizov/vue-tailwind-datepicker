@@ -1,7 +1,5 @@
 import type { Dayjs } from 'dayjs'
 import type { DatePickerDay } from '~/types'
-import 'dayjs/plugin/isBetween'
-import 'dayjs/plugin/localeData'
 
 interface LocalDateTimeParts {
   year: number

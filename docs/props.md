@@ -672,6 +672,14 @@ Enable direct year typing inside selector mode. Default is `false`.
 
 - Scope: available in selector mode entered from the header toggle.
 - When enabled, valid typed year tokens update selector/calendar state immediately.
+- Typeahead behavior is intentionally timeline-friendly (historical/scientific/fantasy ranges), not modern-century-only:
+  - Prefix `1` uses `1950` anchor for 1-digit starts.
+  - Prefix `2` uses current year suffix for 1-digit starts.
+  - 2-digit tokens complete as `xx50`.
+  - 3-digit non-zero prefixes complete as `xxx5`.
+  - Up to 5 digits are accepted before reset.
+  - `+` / `-` set explicit sign, `Backspace` edits the token, `Escape` clears the token.
+  - Token state resets after ~900 ms of idle time.
 - When disabled, selector year behavior stays scroll-only.
 
 ```vue

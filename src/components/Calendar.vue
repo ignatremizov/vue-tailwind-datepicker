@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { DatePickerDay } from '../types'
 import { computed, ref, watch } from 'vue'
 import {
   atMouseOverKey,
@@ -10,7 +11,7 @@ import { injectStrict } from '../utils'
 
 const props = defineProps<{
   calendar: {
-    date: () => any[]
+    date: () => DatePickerDay[]
     month: string
     year: number
     years: () => number[]
@@ -29,7 +30,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'updateDate', event: any): void
+  (e: 'updateDate', event: { date: DatePickerDay, source: 'keyboard' | 'pointer', activationKey?: string }): void
 }>()
 
 const isBetweenRange = injectStrict(isBetweenRangeKey)
@@ -41,47 +42,47 @@ const calendarDates = computed(() => props.calendar.date())
 const focusedDateKey = ref<string | null>(null)
 const calendarRootRef = ref<HTMLElement | null>(null)
 
-function getDateKey(date: any) {
+function getDateKey(date: DatePickerDay) {
   return date.format('YYYY-MM-DD')
 }
 
-function resolveDateFlag(date: any, key: string) {
-  const value = date?.[key]
+function resolveDateFlag(date: DatePickerDay, key: string) {
+  const value = (date as Record<string, unknown>)?.[key]
   if (typeof value === 'function')
     return !!value.call(date)
   return !!value
 }
 
-function isDateDisabled(date: any) {
+function isDateDisabled(date: DatePickerDay) {
   return resolveDateFlag(date, 'disabled')
 }
 
-function isDateInRange(date: any) {
+function isDateInRange(date: DatePickerDay) {
   return resolveDateFlag(date, 'inRange')
 }
 
-function isDateActive(date: any) {
+function isDateActive(date: DatePickerDay) {
   return resolveDateFlag(date, 'active')
 }
 
-function isDateToday(date: any) {
+function isDateToday(date: DatePickerDay) {
   return resolveDateFlag(date, 'today')
 }
 
-function isDateFocusable(date: any) {
+function isDateFocusable(date: DatePickerDay) {
   return !isDateDisabled(date) && !isDateInRange(date)
 }
 
 function resolveDefaultFocusKey(dates = calendarDates.value) {
-  const activeDate = dates.find((date: any) => isDateFocusable(date) && isDateActive(date))
+  const activeDate = dates.find((date: DatePickerDay) => isDateFocusable(date) && isDateActive(date))
   if (activeDate)
     return getDateKey(activeDate)
 
-  const todayDate = dates.find((date: any) => isDateFocusable(date) && isDateToday(date))
+  const todayDate = dates.find((date: DatePickerDay) => isDateFocusable(date) && isDateToday(date))
   if (todayDate)
     return getDateKey(todayDate)
 
-  const firstFocusable = dates.find((date: any) => isDateFocusable(date))
+  const firstFocusable = dates.find((date: DatePickerDay) => isDateFocusable(date))
   return firstFocusable ? getDateKey(firstFocusable) : null
 }
 
@@ -92,13 +93,13 @@ function ensureFocusedDateKey(dates = calendarDates.value) {
   }
 
   const stillFocusable = dates.some(
-    (date: any) => getDateKey(date) === focusedDateKey.value && isDateFocusable(date),
+    (date: DatePickerDay) => getDateKey(date) === focusedDateKey.value && isDateFocusable(date),
   )
   if (!stillFocusable)
     focusedDateKey.value = resolveDefaultFocusKey(dates)
 }
 
-function isCalendarFocusTarget(date: any) {
+function isCalendarFocusTarget(date: DatePickerDay) {
   if (!isDateFocusable(date))
     return false
   if (!focusedDateKey.value)
@@ -152,6 +153,19 @@ function findFocusableIndexInWeek(currentIndex: number, fromStart: boolean) {
   return -1
 }
 
+function hasDateDuration(date: DatePickerDay) {
+  return resolveDateFlag(date, 'duration')
+}
+
+function getDateDurationLabel(date: DatePickerDay) {
+  const durationValue = (date as Record<string, unknown>).duration
+  const resolvedValue
+    = typeof durationValue === 'function'
+      ? durationValue.call(date)
+      : durationValue
+  return `${resolvedValue ?? ''}`
+}
+
 function focusHeaderFromCalendar(target: EventTarget | null) {
   if (!(target instanceof HTMLElement))
     return false
@@ -173,7 +187,7 @@ function focusHeaderFromCalendar(target: EventTarget | null) {
   return true
 }
 
-function onDateFocus(date: any) {
+function onDateFocus(date: DatePickerDay) {
   if (!isDateFocusable(date))
     return
   focusedDateKey.value = getDateKey(date)
@@ -181,9 +195,9 @@ function onDateFocus(date: any) {
   atMouseOver(date)
 }
 
-function getRangePreviewClass(date: any) {
+function getRangePreviewClass(date: DatePickerDay) {
   const classes = betweenRangeClasses(date).trim()
-  const isActiveRangePreview = isBetweenRange(date) || date.hovered()
+  const isActiveRangePreview = isBetweenRange(date) || resolveDateFlag(date, 'hovered')
   const hasEdgeClass = classes.includes('vtd-datepicker-range-preview-edge')
   if (classes.length > 0 && !hasEdgeClass)
     return 'inset-0 opacity-100'
@@ -192,14 +206,14 @@ function getRangePreviewClass(date: any) {
   return 'opacity-0 pointer-events-none'
 }
 
-function getRangePreviewEdgeClass(date: any) {
+function getRangePreviewEdgeClass(date: DatePickerDay) {
   const classes = betweenRangeClasses(date).trim()
   if (!classes.includes('vtd-datepicker-range-preview-edge'))
     return ''
   return classes
 }
 
-function weekendHookClasses(date: any) {
+function weekendHookClasses(date: DatePickerDay) {
   const classes = []
 
   if (resolveDateFlag(date, 'weekend'))
@@ -212,10 +226,10 @@ function weekendHookClasses(date: any) {
   return classes.join(' ')
 }
 
-function onDateKeydown(event: KeyboardEvent, date: any) {
+function onDateKeydown(event: KeyboardEvent, date: DatePickerDay) {
   const currentKey = getDateKey(date)
   const currentIndex = calendarDates.value.findIndex(
-    (entry: any) => getDateKey(entry) === currentKey,
+    (entry: DatePickerDay) => getDateKey(entry) === currentKey,
   )
   if (currentIndex < 0)
     return
@@ -282,7 +296,7 @@ function onDateKeydown(event: KeyboardEvent, date: any) {
   }
 }
 
-function onDateClick(date: any) {
+function onDateClick(date: DatePickerDay) {
   emit('updateDate', {
     date,
     source: 'pointer',
@@ -319,8 +333,8 @@ watch(
         </div>
         <div
           class="relative"
-          :class="{ 'vtd-tooltip': asRange && date.duration() }"
-          :data-tooltip="`${date.duration()}`"
+          :class="{ 'vtd-tooltip': asRange && hasDateDuration(date) }"
+          :data-tooltip="getDateDurationLabel(date)"
         >
           <span class="vtd-datepicker-range-preview absolute" :class="getRangePreviewClass(date)" />
           <transition

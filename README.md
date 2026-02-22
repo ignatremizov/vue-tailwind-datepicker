@@ -308,6 +308,14 @@ Behavior summary:
 
 - Valid typed tokens commit immediately to selector/calendar state and emit `update:modelValue` for the active context.
 - Year parsing supports signed `-99999..99999`; `year-numbering-mode="historical"` rejects `0`, while `astronomical` accepts `0`.
+- Typeahead intentionally supports historical/fantasy/scientific timelines (not only modern Gregorian UI assumptions):
+  - Prefix `1` anchors to `1950` for 1-digit starts.
+  - Prefix `2` anchors to the current year suffix for 1-digit starts.
+  - 2-digit tokens use a mid-century suffix (`xx50`).
+  - 3-digit non-zero prefixes use a mid-decade suffix (`xxx5`).
+  - Up to 5 digits are accepted before the token resets.
+  - `+` / `-` set explicit sign, `Backspace` edits the active token, and `Escape` clears it.
+  - Typeahead state auto-resets after 900 ms of idle time.
 - Enter confirms in place and keeps selector mode open.
 - Escape and invalid blur revert to the last valid year text.
 - In range mode, temporary `start > end` from live typing is allowed and is normalized only at explicit persist boundaries (`Apply` or close-with-persist toggle).
@@ -338,6 +346,16 @@ Behavior summary:
 - `npm run docs:videos` generates MP4 animation captures (same URL argument pattern):
   - `npm run docs:videos -- http://127.0.0.1:5173/`
   - `npm run docs:videos -- http://127.0.0.1:4180/`
+
+## Dependency Pins (Dev)
+
+- `@headlessui/vue` is pinned to a GitHub release tarball from the fork to include Vue fixes not yet available in the upstream npm line used by this repo.
+- `js-beautify` is pinned via `overrides` to a fork tarball commit to break an upstream dev-only audit chain (through `@vue/test-utils`), until upstream publishes an equivalent fix.
+- When updating either pin, prefer a tagged release or commit SHA URL and run:
+  - `npm install`
+  - `npm run test:unit`
+  - `npm run build`
+  - `npm audit`
 
 ## Changelog
 

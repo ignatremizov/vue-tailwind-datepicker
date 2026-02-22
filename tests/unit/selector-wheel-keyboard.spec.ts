@@ -84,6 +84,25 @@ async function mountRangeSelectorPicker() {
 }
 
 describe('selector wheel keyboard behavior', () => {
+  it('does not crash in single mode when modelValue is omitted', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(VueTailwindDatePicker, {
+      attachTo: document.body,
+      props: {
+        noInput: true,
+        selectorMode: true,
+        useRange: false,
+        asSingle: true,
+        shortcuts: false,
+      },
+    })
+
+    vi.advanceTimersByTime(260)
+    await nextTick()
+    expect(wrapper.exists()).toBe(true)
+    wrapper.unmount()
+  })
+
   it('navigates month wheel and requests year focus with keyboard keys', async () => {
     const wrapper = mount(Month, {
       props: {
@@ -553,6 +572,87 @@ describe('selector wheel keyboard behavior', () => {
     ])
   })
 
+  it('accepts five-digit year tokens before resetting typeahead', async () => {
+    const years = Array.from({ length: 8001 }, (_, index) => -2000 + index)
+    const wrapper: ReturnType<typeof mount> = mount(Year, {
+      props: {
+        years,
+        selectorMode: true,
+        directYearInput: true,
+        selectedYear: 2026,
+        selectedMonth: 0,
+        onUpdateYear: (value: number) => {
+          wrapper.setProps({ selectedYear: value })
+        },
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Year selector"]')
+    await selector.trigger('keydown', { key: '1' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '0' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '0' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '0' })
+    await nextTick()
+    await selector.trigger('keydown', { key: '0' })
+    await nextTick()
+
+    const emitted = wrapper.emitted('updateYear') ?? []
+    expect(emitted.at(-1)).toEqual([10000])
+  })
+
+  it('hydrates signed five-digit years from string modelValue', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(VueTailwindDatePicker, {
+      attachTo: document.body,
+      props: {
+        noInput: true,
+        selectorMode: true,
+        directYearInput: true,
+        selectorYearScrollMode: 'boundary',
+        useRange: false,
+        asSingle: true,
+        shortcuts: false,
+        autoApply: true,
+        modelValue: '10000-02-15 00:00:00',
+      },
+    })
+
+    vi.advanceTimersByTime(260)
+    await nextTick()
+
+    expect(wrapper.get('#vtd-header-previous-month').text()).toContain('10000')
+    wrapper.unmount()
+  })
+
+  it('hydrates signed five-digit years from object modelValue', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(VueTailwindDatePicker, {
+      attachTo: document.body,
+      props: {
+        noInput: true,
+        selectorMode: true,
+        directYearInput: true,
+        selectorYearScrollMode: 'boundary',
+        useRange: false,
+        asSingle: true,
+        shortcuts: false,
+        autoApply: true,
+        modelValue: {
+          startDate: '10000-02-15 00:00:00',
+        },
+      },
+    })
+
+    vi.advanceTimersByTime(260)
+    await nextTick()
+
+    expect(wrapper.get('#vtd-header-previous-month').text()).toContain('10000')
+    wrapper.unmount()
+  })
+
   it('supports configurable Home/End keyboard jumps for year wheel', async () => {
     const years = Array.from({ length: 401 }, (_, index) => 1900 + index)
     const wrapper: ReturnType<typeof mount> = mount(Year, {
@@ -853,6 +953,56 @@ describe('selector wheel keyboard behavior', () => {
     )
     expect(previousAfter).toBe(previousBefore)
     expect(nextSelected).not.toBe(previousAfter)
+
+    wrapper.unmount()
+  })
+
+  it('keeps opposite range endpoint stable during direct year typing in selector mode', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(VueTailwindDatePicker, {
+      attachTo: document.body,
+      props: {
+        noInput: true,
+        selectorMode: true,
+        directYearInput: true,
+        selectorFocusTint: true,
+        selectorYearScrollMode: 'boundary',
+        useRange: true,
+        asSingle: false,
+        autoApply: false,
+        shortcuts: false,
+        modelValue: {
+          startDate: '2025-01-15 00:00:00',
+          endDate: '2025-04-20 00:00:00',
+        },
+      },
+    })
+
+    vi.advanceTimersByTime(260)
+    await nextTick()
+
+    const extractHeaderYear = (headerId: string) => {
+      const text = wrapper.get(headerId).text()
+      const match = text.match(/-?\d{4,5}/)
+      return match ? Number.parseInt(match[0], 10) : null
+    }
+
+    const previousYearBefore = extractHeaderYear('#vtd-header-previous-month')
+    await wrapper.get('#vtd-header-next-month').trigger('click')
+    await nextTick()
+
+    const nextYearSelector = wrapper.get(
+      '[data-vtd-selector-panel="next"] [aria-label="Year selector"]',
+    )
+    await nextYearSelector.trigger('keydown', { key: '1' })
+    await nextTick()
+    await nextTick()
+
+    const previousYearAfter = extractHeaderYear('#vtd-header-previous-month')
+    const nextYearAfter = extractHeaderYear('#vtd-header-next-month')
+
+    expect(previousYearAfter).toBe(previousYearBefore)
+    expect(nextYearAfter).toBe(1950)
 
     wrapper.unmount()
   })

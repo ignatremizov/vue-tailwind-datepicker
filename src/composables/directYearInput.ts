@@ -12,6 +12,14 @@ function isWithinDirectYearBounds(year: number) {
   return year >= DIRECT_YEAR_MIN && year <= DIRECT_YEAR_MAX
 }
 
+function clampToDirectYearBounds(year: number) {
+  if (year < DIRECT_YEAR_MIN)
+    return DIRECT_YEAR_MIN
+  if (year > DIRECT_YEAR_MAX)
+    return DIRECT_YEAR_MAX
+  return year
+}
+
 export function normalizeSignedYearToken(rawText: string) {
   const trimmed = rawText.trim()
   if (!trimmed)
@@ -157,12 +165,14 @@ export function formatModelDateWithDirectYear(
   if (dateFormat !== DEFAULT_MODEL_DATE_FORMAT)
     return value.format(dateFormat)
 
-  const yearToken = String(value.year())
-  const monthToken = String(value.month() + 1).padStart(2, '0')
-  const dayToken = String(value.date()).padStart(2, '0')
-  const hourToken = String(value.hour()).padStart(2, '0')
-  const minuteToken = String(value.minute()).padStart(2, '0')
-  const secondToken = String(value.second()).padStart(2, '0')
+  const boundedYear = clampToDirectYearBounds(value.year())
+  const normalizedValue = boundedYear === value.year() ? value : value.year(boundedYear)
+  const yearToken = String(normalizedValue.year())
+  const monthToken = String(normalizedValue.month() + 1).padStart(2, '0')
+  const dayToken = String(normalizedValue.date()).padStart(2, '0')
+  const hourToken = String(normalizedValue.hour()).padStart(2, '0')
+  const minuteToken = String(normalizedValue.minute()).padStart(2, '0')
+  const secondToken = String(normalizedValue.second()).padStart(2, '0')
 
   return `${yearToken}-${monthToken}-${dayToken} ${hourToken}:${minuteToken}:${secondToken}`
 }

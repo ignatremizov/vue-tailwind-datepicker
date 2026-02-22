@@ -87,7 +87,7 @@ Record QA outcomes to track SC-001 through SC-003.
 ## 8. Requirement reconciliation (FR-001..FR-008)
 
 | Requirement | Evidence                                                                                                                                             | Status |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------- | ---- |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | FR-001      | `DatePickerDay` weekend fields + panel day-state assignment                                                                                          | pass   |
 | FR-002      | `vtd-weekend` / `vtd-saturday` / `vtd-sunday` hooks in calendar button class binding                                                                 | pass   |
 | FR-003      | Weekend hook contract test verifies off-month weekend cells                                                                                          | pass   |
@@ -95,4 +95,4 @@ Record QA outcomes to track SC-001 through SC-003.
 | FR-005      | Weekday non-regression asserted in weekend contract test (weekday cells have no weekend hooks)                                                       | pass   |
 | FR-006      | Selected/range/disabled overlap verified in unit tests; today overlap preserved by unchanged `datepickerClasses` priority and additive weekend hooks | pass   |
 | FR-007      | No new props/events required; hook-based styling only                                                                                                | pass   |
-| FR-008      | Shared weekend classification helper uses fixed `day() === 6                                                                                         |        | day() === 0` semantics; locale parity test (`en`, `de`) confirms deterministic assignment | pass |
+| FR-008      | Shared weekend classification helper uses fixed `day() === 6` / `day() === 0` semantics; locale parity test (`en`, `de`) confirms deterministic assignment | pass   |

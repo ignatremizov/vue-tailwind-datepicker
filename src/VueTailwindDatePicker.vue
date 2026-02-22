@@ -1275,10 +1275,13 @@ function resolveModelDateValue(
       }
     }
 
-    const strictDateTime = dayjs(trimmedValue, props.formatter.date, true)
-    if (strictDateTime.isValid()) {
+    const directYearDateTime = parseModelDateWithDirectYear(
+      trimmedValue,
+      props.formatter.date,
+    )
+    if (directYearDateTime) {
       return {
-        value: strictDateTime,
+        value: directYearDateTime,
         isHydrated: false,
       }
     }
@@ -1286,8 +1289,11 @@ function resolveModelDateValue(
     if (datetimeModeConfig.value.datetime) {
       const dateOnlyFormatter = extractDateOnlyFormatter(props.formatter.date)
       if (dateOnlyFormatter) {
-        const parsedDateOnly = dayjs(trimmedValue, dateOnlyFormatter, true)
-        if (parsedDateOnly.isValid())
+        const parsedDateOnly = parseModelDateWithDirectYear(
+          trimmedValue,
+          dateOnlyFormatter,
+        )
+        if (parsedDateOnly)
           return applyHydratedTimeToDate(parsedDateOnly, endpoint)
       }
     }
@@ -2884,7 +2890,7 @@ function resolveSelectorMonthDelta(currentMonth: number, targetMonth: number) {
 function applySelectorYear(context: SelectionContext, year: number) {
   commitTypedYearToActiveContext(context, year, {
     emitModelUpdate: false,
-    allowTemporaryInversion: false,
+    allowTemporaryInversion: true,
     syncSelectorStateAfterCommit: false,
   })
 }
@@ -4479,55 +4485,32 @@ function applyDate(close?: (ref?: Ref | HTMLElement) => void) {
 
   if (asRange()) {
     const normalizedAtApply = normalizeRangeAtCommitBoundary('apply')
-    if (normalizedAtApply && !props.autoApply)
-      applyValue.value = [datepicker.value.previous, datepicker.value.next]
+    if (normalizedAtApply && !props.autoApply) {
+      const [startDate, endDate] = applyValue.value
+      if (startDate && endDate)
+        applyValue.value = [endDate, startDate]
+      else applyValue.value = [datepicker.value.previous, datepicker.value.next]
+    }
   }
 
-  let date
   if (asRange()) {
     const [s, e] = applyValue.value
-    if (e.isBefore(s)) {
-      date = useToValueFromArray(
-        {
-          previous: e,
-          next: s,
-        },
-        props,
-      )
-    } else {
-      date = useToValueFromArray(
-        {
-          previous: s,
-          next: e,
-        },
-        props,
-      )
-    }
-  } else {
-    const [s] = applyValue.value
-    date = s
-  }
-  if (asRange()) {
-    const [s, e] = (date as string).split(props.separator)
-    const startDate = dayjs(s, props.formatter.date, true)
-    const endDate = dayjs(e, props.formatter.date, true)
-    emitRangeModelValueFromFormatted(
-      startDate.format(props.formatter.date),
-      endDate.format(props.formatter.date),
-      useToValueFromArray(
-        {
-          previous: startDate,
-          next: endDate,
-        },
-        props,
-      ),
+    const startDate = e.isBefore(s) ? e : s
+    const endDate = e.isBefore(s) ? s : e
+    pickerValue.value = useToValueFromArray(
+      {
+        previous: startDate,
+        next: endDate,
+      },
+      props,
     )
-    pickerValue.value = date as string
+    emitRangeModelValue(startDate, endDate)
     announceRangeSelection(startDate, endDate, true)
   } else {
-    pickerValue.value = (date as Dayjs).format(props.formatter.date)
+    const [s] = applyValue.value
+    pickerValue.value = s.format(props.formatter.date)
     emitSingleModelValueFromFormatted(pickerValue.value)
-    announceSingleDateSelection(date as Dayjs, true)
+    announceSingleDateSelection(s, true)
   }
   if (close)
     closePopover(close)
@@ -5118,7 +5101,7 @@ watchEffect(() => {
           endHydrated = resolvedEnd.isHydrated
         }
       } else {
-        if (modelValueCloned) {
+        if (typeof modelValueCloned === 'string' && modelValueCloned.length > 0) {
           const [start, end] = modelValueCloned.split(props.separator)
           const resolvedStart = resolveModelDateValue(start, 'start')
           const resolvedEnd = resolveModelDateValue(end, 'end')
@@ -5191,7 +5174,7 @@ watchEffect(() => {
           startHydrated = resolvedStart.isHydrated
         }
       } else {
-        if (modelValueCloned.length) {
+        if (typeof modelValueCloned === 'string' && modelValueCloned.length > 0) {
           const [start] = modelValueCloned.split(props.separator)
           const resolvedStart = resolveModelDateValue(start, 'start')
           s = resolvedStart.value

@@ -33,7 +33,7 @@ const props = withDefaults(
     syncDirection?: -1 | 0 | 1
   }>(),
   {
-    ariaLabel: '',
+    ariaLabel: 'Time wheel',
     disabled: false,
     scrollMode: 'boundary',
     fractionalOffset: 0,
@@ -69,6 +69,11 @@ const isProgrammaticScrollSync = ref(false)
 
 const itemsSignature = computed(() => {
   return props.items.map(item => String(item.value)).join('|')
+})
+
+const normalizedAriaLabel = computed(() => {
+  const label = props.ariaLabel.trim()
+  return label.length > 0 ? label : 'Time wheel'
 })
 
 const centeredIndexFloat = computed(() => {
@@ -805,7 +810,7 @@ onMounted(() => {
     <VtdSelectorWheelStepButton
       z-class="z-30"
       direction="up"
-      :label="`Select previous ${props.ariaLabel.toLowerCase()}`"
+      :label="`Select previous ${normalizedAriaLabel.toLowerCase()}`"
       :disabled="props.disabled"
       @click="onStepButtonClick(-1)"
     />
@@ -813,7 +818,7 @@ onMounted(() => {
       ref="containerRef"
       class="vtd-time-wheel h-full min-h-0 flex-1 overflow-y-auto rounded-md px-0.5 py-1 focus:outline-none focus-visible:outline-none"
       role="listbox"
-      :aria-label="props.ariaLabel"
+      :aria-label="normalizedAriaLabel"
       :aria-disabled="props.disabled ? 'true' : 'false'"
       :tabindex="props.disabled ? -1 : 0"
       @scroll.passive="onSelectorScroll"
@@ -846,7 +851,7 @@ onMounted(() => {
     <VtdSelectorWheelStepButton
       z-class="z-30"
       direction="down"
-      :label="`Select next ${props.ariaLabel.toLowerCase()}`"
+      :label="`Select next ${normalizedAriaLabel.toLowerCase()}`"
       :disabled="props.disabled"
       @click="onStepButtonClick(1)"
     />
