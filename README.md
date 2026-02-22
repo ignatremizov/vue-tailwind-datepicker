@@ -335,9 +335,6 @@ Behavior summary:
     - `DOC_SCREENSHOT_VIEWPORT_HEIGHT` (default `1300`)
     - `DOC_SCREENSHOT_DEVICE_SCALE` (default `2`)
     - `DOC_SCREENSHOT_ZOOM` (default `1.0`)
-- `npm run docs:gifs` accepts the same base URL argument:
-  - `npm run docs:gifs -- http://127.0.0.1:5173/`
-  - `npm run docs:gifs -- http://127.0.0.1:4180/`
 - `npm run docs:videos` generates MP4 animation captures (same URL argument pattern):
   - `npm run docs:videos -- http://127.0.0.1:5173/`
   - `npm run docs:videos -- http://127.0.0.1:4180/`

@@ -49,6 +49,8 @@
     "lint:fix": "eslint . --fix",
     "format": "eslint . --fix",
     "format:check": "eslint .",
+    "docs:screenshots": "bash scripts/generate-doc-screenshots.sh",
+    "docs:videos": "bash scripts/generate-doc-wheel-videos.sh",
     "docs:dev": "npm --prefix docs run dev",
     "docs:build": "npm --prefix docs run build",
     "docs:serve": "npm --prefix docs run serve",

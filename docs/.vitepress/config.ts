@@ -21,6 +21,7 @@ export default defineConfig({
         items: [
           { text: 'Installation', link: '/installation' },
           { text: 'Demo', link: '/demo' },
+          { text: 'Screenshot Gallery', link: '/screenshot-gallery' },
         ],
       },
       {
