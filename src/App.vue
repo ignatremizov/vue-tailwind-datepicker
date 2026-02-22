@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import dayjs from 'dayjs'
-import { computed, ref, watch } from 'vue'
-import type { Dayjs } from 'dayjs'
 import type { InvalidShortcutEventPayload } from './types'
+import dayjs, { type Dayjs } from 'dayjs'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import VueTailwindDatePicker from './VueTailwindDatePicker.vue'
 
 const dateValue = ref({
@@ -60,10 +59,12 @@ const wheelInlineValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
 const wheelInlineBoundaryValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
 const wheelToggleValue = ref(dayjs().format('YYYY-MM-DD hh:mm A'))
 const wheelToggleSecondsValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
-const allFeaturesValue = ref({
+const allFeaturesValueMode = ref<'range' | 'single'>('range')
+const allFeaturesRangeValue = ref({
   startDate: dayjs().subtract(4, 'day').format('YYYY-MM-DD hh:mm:ss A'),
   endDate: dayjs().add(6, 'day').format('YYYY-MM-DD hh:mm:ss A'),
 })
+const allFeaturesSingleValue = ref(dayjs().format('YYYY-MM-DD hh:mm:ss A'))
 const allFeaturesWeekendTintEnabled = ref(true)
 const allFeaturesSinglePanelRange = ref(true)
 const allFeaturesSelectorStyle = ref<'wheel' | 'page'>('wheel')
@@ -73,10 +74,21 @@ const allFeaturesTimePageMode = ref<'toggle' | 'after-date'>('toggle')
 const allFeaturesTimeWheelScrollMode = ref<'boundary' | 'fractional'>('fractional')
 const allFeaturesTimeWheelFormat = ref<'HH:mm' | 'hh:mm A' | 'HH:mm:ss' | 'hh:mm:ss A'>('hh:mm:ss A')
 const allFeaturesCloseOnRangeSelection = ref(false)
+const allFeaturesDirectYearInput = ref(true)
+const allFeaturesPopoverTransition = ref(true)
+const allFeaturesPopoverRestoreFocus = ref(false)
+const allFeaturesYearNumberingMode = ref<'historical' | 'astronomical'>('historical')
+const allFeaturesShortcutsMode = ref<'off' | 'preset' | 'legacy' | 'custom'>('custom')
+const allFeaturesOpenFocusTarget = ref<'input' | 'calendar'>('input')
+const allFeaturesDebugInstrumentation = ref(false)
 const allFeaturesUsesWheelPicker = computed(() => {
-  return allFeaturesTimePickerStyle.value === 'wheel-page' || allFeaturesTimePickerStyle.value === 'wheel-inline'
+  return (
+    allFeaturesTimePickerStyle.value === 'wheel-page'
+    || allFeaturesTimePickerStyle.value === 'wheel-inline'
+  )
 })
 const allFeaturesWheelControlsDisabled = computed(() => !allFeaturesUsesWheelPicker.value)
+const allFeaturesUseRange = computed(() => allFeaturesValueMode.value === 'range')
 const allFeaturesSelectClass = 'w-full rounded border border-blue-300 bg-white px-2 py-1.5 text-xs text-blue-900'
 const allFeaturesSelectClassWithDisabled = `${allFeaturesSelectClass} disabled:opacity-50 disabled:cursor-not-allowed`
 // TODO(time-wheel-settings): add playground controls for
@@ -112,12 +124,40 @@ function parseAllFeaturesDate(value: unknown) {
   return parsed.isValid() ? parsed : dayjs()
 }
 
+const allFeaturesValue = computed({
+  get: () => {
+    return allFeaturesUseRange.value ? allFeaturesRangeValue.value : allFeaturesSingleValue.value
+  },
+  set: (value: unknown) => {
+    if (allFeaturesUseRange.value) {
+      if (value && typeof value === 'object' && 'startDate' in value && 'endDate' in value) {
+        const nextValue = value as { startDate: unknown, endDate: unknown }
+        allFeaturesRangeValue.value = {
+          startDate: parseAllFeaturesDate(nextValue.startDate).format(allFeaturesFormatterDate.value),
+          endDate: parseAllFeaturesDate(nextValue.endDate).format(allFeaturesFormatterDate.value),
+        }
+        return
+      }
+      const formatted = parseAllFeaturesDate(value).format(allFeaturesFormatterDate.value)
+      allFeaturesRangeValue.value = {
+        startDate: formatted,
+        endDate: formatted,
+      }
+      return
+    }
+
+    allFeaturesSingleValue.value = parseAllFeaturesDate(value).format(allFeaturesFormatterDate.value)
+  },
+})
+
 watch(
   allFeaturesTimeWheelFormat,
   () => {
-    const startDate = parseAllFeaturesDate(allFeaturesValue.value.startDate)
-    const endDate = parseAllFeaturesDate(allFeaturesValue.value.endDate)
-    allFeaturesValue.value = {
+    allFeaturesSingleValue.value = parseAllFeaturesDate(allFeaturesSingleValue.value)
+      .format(allFeaturesFormatterDate.value)
+    const startDate = parseAllFeaturesDate(allFeaturesRangeValue.value.startDate)
+    const endDate = parseAllFeaturesDate(allFeaturesRangeValue.value.endDate)
+    allFeaturesRangeValue.value = {
       startDate: startDate.format(allFeaturesFormatterDate.value),
       endDate: endDate.format(allFeaturesFormatterDate.value),
     }
@@ -165,7 +205,7 @@ const allFeaturesDemoShortcuts = [
   {
     id: 'highlight-next-week-range',
     label: 'Highlight next week range',
-    resolver: ({ now, mode }: { now: Date; mode: 'single' | 'range' }) => {
+    resolver: ({ now, mode }: { now: Date, mode: 'single' | 'range' }) => {
       const nextWeekStart = dayjs(now).add(1, 'week').startOf('week')
       const nextWeekEnd = nextWeekStart.endOf('week')
       if (mode === 'range')
@@ -174,6 +214,20 @@ const allFeaturesDemoShortcuts = [
     },
   },
 ]
+const allFeaturesShortcutPreset = computed(() => {
+  if (allFeaturesShortcutsMode.value === 'preset')
+    return 'modern'
+  if (allFeaturesShortcutsMode.value === 'legacy')
+    return 'legacy'
+  return 'legacy'
+})
+const allFeaturesShortcutsProp = computed(() => {
+  if (allFeaturesShortcutsMode.value === 'off')
+    return false
+  if (allFeaturesShortcutsMode.value === 'preset' || allFeaturesShortcutsMode.value === 'legacy')
+    return true
+  return allFeaturesDemoShortcuts
+})
 
 const currentLocale = ref('en')
 const localeOptions = [
@@ -182,6 +236,106 @@ const localeOptions = [
   { code: 'de', flag: '🇩🇪' },
 ]
 const isDark = ref(false)
+
+interface VtdPerfStore {
+  frameGaps: Array<{
+    at: number
+    gapMs: number
+    lastUserType: string
+    sinceLastUserMs: number
+    lastUserTarget: string
+    activeElement: string
+  }>
+  longTasks: Array<{
+    at: number
+    durationMs: number
+    name: string
+  }>
+}
+
+function getRuntimeWindow() {
+  return window as Window & {
+    __VTD_DEBUG_ENABLED__?: boolean
+    __VTD_DEBUG__?: {
+      mountedCount?: number
+      events?: Array<{
+        at?: number
+        type?: string
+        instance?: string
+        payload?: Record<string, unknown>
+      }>
+    }
+    __VTD_PERF__?: VtdPerfStore
+  }
+}
+
+function getPerfStore() {
+  if (typeof window === 'undefined')
+    return null
+  const runtimeWindow = getRuntimeWindow()
+  if (!runtimeWindow.__VTD_PERF__) {
+    runtimeWindow.__VTD_PERF__ = {
+      frameGaps: [],
+      longTasks: [],
+    }
+  }
+  return runtimeWindow.__VTD_PERF__
+}
+
+function describeActiveElementForPerf() {
+  if (typeof document === 'undefined')
+    return 'none'
+  const active = document.activeElement
+  if (!(active instanceof HTMLElement))
+    return 'none'
+  const id = active.id ? `#${active.id}` : ''
+  const className
+    = typeof active.className === 'string' && active.className.trim().length > 0
+      ? `.${active.className.trim().split(/\s+/).slice(0, 2).join('.')}`
+      : ''
+  return `${active.tagName.toLowerCase()}${id}${className}`
+}
+
+let perfRafId: number | null = null
+let lastRafAt = 0
+let lastUserEventAt = 0
+let lastUserEventType = 'none'
+let lastUserEventTarget = 'none'
+let longTaskObserver: PerformanceObserver | null = null
+let perfTrackingEnabled = false
+
+function trackUserEvent(event: Event) {
+  lastUserEventAt = performance.now()
+  lastUserEventType = event.type
+  if (event.target instanceof HTMLElement)
+    lastUserEventTarget = event.target.tagName.toLowerCase()
+  else
+    lastUserEventTarget = 'unknown'
+}
+
+function trackFrameGap(now: number) {
+  const store = getPerfStore()
+  if (!store)
+    return
+  if (lastRafAt > 0) {
+    const gapMs = now - lastRafAt
+    if (gapMs >= 120) {
+      const sinceLastUserMs = lastUserEventAt > 0 ? now - lastUserEventAt : Number.POSITIVE_INFINITY
+      store.frameGaps.push({
+        at: now,
+        gapMs: Number(gapMs.toFixed(2)),
+        lastUserType: lastUserEventType,
+        sinceLastUserMs: Number(sinceLastUserMs.toFixed(2)),
+        lastUserTarget: lastUserEventTarget,
+        activeElement: describeActiveElementForPerf(),
+      })
+      if (store.frameGaps.length > 200)
+        store.frameGaps.splice(0, store.frameGaps.length - 200)
+    }
+  }
+  lastRafAt = now
+  perfRafId = requestAnimationFrame(trackFrameGap)
+}
 
 const shortcutSuccessDemoShortcuts = [
   {
@@ -261,10 +415,196 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
     ...shortcutFailureLog.value,
   ].slice(0, 3)
 }
+
+function logVtdDebugSnapshot() {
+  if (typeof window === 'undefined')
+    return
+
+  const runtimeWindow = getRuntimeWindow()
+  const snapshot = runtimeWindow.__VTD_DEBUG__
+  const mountedCount = snapshot?.mountedCount ?? 0
+  const events = snapshot?.events ?? []
+  const eventCount = events.length
+  console.log('[VTD DEBUG] mountedCount=%d eventCount=%d', mountedCount, eventCount)
+  const instanceCounts = new Map<string, number>()
+  for (const event of events) {
+    const key = event.instance ?? 'unknown'
+    instanceCounts.set(key, (instanceCounts.get(key) ?? 0) + 1)
+  }
+  const instanceSummary = Array.from(instanceCounts.entries())
+    .map(([instance, count]) => ({ instance, count }))
+    .sort((a, b) => b.count - a.count)
+  const primaryInstance = instanceSummary[0]?.instance ?? 'none'
+  const primaryEvents = primaryInstance === 'none'
+    ? []
+    : events.filter(event => event.instance === primaryInstance)
+
+  const recentPrimaryEvents = primaryEvents.slice(-40)
+  const slowPanelMeasures = primaryEvents
+    .filter(event => event.type === 'panel-measure')
+    .filter((event) => {
+      const duration = Number(event.payload?.durationMs ?? 0)
+      return Number.isFinite(duration) && duration >= 8
+    })
+    .slice(-20)
+  const longEventGaps = primaryEvents
+    .slice(1)
+    .map((event, index) => {
+      const previous = primaryEvents[index]
+      const previousAt = Number(previous?.at ?? 0)
+      const currentAt = Number(event.at ?? 0)
+      const gapMs = currentAt - previousAt
+      return {
+        gapMs,
+        previousType: previous?.type ?? 'unknown',
+        nextType: event.type ?? 'unknown',
+        previousAt: previousAt.toFixed(2),
+        nextAt: currentAt.toFixed(2),
+      }
+    })
+    .filter(item => Number.isFinite(item.gapMs) && item.gapMs >= 250)
+    .slice(-20)
+  console.log(
+    '[VTD DEBUG] primaryInstance=%s events=%d slowPanelMeasures(>=8ms)=%d',
+    primaryInstance,
+    primaryEvents.length,
+    slowPanelMeasures.length,
+  )
+  if (instanceSummary.length > 0)
+    console.table(instanceSummary.slice(0, 10))
+  console.table(recentPrimaryEvents.map((event) => {
+    const payload = event.payload ?? {}
+    return {
+      at: Number(event.at ?? 0).toFixed(2),
+      type: event.type ?? 'unknown',
+      active: String(payload.activeElement ?? ''),
+      target: String(payload.target ?? ''),
+      closeDelayMs: payload.closeDelayMs ?? '',
+      durationMs: payload.durationMs ?? '',
+      source: payload.source ?? '',
+    }
+  }))
+  console.log('[VTD DEBUG] long primary instance event gaps (>=250ms)=%d', longEventGaps.length)
+  if (longEventGaps.length > 0)
+    console.table(longEventGaps)
+
+  const perf = runtimeWindow.__VTD_PERF__
+  const frameGaps = perf?.frameGaps ?? []
+  const longTasks = perf?.longTasks ?? []
+  console.log(
+    '[VTD PERF] frame gaps (>=120ms)=%d long tasks=%d',
+    frameGaps.length,
+    longTasks.length,
+  )
+  if (frameGaps.length > 0)
+    console.table(frameGaps.slice(-20).map(item => ({ ...item, at: item.at.toFixed(2) })))
+  if (longTasks.length > 0)
+    console.table(longTasks.slice(-20).map(item => ({ ...item, at: item.at.toFixed(2) })))
+
+  console.log(snapshot)
+}
+
+function clearVtdDebugSnapshot() {
+  if (typeof window === 'undefined')
+    return
+
+  const runtimeWindow = getRuntimeWindow()
+  if (!runtimeWindow.__VTD_DEBUG__) {
+    runtimeWindow.__VTD_DEBUG__ = { mountedCount: 0, events: [] }
+  }
+  runtimeWindow.__VTD_DEBUG__.events = []
+  if (runtimeWindow.__VTD_PERF__) {
+    runtimeWindow.__VTD_PERF__.frameGaps = []
+    runtimeWindow.__VTD_PERF__.longTasks = []
+  }
+}
+
+function startPerfTracking() {
+  if (typeof window === 'undefined' || perfTrackingEnabled)
+    return
+
+  perfTrackingEnabled = true
+  lastRafAt = 0
+  lastUserEventAt = 0
+  lastUserEventType = 'none'
+  lastUserEventTarget = 'none'
+
+  document.addEventListener('pointerdown', trackUserEvent, true)
+  document.addEventListener('click', trackUserEvent, true)
+  document.addEventListener('keydown', trackUserEvent, true)
+
+  perfRafId = requestAnimationFrame(trackFrameGap)
+
+  if (typeof PerformanceObserver !== 'undefined') {
+    try {
+      const supported = PerformanceObserver.supportedEntryTypes ?? []
+      if (supported.includes('longtask')) {
+        longTaskObserver = new PerformanceObserver((list) => {
+          const store = getPerfStore()
+          if (!store)
+            return
+          for (const entry of list.getEntries()) {
+            store.longTasks.push({
+              at: Number(entry.startTime.toFixed(2)),
+              durationMs: Number(entry.duration.toFixed(2)),
+              name: entry.name,
+            })
+          }
+          if (store.longTasks.length > 200)
+            store.longTasks.splice(0, store.longTasks.length - 200)
+        })
+        longTaskObserver.observe({ type: 'longtask', buffered: true })
+      }
+    } catch {
+      // No-op: long task observer is best effort across browsers.
+    }
+  }
+}
+
+function stopPerfTracking() {
+  if (typeof window === 'undefined' || !perfTrackingEnabled)
+    return
+
+  document.removeEventListener('pointerdown', trackUserEvent, true)
+  document.removeEventListener('click', trackUserEvent, true)
+  document.removeEventListener('keydown', trackUserEvent, true)
+
+  if (perfRafId !== null)
+    cancelAnimationFrame(perfRafId)
+  perfRafId = null
+
+  if (longTaskObserver) {
+    longTaskObserver.disconnect()
+    longTaskObserver = null
+  }
+  perfTrackingEnabled = false
+}
+
+function setComponentDebugEnabled(enabled: boolean) {
+  if (typeof window === 'undefined')
+    return
+  getRuntimeWindow().__VTD_DEBUG_ENABLED__ = enabled
+}
+
+watch(allFeaturesDebugInstrumentation, (enabled) => {
+  setComponentDebugEnabled(enabled)
+  if (enabled)
+    startPerfTracking()
+  else
+    stopPerfTracking()
+}, { immediate: true })
+
+onUnmounted(() => {
+  stopPerfTracking()
+  setComponentDebugEnabled(false)
+})
 </script>
 
 <template>
-  <div :class="[isDark ? 'dark bg-slate-950' : 'bg-sky-50', 'min-h-screen px-10 pt-10 pb-[28rem]']">
+  <div
+    class="min-h-screen px-10 pt-10 pb-[28rem]"
+    :class="[isDark ? 'dark bg-slate-950' : 'bg-sky-50']"
+  >
     <div class="mb-3">
       <span class="text-sm text-slate-700 dark:text-slate-200">Choose one locale</span>
       <div class="mt-2 flex flex-wrap gap-2">
@@ -273,8 +613,8 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
           :key="locale.code"
           type="button"
           :aria-pressed="currentLocale === locale.code"
+          class="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors"
           :class="[
-            'inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors',
             currentLocale === locale.code
               ? 'border-sky-400 bg-sky-50 text-sky-700 dark:border-sky-500 dark:bg-sky-900/30 dark:text-sky-200'
               : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800',
@@ -287,13 +627,18 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
       </div>
     </div>
 
-    <label class="mb-6 inline-flex cursor-pointer items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
-      <input v-model="isDark" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-900">
+    <label
+      class="mb-6 inline-flex cursor-pointer items-center gap-2 text-sm text-slate-700 dark:text-slate-200"
+    >
+      <input
+        v-model="isDark"
+        type="checkbox"
+        class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-900"
+      >
       <span>Dark Theme</span>
     </label>
 
     <div class="grid gap-4">
-
       <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
         <p class="mb-3 text-sm font-medium text-blue-900">
           All-features playground (range + selector wheels + modern shortcuts + wheel time)
@@ -303,13 +648,80 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
             <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
               Settings
             </p>
-            <div class="mb-3 rounded border border-blue-200 bg-blue-50 px-2 py-1.5 text-[11px] text-blue-800">
+            <div
+              class="mb-3 rounded border border-blue-200 bg-blue-50 px-2 py-1.5 text-[11px] text-blue-800"
+            >
               <p class="font-semibold">
                 Shortcuts panel
               </p>
               <p>
-                This playground uses modern-style typed shortcuts (including &quot;Highlight next week range&quot;), not the legacy preset.
+                Choose `off`, `modern preset`, `legacy preset`, or custom typed shortcuts (includes &quot;Highlight next week range&quot;).
               </p>
+            </div>
+            <label class="mb-3 block">
+              <span class="mb-1 block text-xs font-medium text-blue-900">Shortcuts panel mode</span>
+              <select v-model="allFeaturesShortcutsMode" :class="allFeaturesSelectClass">
+                <option value="custom">
+                  custom typed
+                </option>
+                <option value="preset">
+                  modern preset
+                </option>
+                <option value="legacy">
+                  legacy preset
+                </option>
+                <option value="off">
+                  off
+                </option>
+              </select>
+            </label>
+
+            <div class="mb-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <span class="mb-1 block text-xs font-medium text-blue-900">Selection mode</span>
+                <label class="mb-1 flex items-center gap-2 text-xs text-blue-900">
+                  <input
+                    v-model="allFeaturesValueMode"
+                    value="range"
+                    type="radio"
+                    name="all-features-selection-mode"
+                  >
+                  range
+                </label>
+                <label class="flex items-center gap-2 text-xs text-blue-900">
+                  <input
+                    v-model="allFeaturesValueMode"
+                    value="single"
+                    type="radio"
+                    name="all-features-selection-mode"
+                  >
+                  single date
+                </label>
+              </div>
+
+              <div :class="!allFeaturesUseRange ? 'opacity-50' : ''">
+                <span class="mb-1 block text-xs font-medium text-blue-900">Range layout</span>
+                <label class="mb-1 flex items-center gap-2 text-xs text-blue-900">
+                  <input
+                    v-model="allFeaturesSinglePanelRange"
+                    :value="true"
+                    type="radio"
+                    name="all-features-range-layout"
+                    :disabled="!allFeaturesUseRange"
+                  >
+                  Single page (`asSingle`)
+                </label>
+                <label class="flex items-center gap-2 text-xs text-blue-900">
+                  <input
+                    v-model="allFeaturesSinglePanelRange"
+                    :value="false"
+                    type="radio"
+                    name="all-features-range-layout"
+                    :disabled="!allFeaturesUseRange"
+                  >
+                  Double page (`asSingle=false`)
+                </label>
+              </div>
             </div>
 
             <label class="mb-3 block">
@@ -320,6 +732,34 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
                 </option>
                 <option value="page">
                   page (legacy month/year view)
+                </option>
+              </select>
+            </label>
+
+            <label class="mb-3 block">
+              <span class="mb-1 block text-xs font-medium text-blue-900">Year numbering mode</span>
+              <select
+                v-model="allFeaturesYearNumberingMode"
+                :disabled="allFeaturesSelectorStyle !== 'wheel' || !allFeaturesDirectYearInput"
+                :class="allFeaturesSelectClassWithDisabled"
+              >
+                <option value="historical">
+                  historical (no year 0)
+                </option>
+                <option value="astronomical">
+                  astronomical (includes year 0)
+                </option>
+              </select>
+            </label>
+
+            <label class="mb-3 block">
+              <span class="mb-1 block text-xs font-medium text-blue-900">Open focus target</span>
+              <select v-model="allFeaturesOpenFocusTarget" :class="allFeaturesSelectClass">
+                <option value="input">
+                  keep focus on text input
+                </option>
+                <option value="calendar">
+                  focus calendar grid
                 </option>
               </select>
             </label>
@@ -412,56 +852,101 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
               </select>
             </label>
 
-            <div class="mb-3">
-              <span class="mb-1 block text-xs font-medium text-blue-900">Range layout</span>
-              <label class="mb-1 flex items-center gap-2 text-xs text-blue-900">
-                <input v-model="allFeaturesSinglePanelRange" :value="true" type="radio" name="all-features-range-layout">
-                Single page (`asSingle`)
-              </label>
+            <div class="flex flex-wrap items-center gap-3">
               <label class="flex items-center gap-2 text-xs text-blue-900">
-                <input v-model="allFeaturesSinglePanelRange" :value="false" type="radio" name="all-features-range-layout">
-                Double page (`asSingle=false`)
+                <input v-model="allFeaturesWeekendTintEnabled" type="checkbox">
+                Weekend red styling
+              </label>
+              <label
+                class="flex items-center gap-2 text-xs text-blue-900"
+                :class="allFeaturesSelectorStyle !== 'wheel' ? 'opacity-50' : ''"
+              >
+                <input
+                  v-model="allFeaturesDirectYearInput"
+                  type="checkbox"
+                  :disabled="allFeaturesSelectorStyle !== 'wheel'"
+                >
+                Direct year input
               </label>
             </div>
 
-            <label class="flex items-center gap-2 text-xs text-blue-900">
-              <input v-model="allFeaturesWeekendTintEnabled" type="checkbox">
-              Weekend red styling
-            </label>
-
-            <label class="mt-2 flex items-center gap-2 text-xs text-blue-900">
-              <input v-model="allFeaturesCloseOnRangeSelection" type="checkbox">
+            <label
+              class="mt-2 flex items-center gap-2 text-xs text-blue-900"
+              :class="!allFeaturesUseRange ? 'opacity-50' : ''"
+            >
+              <input
+                v-model="allFeaturesCloseOnRangeSelection"
+                type="checkbox"
+                :disabled="!allFeaturesUseRange"
+              >
               Auto-close after selecting range end
             </label>
+            <label class="mt-2 flex items-center gap-2 text-xs text-blue-900">
+              <input v-model="allFeaturesPopoverTransition" type="checkbox">
+              Animate popover transition
+            </label>
+            <label class="mt-2 flex items-center gap-2 text-xs text-blue-900">
+              <input v-model="allFeaturesPopoverRestoreFocus" type="checkbox">
+              Restore trigger focus on close
+            </label>
+
+            <div
+              class="mt-3 rounded border border-blue-200 bg-blue-50 px-2 py-2 text-[11px] text-blue-900"
+            >
+              <label class="mb-2 flex items-center gap-2">
+                <input v-model="allFeaturesDebugInstrumentation" type="checkbox">
+                Enable debug instrumentation (dev only)
+              </label>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  class="rounded border border-blue-300 bg-white px-2 py-1 text-[11px] font-medium text-blue-900"
+                  @click="logVtdDebugSnapshot"
+                >
+                  Log debug snapshot
+                </button>
+                <button
+                  type="button"
+                  class="rounded border border-blue-300 bg-white px-2 py-1 text-[11px] font-medium text-blue-900"
+                  @click="clearVtdDebugSnapshot"
+                >
+                  Clear debug events
+                </button>
+              </div>
+            </div>
           </div>
 
           <div
-            :class="[
-              'rounded-md border border-blue-200/70 bg-white p-3',
-              allFeaturesWeekendTintEnabled ? 'all-features-weekend' : '',
-            ]"
+            class="rounded-md border border-blue-200/70 bg-white p-3"
+            :class="[allFeaturesWeekendTintEnabled ? 'all-features-weekend' : '']"
           >
             <VueTailwindDatePicker
               v-model="allFeaturesValue"
-              use-range
-              :as-single="allFeaturesSinglePanelRange"
+              :use-range="allFeaturesUseRange"
+              :as-single="allFeaturesUseRange ? allFeaturesSinglePanelRange : true"
               :selector-mode="allFeaturesSelectorStyle === 'wheel'"
               :selector-focus-tint="false"
               :selector-year-scroll-mode="allFeaturesTimeWheelScrollMode"
-              :shortcuts="allFeaturesDemoShortcuts"
+              :direct-year-input="allFeaturesDirectYearInput"
+              :year-numbering-mode="allFeaturesYearNumberingMode"
+              :shortcuts="allFeaturesShortcutsProp"
+              :shortcut-preset="allFeaturesShortcutPreset"
               :auto-apply="false"
               :time-picker-style="allFeaturesTimePickerStyle"
               :time-inline-position="allFeaturesTimeInlinePosition"
               :time-page-mode="allFeaturesTimePageMode"
               :time-wheel-scroll-mode="allFeaturesTimeWheelScrollMode"
               :close-on-range-selection="allFeaturesCloseOnRangeSelection"
+              :popover-transition="allFeaturesPopoverTransition"
+              :popover-restore-focus="allFeaturesPopoverRestoreFocus"
+              :open-focus-target="allFeaturesOpenFocusTarget"
               :formatter="{ date: allFeaturesFormatterDate, month: 'MMM' }"
               :i18n="currentLocale"
             />
           </div>
         </div>
       </div>
-      
+
       <div class="rounded-lg border border-slate-200 bg-white p-4">
         <p class="mb-3 text-sm font-medium text-slate-700">
           Legacy behavior (`selectorMode=false`, default)
@@ -769,7 +1254,8 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
               :data-shortcut-id="id"
               @click="activate"
             >
-              {{ label }} <span v-if="meta?.hint" class="text-xs text-indigo-600">({{ meta.hint }})</span>
+              {{ label }}
+              <span v-if="meta?.hint" class="text-xs text-indigo-600">({{ meta.hint }})</span>
             </button>
           </template>
         </VueTailwindDatePicker>
@@ -798,7 +1284,8 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
               :data-shortcut-id="id"
               @click="activate"
             >
-              {{ label }} <span v-if="meta?.hint" class="text-xs text-fuchsia-600">({{ meta.hint }})</span>
+              {{ label }}
+              <span v-if="meta?.hint" class="text-xs text-fuchsia-600">({{ meta.hint }})</span>
             </button>
           </template>
         </VueTailwindDatePicker>
@@ -830,11 +1317,21 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
               <span>{{ label }}</span>
               <span
                 class="ml-2 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                :class="isDisabled
-                  ? (disabledReason === 'blocked-date' ? 'bg-amber-100 text-amber-700' : 'bg-teal-100 text-teal-700')
-                  : 'bg-teal-600 text-white'"
+                :class="
+                  isDisabled
+                    ? disabledReason === 'blocked-date'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-teal-100 text-teal-700'
+                    : 'bg-teal-600 text-white'
+                "
               >
-                {{ isDisabled ? (disabledReason === 'blocked-date' ? 'Blocked' : 'Disabled') : 'Active' }}
+                {{
+                  isDisabled
+                    ? disabledReason === 'blocked-date'
+                      ? 'Blocked'
+                      : 'Disabled'
+                    : 'Active'
+                }}
               </span>
             </button>
           </template>
@@ -848,27 +1345,33 @@ function onInvalidShortcut(payload: InvalidShortcutEventPayload) {
 </template>
 
 <style scoped>
-.weekend-tint-demo :deep(.vtd-datepicker-date.vtd-weekend:not(.vtd-datepicker-date-selected):not(:disabled)) {
+.weekend-tint-demo
+  :deep(.vtd-datepicker-date.vtd-weekend:not(.vtd-datepicker-date-selected):not(:disabled)) {
   color: rgb(220 38 38 / 100%);
 }
 
-.weekend-tint-demo :deep(.vtd-datepicker-date.vtd-saturday:not(.vtd-datepicker-date-selected):not(:disabled)) {
+.weekend-tint-demo
+  :deep(.vtd-datepicker-date.vtd-saturday:not(.vtd-datepicker-date-selected):not(:disabled)) {
   color: rgb(234 88 12 / 100%);
 }
 
-.weekend-tint-demo :deep(.vtd-datepicker-date.vtd-sunday:not(.vtd-datepicker-date-selected):not(:disabled)) {
+.weekend-tint-demo
+  :deep(.vtd-datepicker-date.vtd-sunday:not(.vtd-datepicker-date-selected):not(:disabled)) {
   color: rgb(185 28 28 / 100%);
 }
 
-.all-features-weekend :deep(.vtd-datepicker-date.vtd-weekend:not(.vtd-datepicker-date-selected):not(:disabled)) {
+.all-features-weekend
+  :deep(.vtd-datepicker-date.vtd-weekend:not(.vtd-datepicker-date-selected):not(:disabled)) {
   color: rgb(220 38 38 / 100%);
 }
 
-.all-features-weekend :deep(.vtd-datepicker-date.vtd-saturday:not(.vtd-datepicker-date-selected):not(:disabled)) {
+.all-features-weekend
+  :deep(.vtd-datepicker-date.vtd-saturday:not(.vtd-datepicker-date-selected):not(:disabled)) {
   color: rgb(234 88 12 / 100%);
 }
 
-.all-features-weekend :deep(.vtd-datepicker-date.vtd-sunday:not(.vtd-datepicker-date-selected):not(:disabled)) {
+.all-features-weekend
+  :deep(.vtd-datepicker-date.vtd-sunday:not(.vtd-datepicker-date-selected):not(:disabled)) {
   color: rgb(185 28 28 / 100%);
 }
 </style>

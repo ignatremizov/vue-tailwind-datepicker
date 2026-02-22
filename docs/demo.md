@@ -12,6 +12,8 @@
 You can also test it with [the playground](https://stackblitz.com/edit/vue-tailwind-datepicker?file=src/components/Playground.vue)!
 :::
 
+See also: [Screenshot Gallery](./screenshot-gallery.md) for a curated matrix of UI states and settings.
+
 <DemoLayout>
   <VueTailwindDatePicker
     v-model="dateValue"
@@ -20,10 +22,10 @@ You can also test it with [the playground](https://stackblitz.com/edit/vue-tailw
 
 ```vue
 <script setup>
-import VueTailwindDatePicker from "vue-tailwind-datepicker";
-import { ref } from "vue";
+import { ref } from 'vue'
+import VueTailwindDatePicker from 'vue-tailwind-datepicker'
 
-const dateValue = ref("");
+const dateValue = ref('')
 </script>
 
 <template>

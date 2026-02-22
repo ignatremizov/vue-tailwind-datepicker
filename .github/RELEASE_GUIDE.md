@@ -5,13 +5,16 @@ This project uses automated releases via GitHub Actions and semantic-release.
 ## How it works
 
 ### Automatic releases on `main` branch
+
 Every push to the `main` branch triggers the release workflow:
+
 1. **Build verification**: The project is built and tested
 2. **Commit analysis**: semantic-release analyzes commit messages
 3. **Version determination**: Based on conventional commit types
 4. **Release creation**: Automatic version bump, changelog, and NPM publication
 
 ### Commit message format
+
 Use conventional commits to control releases:
 
 ```bash
@@ -32,6 +35,7 @@ chore: update dependencies
 ```
 
 ### Release types mapping
+
 - `feat:` → **minor** version
 - `fix:` → **patch** version
 - `BREAKING CHANGE:` or `!` → **major** version
@@ -51,6 +55,7 @@ chore: update dependencies
 ## Manual override (if needed)
 
 If you need to skip a release for a particular commit:
+
 ```bash
 git commit -m "chore: update docs
 
@@ -60,16 +65,19 @@ git commit -m "chore: update docs
 ## Troubleshooting
 
 ### NPM publication fails
+
 - Verify `NPM_TOKEN` is set in repository secrets
 - Check NPM registry permissions
 - Ensure package name is available
 
 ### Build fails
+
 - Check build logs in GitHub Actions
 - Verify all dependencies are properly declared
 - Run `npm run build` locally to test
 
 ### No release created
+
 - Verify commit messages follow conventional format
 - Check if commits since last release warrant a new version
 - Review semantic-release logs in GitHub Actions

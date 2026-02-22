@@ -73,8 +73,7 @@ export async function withFixedNow<T>(now: Date, run: () => Promise<T> | T) {
   vi.setSystemTime(now)
   try {
     return await run()
-  }
-  finally {
+  } finally {
     vi.useRealTimers()
   }
 }

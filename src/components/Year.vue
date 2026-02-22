@@ -1,37 +1,46 @@
 <script setup lang="ts">
+import type { SelectionPanel, SelectorFocus, YearNumberingMode } from '../types'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import VtdSelectorWheelStepButton from './SelectorWheelStepButton.vue'
 
-type SelectorFocus = 'month' | 'year'
-
-const props = withDefaults(defineProps<{
-  years: number[]
-  selectorMode?: boolean
-  selectedYear?: number | null
-  selectedMonth?: number | null
-  selectorFocus?: SelectorFocus
-  yearScrollMode?: 'boundary' | 'fractional'
-  homeJump?: number
-  endJump?: number
-  pageJump?: number
-  pageShiftJump?: number
-}>(), {
-  selectorMode: false,
-  selectedYear: null,
-  selectedMonth: null,
-  selectorFocus: 'month',
-  yearScrollMode: 'boundary',
-  homeJump: 100,
-  endJump: 100,
-  pageJump: 10,
-  pageShiftJump: 100,
-})
+const props = withDefaults(
+  defineProps<{
+    years: number[]
+    selectorMode?: boolean
+    selectedYear?: number | null
+    selectedMonth?: number | null
+    selectorFocus?: SelectorFocus
+    yearScrollMode?: 'boundary' | 'fractional'
+    directYearInput?: boolean
+    yearNumberingMode?: YearNumberingMode
+    panelName?: SelectionPanel
+    homeJump?: number
+    endJump?: number
+    pageJump?: number
+    pageShiftJump?: number
+  }>(),
+  {
+    selectorMode: false,
+    selectedYear: null,
+    selectedMonth: null,
+    selectorFocus: 'month',
+    yearScrollMode: 'boundary',
+    directYearInput: false,
+    yearNumberingMode: 'historical',
+    panelName: 'previous',
+    homeJump: 100,
+    endJump: 100,
+    pageJump: 10,
+    pageShiftJump: 100,
+  },
+)
 
 const emit = defineEmits<{
   (e: 'updateYear', value: number): void
   (e: 'scrollYear', value: number): void
   (e: 'focusYear'): void
   (e: 'requestFocusMonth'): void
+  (e: 'requestCloseSelector'): void
 }>()
 
 const selectorContainerRef = ref<HTMLDivElement | null>(null)
@@ -69,7 +78,14 @@ const EDGE_GUARD_ROWS = 140
 const PREANCHOR_EDGE_ROWS = 90
 const PREANCHOR_EMIT_COOLDOWN_MS = 90
 const STEP_BUTTON_FOCUS_SUPPRESS_MS = 650
+const YEAR_TYPEAHEAD_IDLE_MS = 900
+const YEAR_TYPEAHEAD_DIGITS = 4
+const YEAR_TYPEAHEAD_MAX_DIGITS = 5
 let suppressFocusAutoCenterUntil = 0
+const yearTypeaheadDigits = ref('')
+const yearTypeaheadExplicitSign = ref<-1 | 0 | 1>(0)
+let yearTypeaheadAnchorYear: number | null = null
+let yearTypeaheadTimeoutId: ReturnType<typeof setTimeout> | null = null
 
 const yearAriaAnnouncement = computed(() => {
   if (props.selectedYear === null)
@@ -241,7 +257,7 @@ function maybeEmitPreanchor(
   }
 
   const now = performance.now()
-  if (!force && (now - lastPreanchorEmitAt) < PREANCHOR_EMIT_COOLDOWN_MS)
+  if (!force && now - lastPreanchorEmitAt < PREANCHOR_EMIT_COOLDOWN_MS)
     return
 
   if (!force && centeredYear === lastEmittedScrollYear)
@@ -258,16 +274,18 @@ function getScrollContentHeight() {
   const rowHeight = getSelectorRowHeight()
   return Math.max(
     1,
-    ((props.years.length + (EDGE_GUARD_ROWS * 2)) * rowHeight) + (CONTENT_TOP_BOTTOM_PADDING * 2),
+    (props.years.length + EDGE_GUARD_ROWS * 2) * rowHeight + CONTENT_TOP_BOTTOM_PADDING * 2,
   )
 }
 
 function centerIndexToScrollTop(index: number, container: HTMLDivElement) {
   const rowHeight = getSelectorRowHeight()
-  return selectorPaddingTop.value
+  return (
+    selectorPaddingTop.value
     + ((index + EDGE_GUARD_ROWS) * rowHeight)
     - (container.clientHeight / 2)
     + (rowHeight / 2)
+  )
 }
 
 function centerYearByIndex(index: number, behavior: ScrollBehavior = 'auto') {
@@ -283,7 +301,9 @@ function centerYearByIndex(index: number, behavior: ScrollBehavior = 'auto') {
     return
   }
 
-  markProgrammaticScrollSync(behavior === 'smooth' ? SMOOTH_SCROLL_SYNC_MS : PROGRAMMATIC_SCROLL_SYNC_MS)
+  markProgrammaticScrollSync(
+    behavior === 'smooth' ? SMOOTH_SCROLL_SYNC_MS : PROGRAMMATIC_SCROLL_SYNC_MS,
+  )
   container.scrollTo({
     top: targetTop,
     behavior,
@@ -485,7 +505,7 @@ function drawYearCanvas() {
   const rawIndexFloat = getCenteredIndexFloat()
   const maxIndex = years.length - 1
   const nearTopEdge = rawIndexFloat <= PREANCHOR_EDGE_ROWS
-  const nearBottomEdge = rawIndexFloat >= (maxIndex - PREANCHOR_EDGE_ROWS)
+  const nearBottomEdge = rawIndexFloat >= maxIndex - PREANCHOR_EDGE_ROWS
   const topEdgeActive = nearTopEdge || edgeLoadingSide.value === 'top'
   const bottomEdgeActive = nearBottomEdge || edgeLoadingSide.value === 'bottom'
   const shouldAnimateEdgeClocks = topEdgeActive || bottomEdgeActive
@@ -506,22 +526,48 @@ function drawYearCanvas() {
     rowHeight,
   )
   const textCenterX = width / 2
-  const hoverBg = cssVars?.getPropertyValue('--vtd-selector-year-hover-bg').trim() || 'rgba(30, 41, 59, 0.92)'
-  const hoverBorder = cssVars?.getPropertyValue('--vtd-selector-year-hover-border').trim() || 'rgba(100, 116, 139, 0.5)'
+  const hoverBg
+    = cssVars?.getPropertyValue('--vtd-selector-year-hover-bg').trim() || 'rgba(30, 41, 59, 0.92)'
+  const hoverBorder
+    = cssVars?.getPropertyValue('--vtd-selector-year-hover-border').trim()
+      || 'rgba(100, 116, 139, 0.5)'
   const borderWidthScale = clamp(
-    readCssNumber(cssVars?.getPropertyValue('--vtd-selector-year-canvas-border-width-scale').trim(), 0.5),
+    readCssNumber(
+      cssVars?.getPropertyValue('--vtd-selector-year-canvas-border-width-scale').trim(),
+      0.5,
+    ),
     0.1,
     1,
   )
-  const hoverBorderWidth = readCssNumber(cssVars?.getPropertyValue('--vtd-selector-year-hover-border-width').trim(), 0.85) * borderWidthScale
-  const hoverText = cssVars?.getPropertyValue('--vtd-selector-year-hover-text').trim() || 'rgba(226, 232, 240, 0.96)'
-  const selectedBg = cssVars?.getPropertyValue('--vtd-selector-year-selected-bg').trim() || 'rgba(14, 165, 233, 0.13)'
-  const selectedBorder = cssVars?.getPropertyValue('--vtd-selector-year-selected-border').trim() || 'rgba(14, 165, 233, 0.62)'
-  const selectedBorderWidth = readCssNumber(cssVars?.getPropertyValue('--vtd-selector-year-selected-border-width').trim(), 0.85) * borderWidthScale
-  const selectedText = cssVars?.getPropertyValue('--vtd-selector-year-selected-text').trim() || 'rgba(56, 189, 248, 1)'
-  const defaultText = cssVars?.getPropertyValue('--vtd-selector-year-text').trim() || 'rgba(82, 82, 91, 0.92)'
-  const yearTextOffsetY = readCssNumber(cssVars?.getPropertyValue('--vtd-selector-year-text-offset-y').trim(), 0)
-  const inheritedFontFamily = cssVars?.fontFamily?.trim() || 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
+  const hoverBorderWidth
+    = readCssNumber(
+      cssVars?.getPropertyValue('--vtd-selector-year-hover-border-width').trim(),
+      0.85,
+    ) * borderWidthScale
+  const hoverText
+    = cssVars?.getPropertyValue('--vtd-selector-year-hover-text').trim()
+      || 'rgba(226, 232, 240, 0.96)'
+  const selectedBg
+    = cssVars?.getPropertyValue('--vtd-selector-year-selected-bg').trim()
+      || 'rgba(14, 165, 233, 0.13)'
+  const selectedBorder
+    = cssVars?.getPropertyValue('--vtd-selector-year-selected-border').trim()
+      || 'rgba(14, 165, 233, 0.62)'
+  const selectedBorderWidth
+    = readCssNumber(
+      cssVars?.getPropertyValue('--vtd-selector-year-selected-border-width').trim(),
+      0.85,
+    ) * borderWidthScale
+  const selectedText
+    = cssVars?.getPropertyValue('--vtd-selector-year-selected-text').trim() || 'rgba(56, 189, 248, 1)'
+  const defaultText
+    = cssVars?.getPropertyValue('--vtd-selector-year-text').trim() || 'rgba(82, 82, 91, 0.92)'
+  const yearTextOffsetY = readCssNumber(
+    cssVars?.getPropertyValue('--vtd-selector-year-text-offset-y').trim(),
+    0,
+  )
+  const inheritedFontFamily
+    = cssVars?.fontFamily?.trim() || 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
   const inheritedFontSize = cssVars?.fontSize?.trim() || '14px'
   const inheritedFontWeight = cssVars?.fontWeight?.trim() || '500'
   const yearFontFamily = resolveInheritedFontToken(
@@ -593,16 +639,14 @@ function drawYearCanvas() {
       ctx.strokeStyle = selectedBorder
       strokeRoundedRectPath(ctx, buttonX, top, buttonWidth, buttonHeight, 8, selectedBorderWidth)
       ctx.fillStyle = selectedText
-    }
-    else if (isHovered) {
+    } else if (isHovered) {
       drawRoundedRectPath(ctx, buttonX, top, buttonWidth, buttonHeight, 8)
       ctx.fillStyle = hoverBg
       ctx.fill()
       ctx.strokeStyle = hoverBorder
       strokeRoundedRectPath(ctx, buttonX, top, buttonWidth, buttonHeight, 8, hoverBorderWidth)
       ctx.fillStyle = hoverText
-    }
-    else {
+    } else {
       ctx.fillStyle = defaultText
     }
 
@@ -675,6 +719,13 @@ function clearHoveredYear() {
   queueCanvasDraw()
 }
 
+function isYearTypeaheadActive() {
+  return (
+    props.directYearInput
+    && (yearTypeaheadDigits.value.length > 0 || yearTypeaheadExplicitSign.value !== 0)
+  )
+}
+
 function flushScrollYearUpdate() {
   scrollFrameId = null
   const indexFloat = getCenteredIndexFloat()
@@ -682,6 +733,9 @@ function flushScrollYearUpdate() {
   queueCanvasDraw()
 
   if (centeredYear === null)
+    return
+
+  if (isYearTypeaheadActive())
     return
 
   maybeEmitPreanchor(indexFloat, centeredYear)
@@ -703,9 +757,13 @@ function onSelectorScroll() {
   const edgeLocked = lockScrollAtEdgeIfNeeded()
   if (edgeLocked) {
     updateSelectorMetrics()
-    maybeEmitPreanchor(getCenteredIndexFloat(), getCenteredYear(), { force: true })
+    if (!isYearTypeaheadActive())
+      maybeEmitPreanchor(getCenteredIndexFloat(), getCenteredYear(), { force: true })
   }
   queueCanvasDraw()
+
+  if (isYearTypeaheadActive())
+    return
 
   if (isProgrammaticScrollSync.value && !edgeLocked)
     return
@@ -715,7 +773,11 @@ function onSelectorScroll() {
     clearTimeout(scrollIdleTimeoutId)
   scrollIdleTimeoutId = setTimeout(() => {
     isUserScrolling.value = false
-    if (pendingScrollYear !== null && pendingScrollYear !== props.selectedYear && pendingScrollYear !== lastEmittedScrollYear) {
+    if (
+      pendingScrollYear !== null
+      && pendingScrollYear !== props.selectedYear
+      && pendingScrollYear !== lastEmittedScrollYear
+    ) {
       lastEmittedScrollYear = pendingScrollYear
       emit('scrollYear', lastEmittedScrollYear)
     }
@@ -729,11 +791,13 @@ function onSelectorScroll() {
 }
 
 function getKeyboardBaseYear() {
-  return props.selectedYear
+  return (
+    props.selectedYear
     ?? previewYear.value
     ?? getCenteredYear()
     ?? props.years[Math.floor(props.years.length / 2)]
     ?? new Date().getFullYear()
+  )
 }
 
 function normalizeJump(value: number | undefined, fallback: number) {
@@ -761,8 +825,158 @@ function applyKeyboardYearDelta(delta: number) {
     queueCanvasDraw()
 }
 
+function clearYearTypeaheadState() {
+  yearTypeaheadDigits.value = ''
+  yearTypeaheadExplicitSign.value = 0
+  yearTypeaheadAnchorYear = null
+  if (yearTypeaheadTimeoutId !== null) {
+    clearTimeout(yearTypeaheadTimeoutId)
+    yearTypeaheadTimeoutId = null
+  }
+}
+
+function scheduleYearTypeaheadReset() {
+  if (yearTypeaheadTimeoutId !== null)
+    clearTimeout(yearTypeaheadTimeoutId)
+  yearTypeaheadTimeoutId = setTimeout(() => {
+    clearYearTypeaheadState()
+  }, YEAR_TYPEAHEAD_IDLE_MS)
+}
+
+function resolveTypeaheadYearCandidate() {
+  if (!yearTypeaheadDigits.value)
+    return null
+
+  const anchorYear = yearTypeaheadAnchorYear ?? getKeyboardBaseYear()
+  const currentYearDigits = String(Math.abs(new Date().getFullYear()))
+    .padStart(YEAR_TYPEAHEAD_DIGITS, '0')
+    .slice(-YEAR_TYPEAHEAD_DIGITS)
+  const shouldUseLegacyNineteenHundredsAnchor = yearTypeaheadDigits.value.startsWith('1')
+  const shouldUseCurrentYearAnchor = yearTypeaheadDigits.value.startsWith('2')
+  const anchorDigits = shouldUseLegacyNineteenHundredsAnchor
+    ? '1950'
+    : shouldUseCurrentYearAnchor
+      ? currentYearDigits
+      : String(Math.abs(anchorYear))
+          .padStart(YEAR_TYPEAHEAD_DIGITS, '0')
+          .slice(-YEAR_TYPEAHEAD_DIGITS)
+  const isAllZeroPrefix = /^0+$/.test(yearTypeaheadDigits.value)
+  const mergedDigits
+    = yearTypeaheadDigits.value.length === 2
+      ? `${yearTypeaheadDigits.value}50`
+      : yearTypeaheadDigits.value.length === 3 && !isAllZeroPrefix
+        ? `${yearTypeaheadDigits.value}5`
+        : `${yearTypeaheadDigits.value}${anchorDigits.slice(yearTypeaheadDigits.value.length)}`
+  const parsedMagnitude = Number.parseInt(mergedDigits, 10)
+  if (!Number.isFinite(parsedMagnitude))
+    return null
+
+  const sign
+    = yearTypeaheadExplicitSign.value !== 0
+      ? yearTypeaheadExplicitSign.value
+      : anchorYear < 0
+        ? -1
+        : 1
+  const parsed = parsedMagnitude * sign
+  if (props.yearNumberingMode === 'historical' && parsed === 0)
+    return null
+
+  // Allow direct typeahead to target years beyond the current virtual window.
+  // The parent selector flow re-anchors around emitted years as needed.
+  return parsed
+}
+
+function applyTypeaheadYearCandidate() {
+  const candidateYear = resolveTypeaheadYearCandidate()
+  if (candidateYear === null)
+    return
+
+  if (candidateYear !== props.selectedYear) {
+    suppressSelectedYearSyncUntil = Date.now() + CLICK_SYNC_SUPPRESS_MS
+    lastEmittedScrollYear = candidateYear
+    previewYear.value = candidateYear
+    pendingScrollYear = null
+    emit('updateYear', candidateYear)
+  }
+
+  const targetIndex = props.years.findIndex(year => year === candidateYear)
+  if (targetIndex >= 0)
+    centerYearByIndex(targetIndex, 'smooth')
+  else
+    queueCanvasDraw()
+}
+
+function handleDirectYearInput(event: KeyboardEvent) {
+  if (!props.directYearInput || event.altKey || event.ctrlKey || event.metaKey)
+    return false
+
+  if (event.key === '-' || event.key === '+') {
+    event.preventDefault()
+    yearTypeaheadAnchorYear = getKeyboardBaseYear()
+    yearTypeaheadDigits.value = ''
+    yearTypeaheadExplicitSign.value = event.key === '-' ? -1 : 1
+    pendingScrollYear = null
+    scheduleYearTypeaheadReset()
+    return true
+  }
+
+  if (event.key.length === 1 && /^\d$/.test(event.key)) {
+    event.preventDefault()
+    if (yearTypeaheadDigits.value.length === 0)
+      yearTypeaheadAnchorYear = getKeyboardBaseYear()
+
+    if (yearTypeaheadDigits.value.length >= YEAR_TYPEAHEAD_MAX_DIGITS) {
+      yearTypeaheadAnchorYear = getKeyboardBaseYear()
+      yearTypeaheadDigits.value = event.key
+    } else {
+      yearTypeaheadDigits.value += event.key
+    }
+
+    applyTypeaheadYearCandidate()
+    scheduleYearTypeaheadReset()
+    return true
+  }
+
+  if (
+    event.key === 'Backspace'
+    && (yearTypeaheadDigits.value.length > 0 || yearTypeaheadExplicitSign.value !== 0)
+  ) {
+    event.preventDefault()
+    if (yearTypeaheadDigits.value.length > 0) {
+      yearTypeaheadDigits.value = yearTypeaheadDigits.value.slice(0, -1)
+    } else if (yearTypeaheadExplicitSign.value !== 0) {
+      yearTypeaheadExplicitSign.value = 0
+    }
+
+    if (!yearTypeaheadDigits.value && yearTypeaheadExplicitSign.value === 0) {
+      clearYearTypeaheadState()
+    } else if (yearTypeaheadDigits.value.length > 0) {
+      applyTypeaheadYearCandidate()
+      scheduleYearTypeaheadReset()
+    } else {
+      scheduleYearTypeaheadReset()
+    }
+    return true
+  }
+
+  if (
+    event.key === 'Escape'
+    && (yearTypeaheadDigits.value.length > 0 || yearTypeaheadExplicitSign.value !== 0)
+  ) {
+    event.preventDefault()
+    event.stopPropagation()
+    clearYearTypeaheadState()
+    return true
+  }
+
+  return false
+}
+
 function onSelectorKeydown(event: KeyboardEvent) {
   if (!props.selectorMode)
+    return
+
+  if (handleDirectYearInput(event))
     return
 
   // Intentional: both Tab and Shift+Tab switch between year/month wheels.
@@ -777,6 +991,12 @@ function onSelectorKeydown(event: KeyboardEvent) {
   if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
     event.preventDefault()
     emit('requestFocusMonth')
+    return
+  }
+
+  if (event.key === 'Enter' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+    event.preventDefault()
+    emit('requestCloseSelector')
     return
   }
 
@@ -822,6 +1042,7 @@ function onSelectorKeydown(event: KeyboardEvent) {
 
 function onSelectorFocus() {
   emit('focusYear')
+  clearYearTypeaheadState()
   if (!props.selectorMode || props.selectedYear === null)
     return
 
@@ -840,10 +1061,15 @@ function onSelectorFocus() {
   queueCanvasDraw()
 }
 
+function onSelectorBlur() {
+  clearYearTypeaheadState()
+}
+
 function onSelectorStepClick(delta: number) {
   if (!props.selectorMode)
     return
 
+  clearYearTypeaheadState()
   suppressFocusAutoCenterUntil = Date.now() + STEP_BUTTON_FOCUS_SUPPRESS_MS
   applyKeyboardYearDelta(delta)
   selectorContainerRef.value?.focus({ preventScroll: true })
@@ -890,9 +1116,11 @@ watch(
     const selectedMonthNumber = typeof selectedMonth === 'number' ? selectedMonth : null
     const monthDriftEnabled = props.yearScrollMode === 'fractional'
     const monthChanged = selectedMonthNumber !== previousSelectedMonth
+    const typeaheadActive = isYearTypeaheadActive()
 
     const isScrollDrivenReanchor
       = yearWindowChanged
+        && !typeaheadActive
         && (
           selectedYearNumber === previousSelectedYear
           || selectedYearNumber === lastEmittedScrollYear
@@ -904,8 +1132,7 @@ watch(
         nextTick(() => {
           preserveOffsetAcrossYearWindowShift(previousFirstYear, firstYear)
         })
-      }
-      else {
+      } else {
         queueCanvasDraw()
       }
       return
@@ -931,25 +1158,19 @@ watch(
     const shouldSmoothSync
       = previousSelectedYear !== null
         && selectedYearNumber !== null
-        && (
-          (
-            selectedYearNumber !== previousSelectedYear
-            && Math.abs(selectedYearNumber - previousSelectedYear) <= 1
-          )
-          || (
-            monthDriftEnabled
-            && previousSelectedMonth !== null
-            && selectedMonthNumber !== null
-            && selectedMonthNumber !== previousSelectedMonth
-          )
-        )
+        && ((selectedYearNumber !== previousSelectedYear
+          && Math.abs(selectedYearNumber - previousSelectedYear) <= 1)
+        || (monthDriftEnabled
+          && previousSelectedMonth !== null
+          && selectedMonthNumber !== null
+          && selectedMonthNumber !== previousSelectedMonth))
         && !yearWindowChanged
 
-    if (shouldSuppressSelectedYearSync()) {
+    if (shouldSuppressSelectedYearSync() && !typeaheadActive) {
       queueCanvasDraw()
       return
     }
-    if (isUserScrolling.value && !yearWindowChanged) {
+    if (isUserScrolling.value && !yearWindowChanged && !typeaheadActive) {
       queueCanvasDraw()
       return
     }
@@ -975,9 +1196,18 @@ watch(
 )
 
 watch(
+  () => props.directYearInput,
+  (enabled) => {
+    if (!enabled)
+      clearYearTypeaheadState()
+  },
+)
+
+watch(
   () => props.selectorMode,
   (enabled) => {
     if (!enabled) {
+      clearYearTypeaheadState()
       hoveredYear.value = null
       if (resizeObserver) {
         resizeObserver.disconnect()
@@ -989,7 +1219,9 @@ watch(
     nextTick(() => {
       updateSelectorMetrics()
       resizeCanvasToContainer()
-      scrollSelectedYearIntoView('auto', { includeFractionalOffset: props.yearScrollMode === 'fractional' })
+      scrollSelectedYearIntoView('auto', {
+        includeFractionalOffset: props.yearScrollMode === 'fractional',
+      })
       queueCanvasDraw()
 
       const container = selectorContainerRef.value
@@ -1011,6 +1243,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  clearYearTypeaheadState()
   if (scrollFrameId !== null)
     cancelAnimationFrame(scrollFrameId)
   if (drawFrameId !== null)
@@ -1029,45 +1262,49 @@ onBeforeUnmount(() => {
 <template>
   <div :class="props.selectorMode ? 'w-full min-w-0' : 'mx-auto flex max-w-[20.5rem] flex-wrap'">
     <template v-if="props.selectorMode">
-      <div class="relative h-64 w-full min-w-0">
-        <VtdSelectorWheelStepButton
-          z-class="z-30"
-          direction="up"
-          label="Select previous year"
-          @click="onSelectorStepClick(-1)"
-        />
-        <div
-          ref="selectorContainerRef"
-          class="h-full w-full min-w-0 overflow-y-scroll px-0.5 py-1 focus:outline-none focus-visible:outline-none"
-          :class="isUserScrolling ? 'vtd-year-scrolling' : ''"
-          role="spinbutton"
-          aria-label="Year selector"
-          :aria-valuemin="ariaYearMin"
-          :aria-valuemax="ariaYearMax"
-          :aria-valuenow="ariaYearNow"
-          :aria-valuetext="ariaYearText"
-          tabindex="0"
-          @focus="onSelectorFocus"
-          @click="onYearCanvasClick"
-          @keydown="onSelectorKeydown"
-          @mousemove.passive="onSelectorPointerMove"
-          @mouseleave="clearHoveredYear"
-          @scroll.passive="onSelectorScroll"
-        >
-          <div :style="{ height: `${getScrollContentHeight()}px` }" aria-hidden="true" />
+      <div class="w-full min-w-0">
+        <div class="relative h-64 w-full min-w-0">
+          <VtdSelectorWheelStepButton
+            z-class="z-30"
+            direction="up"
+            label="Select previous year"
+            @click="onSelectorStepClick(-1)"
+          />
+          <div
+            :id="`vtd-selector-year-wheel-${props.panelName}`"
+            ref="selectorContainerRef"
+            class="h-full w-full min-w-0 overflow-y-scroll px-0.5 py-1 focus:outline-none focus-visible:outline-none"
+            :class="isUserScrolling ? 'vtd-year-scrolling' : ''"
+            role="spinbutton"
+            aria-label="Year selector"
+            :aria-valuemin="ariaYearMin"
+            :aria-valuemax="ariaYearMax"
+            :aria-valuenow="ariaYearNow"
+            :aria-valuetext="ariaYearText"
+            tabindex="0"
+            @focus="onSelectorFocus"
+            @blur="onSelectorBlur"
+            @click="onYearCanvasClick"
+            @keydown="onSelectorKeydown"
+            @mousemove.passive="onSelectorPointerMove"
+            @mouseleave="clearHoveredYear"
+            @scroll.passive="onSelectorScroll"
+          >
+            <div :style="{ height: `${getScrollContentHeight()}px` }" aria-hidden="true" />
+          </div>
+          <canvas
+            ref="selectorCanvasRef"
+            class="pointer-events-none absolute inset-0 z-10 block"
+            aria-hidden="true"
+          />
+          <VtdSelectorWheelStepButton
+            z-class="z-30"
+            direction="down"
+            label="Select next year"
+            @click="onSelectorStepClick(1)"
+          />
+          <span class="sr-only" aria-live="polite">{{ yearAriaAnnouncement }}</span>
         </div>
-        <canvas
-          ref="selectorCanvasRef"
-          class="pointer-events-none absolute inset-0 z-10 block"
-          aria-hidden="true"
-        />
-        <VtdSelectorWheelStepButton
-          z-class="z-30"
-          direction="down"
-          label="Select next year"
-          @click="onSelectorStepClick(1)"
-        />
-        <span class="sr-only" aria-live="polite">{{ yearAriaAnnouncement }}</span>
       </div>
     </template>
 

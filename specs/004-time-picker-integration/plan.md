@@ -1,6 +1,6 @@
 # Implementation Plan: Integrated Time Selection for Date Picker
 
-**Branch**: `004-time-picker-integration` | **Date**: 2026-02-18 | **Spec**: `specs/004-time-picker-integration/spec.md`  
+**Branch**: `004-time-picker-integration` | **Date**: 2026-02-18 | **Spec**: `specs/004-time-picker-integration/spec.md`
 **Input**: Feature specification from `specs/004-time-picker-integration/spec.md`
 
 ## Summary
@@ -9,14 +9,14 @@ Implement and harden integrated time selection using `timePickerStyle` (`none` /
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.9, Vue 3.5 SFCs  
-**Primary Dependencies**: Vue 3, dayjs, @vueuse/core, tailwindcss  
-**Storage**: N/A (component-local state only)  
-**Testing**: `npm run typecheck`, `npm run build`, `npm run test:unit -- tests/unit/time-panel-layout.spec.ts`, manual quickstart scenarios  
-**Target Platform**: Browser (desktop + mobile), Vue 3 library consumers  
-**Project Type**: Single frontend component library  
-**Performance Goals**: Smooth wheel interaction with deterministic carry/re-anchor behavior and stable layout transitions  
-**Constraints**: Backward compatible by default, local-time parsing only, deterministic DST handling, blocked-Apply errors must not throw runtime exceptions  
+**Language/Version**: TypeScript 5.9, Vue 3.5 SFCs
+**Primary Dependencies**: Vue 3, dayjs, @vueuse/core, tailwindcss
+**Storage**: N/A (component-local state only)
+**Testing**: `npm run typecheck`, `npm run build`, `npm run test:unit -- tests/unit/time-panel-layout.spec.ts`, manual quickstart scenarios
+**Target Platform**: Browser (desktop + mobile), Vue 3 library consumers
+**Project Type**: Single frontend component library
+**Performance Goals**: Smooth wheel interaction with deterministic carry/re-anchor behavior and stable layout transitions
+**Constraints**: Backward compatible by default, local-time parsing only, deterministic DST handling, blocked-Apply errors must not throw runtime exceptions
 **Scale/Scope**: Primary changes in `src/VueTailwindDatePicker.vue`, `src/components/TimeWheel.vue`, focused style hooks in `src/index.css`, and unit tests in `tests/unit/time-panel-layout.spec.ts`
 
 ## Constitution Check
@@ -63,6 +63,7 @@ tests/
 ## Phase 0: Research and Tradeoffs
 
 Capture decisions around:
+
 - style-aware endpoint UI contract (`input` dual inputs vs wheel toggle)
 - wheel carry/debounce strategy for fast boundary oscillation
 - lock-state reset/re-measure strategy for open-state structural mode switches

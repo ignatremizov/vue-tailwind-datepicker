@@ -1,7 +1,6 @@
-import type { InjectionKey } from 'vue'
 import dayjs from 'dayjs'
 import customParseFormat from 'dayjs/plugin/customParseFormat'
-import { inject } from 'vue'
+import { inject, type InjectionKey } from 'vue'
 
 export function injectStrict<T>(key: InjectionKey<T>, fallback?: T) {
   const resolved = inject(key, fallback)
@@ -56,7 +55,7 @@ interface FormatterTokenMatch {
 }
 
 export function maskDayjsEscapedLiterals(formatterDate: string) {
-  return formatterDate.replace(/\[[^\]]*]/g, literal => ' '.repeat(literal.length))
+  return formatterDate.replace(/\[[^\]]*\]/g, literal => ' '.repeat(literal.length))
 }
 
 function getFormatterTokenMatch(formatterDate: string): FormatterTokenMatch | null {
@@ -70,7 +69,7 @@ function getFormatterTokenMatch(formatterDate: string): FormatterTokenMatch | nu
       index: twelveHourMatch.index,
       uses12Hour: true,
       usesSeconds: twelveHourMatch[0].includes(':ss'),
-      hourToken: (twelveHourMatch[1] as 'h' | 'hh'),
+      hourToken: twelveHourMatch[1] as 'h' | 'hh',
       meridiemToken: twelveHourMatch[2] as 'A' | 'a',
     })
   }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import type { LengthArray } from '../types'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import VtdSelectorWheelStepButton from './SelectorWheelStepButton.vue'
 
 type SelectorFocus = 'month' | 'year'
@@ -17,18 +17,21 @@ interface SelectorMonthItem {
   index: number
 }
 
-const props = withDefaults(defineProps<{
-  months: LengthArray<string, 12>
-  selectorMode?: boolean
-  selectedMonth?: number | null
-  selectedYear?: number | null
-  selectorFocus?: SelectorFocus
-}>(), {
-  selectorMode: false,
-  selectedMonth: null,
-  selectedYear: null,
-  selectorFocus: 'month',
-})
+const props = withDefaults(
+  defineProps<{
+    months: LengthArray<string, 12>
+    selectorMode?: boolean
+    selectedMonth?: number | null
+    selectedYear?: number | null
+    selectorFocus?: SelectorFocus
+  }>(),
+  {
+    selectorMode: false,
+    selectedMonth: null,
+    selectedYear: null,
+    selectorFocus: 'month',
+  },
+)
 
 const emit = defineEmits<{
   (e: 'updateMonth', value: number): void
@@ -44,6 +47,7 @@ const USER_SCROLL_IDLE_MS = 90
 const PROGRAMMATIC_SCROLL_SYNC_MS = 120
 const SMOOTH_SCROLL_SYNC_MS = 420
 const FALLBACK_ROW_HEIGHT = 44
+const MONTH_TYPEAHEAD_IDLE_MS = 900
 
 const selectorContainerRef = ref<HTMLDivElement | null>(null)
 const selectorScrollTop = ref(0)
@@ -58,6 +62,8 @@ let scrollFrameId: number | null = null
 let scrollIdleTimeoutId: ReturnType<typeof setTimeout> | null = null
 let programmaticSyncTimeoutId: ReturnType<typeof setTimeout> | null = null
 let lastEmittedScrollKey: string | null = null
+const monthTypeaheadText = ref('')
+let monthTypeaheadTimeoutId: ReturnType<typeof setTimeout> | null = null
 
 function normalizeMonthYear(rawMonth: number, rawYear: number): SelectorMonthPayload {
   const totalMonths = (rawYear * 12) + rawMonth
@@ -233,7 +239,9 @@ function syncSelectorToSelected(force = false, behavior: ScrollBehavior = 'auto'
   lastEmittedScrollKey = monthKey(props.selectedMonth, props.selectedYear)
 
   nextTick(() => {
-    markProgrammaticScrollSync(behavior === 'smooth' ? SMOOTH_SCROLL_SYNC_MS : PROGRAMMATIC_SCROLL_SYNC_MS)
+    markProgrammaticScrollSync(
+      behavior === 'smooth' ? SMOOTH_SCROLL_SYNC_MS : PROGRAMMATIC_SCROLL_SYNC_MS,
+    )
     updateSelectorMetrics()
     scrollToIndex(SELECTOR_CENTER_INDEX, behavior)
   })
@@ -282,6 +290,42 @@ function onSelectorKeydown(event: KeyboardEvent) {
   if (!props.selectorMode)
     return
 
+  if (!event.altKey && !event.ctrlKey && !event.metaKey) {
+    if (event.key.length === 1 && /\p{L}/u.test(event.key)) {
+      event.preventDefault()
+      const typed = event.key.toLocaleLowerCase()
+      monthTypeaheadText.value += typed
+
+      const applied = applyMonthTypeahead(monthTypeaheadText.value)
+      if (!applied) {
+        monthTypeaheadText.value = typed
+        applyMonthTypeahead(monthTypeaheadText.value)
+      }
+
+      scheduleMonthTypeaheadReset()
+      return
+    }
+
+    if (event.key === 'Backspace' && monthTypeaheadText.value.length > 0) {
+      event.preventDefault()
+      monthTypeaheadText.value = monthTypeaheadText.value.slice(0, -1)
+      if (!monthTypeaheadText.value) {
+        clearMonthTypeaheadState()
+      } else {
+        applyMonthTypeahead(monthTypeaheadText.value)
+        scheduleMonthTypeaheadReset()
+      }
+      return
+    }
+
+    if (event.key === 'Escape' && monthTypeaheadText.value.length > 0) {
+      event.preventDefault()
+      event.stopPropagation()
+      clearMonthTypeaheadState()
+      return
+    }
+  }
+
   // Intentional: both Tab and Shift+Tab switch between month/year wheels.
   // Although this local handler always requests the sibling wheel, reverse
   // traversal is preserved at the picker level by the parent focus cycle logic.
@@ -297,15 +341,49 @@ function onSelectorKeydown(event: KeyboardEvent) {
     return
   }
 
-  if (event.key === 'ArrowDown' || event.key === 'PageDown') {
+  if (event.key === 'Enter' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+    event.preventDefault()
+    emit('requestFocusYear')
+    return
+  }
+
+  if (event.key === 'ArrowDown') {
     event.preventDefault()
     applyKeyboardMonthDelta(1)
     return
   }
 
-  if (event.key === 'ArrowUp' || event.key === 'PageUp') {
+  if (event.key === 'ArrowUp') {
     event.preventDefault()
     applyKeyboardMonthDelta(-1)
+    return
+  }
+
+  if (event.key === 'PageDown') {
+    event.preventDefault()
+    applyKeyboardMonthDelta(12)
+    return
+  }
+
+  if (event.key === 'PageUp') {
+    event.preventDefault()
+    applyKeyboardMonthDelta(-12)
+    return
+  }
+
+  if (event.key === 'Home') {
+    event.preventDefault()
+    const current = getKeyboardBaseSelection()
+    const delta = current.month === 0 ? -12 : -current.month
+    applyKeyboardMonthDelta(delta)
+    return
+  }
+
+  if (event.key === 'End') {
+    event.preventDefault()
+    const current = getKeyboardBaseSelection()
+    const delta = current.month === 11 ? 12 : 11 - current.month
+    applyKeyboardMonthDelta(delta)
   }
 }
 
@@ -353,6 +431,57 @@ function applyKeyboardMonthDelta(delta: number) {
   })
 }
 
+function clearMonthTypeaheadState() {
+  monthTypeaheadText.value = ''
+  if (monthTypeaheadTimeoutId !== null) {
+    clearTimeout(monthTypeaheadTimeoutId)
+    monthTypeaheadTimeoutId = null
+  }
+}
+
+function scheduleMonthTypeaheadReset() {
+  if (monthTypeaheadTimeoutId !== null)
+    clearTimeout(monthTypeaheadTimeoutId)
+  monthTypeaheadTimeoutId = setTimeout(() => {
+    clearMonthTypeaheadState()
+  }, MONTH_TYPEAHEAD_IDLE_MS)
+}
+
+function findTypeaheadMonthIndex(typedText: string) {
+  const normalized = typedText.trim().toLocaleLowerCase()
+  if (!normalized)
+    return -1
+  return props.months.findIndex(month => month.toLocaleLowerCase().startsWith(normalized))
+}
+
+function applyMonthTypeahead(typedText: string) {
+  const matchedMonth = findTypeaheadMonthIndex(typedText)
+  if (matchedMonth < 0)
+    return false
+
+  const current = getKeyboardBaseSelection()
+  const next = { month: matchedMonth, year: current.year }
+  emitScrollMonth(next)
+
+  const targetItem = selectorMonthItems.value.find(
+    item => item.month === next.month && item.year === next.year,
+  )
+
+  if (targetItem) {
+    markProgrammaticScrollSync(SMOOTH_SCROLL_SYNC_MS)
+    scrollToIndex(targetItem.index, 'smooth')
+  } else {
+    anchorSelection.value = next
+    nextTick(() => {
+      markProgrammaticScrollSync(SMOOTH_SCROLL_SYNC_MS)
+      updateSelectorMetrics()
+      scrollToIndex(SELECTOR_CENTER_INDEX, 'smooth')
+    })
+  }
+
+  return true
+}
+
 function onMonthClick(item: SelectorMonthItem) {
   if (!props.selectorMode) {
     emit('updateMonth', item.month)
@@ -369,6 +498,7 @@ function onSelectorStepClick(delta: number) {
   if (!props.selectorMode)
     return
 
+  clearMonthTypeaheadState()
   applyKeyboardMonthDelta(delta)
   selectorContainerRef.value?.focus({ preventScroll: true })
 }
@@ -377,11 +507,12 @@ function stepBy(delta: number) {
   if (!props.selectorMode)
     return
 
+  clearMonthTypeaheadState()
   applyKeyboardMonthDelta(delta)
-  selectorContainerRef.value?.focus({ preventScroll: true })
 }
 
 function onSelectorFocus() {
+  clearMonthTypeaheadState()
   emit('focusMonth')
 }
 
@@ -412,6 +543,9 @@ watch(
     if (!monthChanged && !yearChanged)
       return
 
+    if (isScrollDrivenUpdate)
+      return
+
     // When only year changes (from year wheel), keep current scroll position
     // but shift the month window's tuple year so subsequent month scroll emits
     // the updated year rather than stale pre-change values.
@@ -425,8 +559,7 @@ watch(
             year: anchorSelection.value.year + yearDelta,
           }
         }
-      }
-      else {
+      } else {
         anchorSelection.value = { month: selectedMonth, year: selectedYear }
       }
       lastEmittedScrollKey = monthKey(selectedMonth, selectedYear)
@@ -434,13 +567,11 @@ watch(
     }
 
     if (monthChanged) {
-      if (isScrollDrivenUpdate)
-        return
-
       const previousMonth = previous?.selectedMonth
       const previousYear = previous?.selectedYear
       if (typeof previousMonth === 'number' && typeof previousYear === 'number') {
-        const delta = totalMonths(selectedMonth, selectedYear) - totalMonths(previousMonth, previousYear)
+        const delta
+          = totalMonths(selectedMonth, selectedYear) - totalMonths(previousMonth, previousYear)
         if (delta !== 0 && Math.abs(delta) <= 2) {
           lastEmittedScrollKey = monthKey(selectedMonth, selectedYear)
           nextTick(() => {
@@ -453,9 +584,6 @@ watch(
       }
     }
 
-    if (isScrollDrivenUpdate)
-      return
-
     // Month changes initiated outside the wheel (for example header prev/next)
     // should animate the wheel position update.
     syncSelectorToSelected(false, monthChanged ? 'smooth' : 'auto')
@@ -464,6 +592,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  clearMonthTypeaheadState()
   if (scrollFrameId !== null)
     cancelAnimationFrame(scrollFrameId)
   if (scrollIdleTimeoutId !== null)
@@ -484,7 +613,8 @@ defineExpose({
         <button
           type="button"
           class="px-3 py-2 block w-full leading-6 rounded-md bg-white text-xs 2xl:text-sm tracking-wide text-vtd-secondary-600 font-medium transition-colors border border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring-3 focus:ring-vtd-primary-500/10 focus:outline-hidden uppercase dark:bg-vtd-secondary-800 dark:hover:bg-vtd-secondary-700 dark:text-vtd-secondary-300 dark:hover:text-vtd-secondary-100 dark:focus:bg-vtd-secondary-700"
-          @click="emit('updateMonth', Number(key))" v-text="month"
+          @click="emit('updateMonth', Number(key))"
+          v-text="month"
         />
       </span>
     </div>

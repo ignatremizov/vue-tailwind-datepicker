@@ -1,6 +1,6 @@
-import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import Month from '../../src/components/Month.vue'
 import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
 
@@ -34,6 +34,10 @@ async function mountSelectorPicker(selectorFocusTint: boolean) {
 
 function getSelectorColumns(wrapper: ReturnType<typeof mount>) {
   const columns = wrapper.findAll('div.rounded-md.border.p-1.min-w-0')
+    .filter((column) => {
+      return column.find('[aria-label="Month selector"]').exists()
+        || column.find('[aria-label="Year selector"]').exists()
+    })
   expect(columns).toHaveLength(2)
   return columns
 }
@@ -50,7 +54,6 @@ describe('selectorFocusTint behavior', () => {
 
     await wrapper.get('[aria-label="Year selector"]').trigger('focus')
     await nextTick()
-
     ;[monthColumn, yearColumn] = getSelectorColumns(wrapper)
     expect(yearColumn.classes()).toContain('bg-vtd-primary-50/40')
     expect(yearColumn.classes()).toContain('ring-2')
@@ -69,7 +72,6 @@ describe('selectorFocusTint behavior', () => {
 
     await wrapper.get('[aria-label="Year selector"]').trigger('focus')
     await nextTick()
-
     ;[monthColumn, yearColumn] = getSelectorColumns(wrapper)
     expect(yearColumn.classes()).toContain('border-vtd-primary-300')
     expect(yearColumn.classes()).not.toContain('bg-vtd-primary-50/40')
@@ -92,6 +94,55 @@ describe('selectorFocusTint behavior', () => {
     expect(yearColumn.classes()).toContain('bg-vtd-primary-50/40')
     expect(yearColumn.classes()).toContain('ring-2')
     expect(monthColumn.classes()).not.toContain('bg-vtd-primary-50/40')
+
+    wrapper.unmount()
+  })
+
+  it('clears selector column focus styling when a time wheel is focused in wheel-inline selector view', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(VueTailwindDatePicker, {
+      attachTo: document.body,
+      props: {
+        noInput: true,
+        selectorMode: true,
+        selectorFocusTint: true,
+        useRange: true,
+        asSingle: true,
+        shortcuts: false,
+        autoApply: true,
+        timePickerStyle: 'wheel-inline',
+        timeInlinePosition: 'right',
+        modelValue: {
+          startDate: '2026-02-14 09:08:33 PM',
+          endDate: '2026-02-24 12:00:00 AM',
+        },
+      },
+    })
+
+    vi.advanceTimersByTime(260)
+    await nextTick()
+    await wrapper.get('#vtd-header-previous-month').trigger('click')
+    await nextTick()
+
+    await wrapper.get('[aria-label="Year selector"]').trigger('focus')
+    await nextTick()
+
+    let [monthColumn, yearColumn] = getSelectorColumns(wrapper)
+    expect(yearColumn.classes()).toContain('ring-2')
+    expect(monthColumn.classes()).not.toContain('ring-2')
+
+    const hourWheel = wrapper.get('.vtd-time-wheel[aria-label="Hour wheel"]')
+    await hourWheel.trigger('pointerdown')
+    await nextTick()
+    ;[monthColumn, yearColumn] = getSelectorColumns(wrapper)
+    expect(monthColumn.classes()).not.toContain('ring-2')
+    expect(yearColumn.classes()).not.toContain('ring-2')
+
+    await wrapper.get('[aria-label="Month selector"]').trigger('focus')
+    await nextTick()
+    ;[monthColumn, yearColumn] = getSelectorColumns(wrapper)
+    expect(monthColumn.classes()).toContain('ring-2')
+    expect(yearColumn.classes()).not.toContain('ring-2')
 
     wrapper.unmount()
   })

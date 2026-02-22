@@ -11,14 +11,14 @@ Current UX scope also includes: explicit selector-header toggle affordance, sele
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.9, Vue 3.5 SFCs  
-**Primary Dependencies**: Vue 3, dayjs, headlessui/vue, tailwindcss  
-**Storage**: N/A (component-local state only)  
-**Testing**: `vue-tsc --noEmit`, `vitest`, `vite build`, manual demo verification in local app and consumer usage  
-**Target Platform**: Browser (desktop + mobile), Vue 3 library consumers  
-**Project Type**: Single frontend component library  
-**Performance Goals**: Keep interactions smooth and maintain 60fps scroll/animation during selector use  
-**Constraints**: Non-breaking API by default, preserve current range semantics and accessibility behavior  
+**Language/Version**: TypeScript 5.9, Vue 3.5 SFCs
+**Primary Dependencies**: Vue 3, dayjs, headlessui/vue, tailwindcss
+**Storage**: N/A (component-local state only)
+**Testing**: `vue-tsc --noEmit`, `vitest`, `vite build`, manual demo verification in local app and consumer usage
+**Target Platform**: Browser (desktop + mobile), Vue 3 library consumers
+**Project Type**: Single frontend component library
+**Performance Goals**: Keep interactions smooth and maintain 60fps scroll/animation during selector use
+**Constraints**: Non-breaking API by default, preserve current range semantics and accessibility behavior
 **Scale/Scope**: One core component (`src/VueTailwindDatePicker.vue`) plus selector/header subcomponents
 
 ## Constitution Check

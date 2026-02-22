@@ -1,3 +1,4 @@
+import type { BuiltInShortcutId } from '~/keys'
 import type {
   InvalidShortcutEventPayload,
   LegacyShortcutDefinition,
@@ -5,10 +6,9 @@ import type {
   ShortcutDefinition,
   ShortcutMode,
   ShortcutResolvedValue,
-  TypedShortcutDefinition,
   ShortcutResolverContext,
+  TypedShortcutDefinition,
 } from '~/types'
-import type { BuiltInShortcutId } from '~/keys'
 
 export interface ShortcutActivationResultSuccess {
   ok: true
@@ -21,9 +21,9 @@ export interface ShortcutActivationResultFailure {
   payload: InvalidShortcutEventPayload
 }
 
-export type ShortcutActivationResult =
-  | ShortcutActivationResultSuccess
-  | ShortcutActivationResultFailure
+export type ShortcutActivationResult
+  = | ShortcutActivationResultSuccess
+    | ShortcutActivationResultFailure
 
 interface ActivateShortcutParams {
   item: ShortcutDefinition
@@ -66,7 +66,7 @@ function normalizeResolvedValue(
   value: unknown,
   mode: ShortcutMode,
   isTyped: boolean,
-): { value: ShortcutResolvedValue | null; reason: InvalidShortcutEventPayload['reason'] | null } {
+): { value: ShortcutResolvedValue | null, reason: InvalidShortcutEventPayload['reason'] | null } {
   if (isValidDate(value)) {
     return mode === 'range'
       ? { value: [value, value], reason: null }
@@ -162,7 +162,10 @@ function addMonthClamped(base: Date) {
 }
 
 export function resolveModernBuiltInDate(
-  shortcut: Extract<BuiltInShortcutId, 'today' | 'three-business-days' | 'next-week' | 'next-month'>,
+  shortcut: Extract<
+    BuiltInShortcutId,
+    'today' | 'three-business-days' | 'next-week' | 'next-month'
+  >,
   now: Date,
 ) {
   const baseline = cloneDate(now)
@@ -199,8 +202,7 @@ export default function useShortcut() {
           constraints,
         }
         return Boolean(disabled(context))
-      }
-      catch {
+      } catch {
         return false
       }
     }
@@ -239,16 +241,13 @@ export default function useShortcut() {
     if (isTyped) {
       try {
         rawResolvedValue = item.resolver(context)
-      }
-      catch {
+      } catch {
         return createInvalidPayload(id, 'resolver-error', mode, null)
       }
-    }
-    else {
+    } else {
       try {
         rawResolvedValue = toLegacyResolvedValue(item.atClick())
-      }
-      catch {
+      } catch {
         return createInvalidPayload(id, 'resolver-error', mode, null)
       }
     }
@@ -260,8 +259,7 @@ export default function useShortcut() {
     if (Array.isArray(value)) {
       if (constraints.isDateBlocked(value[0]) || constraints.isDateBlocked(value[1]))
         return createInvalidPayload(id, 'blocked-date', mode, value)
-    }
-    else if (constraints.isDateBlocked(value)) {
+    } else if (constraints.isDateBlocked(value)) {
       return createInvalidPayload(id, 'blocked-date', mode, value)
     }
 

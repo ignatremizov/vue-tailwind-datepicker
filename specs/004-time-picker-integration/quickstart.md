@@ -97,13 +97,13 @@ Single-panel range wheel mode:
 
 ## 11. Datetime Scenario Matrix
 
-| Scenario | Status | Evidence |
-| --- | --- | --- |
-| Single datetime apply flow | PASS | Time-enabled modes render in-panel controls; Apply commits shape-preserving datetime output. |
-| Range endpoint UI by style | PASS | Input mode renders dual start/end fields; wheel modes render explicit endpoint toggle with endpoint-scoped edits. |
-| Range-order validation lifecycle | PASS | `range-end-before-start` persists until corrected; endpoint switching alone does not clear error. |
-| Formatter missing time tokens | PASS | Apply guard blocks with `config-missing-time-token`; inline error + structured `error` payload emitted on blocked Apply. |
-| Input-mode error layout stability | PASS | Validation messages wrap without expanding picker width. |
-| Open-state mode-switch stability | PASS | `wheel-page -> wheel-inline(right) -> wheel-page` no stale lock artifacts after reset/re-measure. |
-| DST nonexistent local time | PASS | Local datetime validation rejects nonexistent local time and emits `dst-nonexistent-time`. |
-| Initialization hydration without emit | PASS | Missing time components hydrate internal drafts using defaults/fallback before Apply, without early `update:modelValue`. |
+| Scenario                              | Status | Evidence                                                                                                                 |
+| ------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Single datetime apply flow            | PASS   | Time-enabled modes render in-panel controls; Apply commits shape-preserving datetime output.                             |
+| Range endpoint UI by style            | PASS   | Input mode renders dual start/end fields; wheel modes render explicit endpoint toggle with endpoint-scoped edits.        |
+| Range-order validation lifecycle      | PASS   | `range-end-before-start` persists until corrected; endpoint switching alone does not clear error.                        |
+| Formatter missing time tokens         | PASS   | Apply guard blocks with `config-missing-time-token`; inline error + structured `error` payload emitted on blocked Apply. |
+| Input-mode error layout stability     | PASS   | Validation messages wrap without expanding picker width.                                                                 |
+| Open-state mode-switch stability      | PASS   | `wheel-page -> wheel-inline(right) -> wheel-page` no stale lock artifacts after reset/re-measure.                        |
+| DST nonexistent local time            | PASS   | Local datetime validation rejects nonexistent local time and emits `dst-nonexistent-time`.                               |
+| Initialization hydration without emit | PASS   | Missing time components hydrate internal drafts using defaults/fallback before Apply, without early `update:modelValue`. |

@@ -1,8 +1,8 @@
 # Feature Specification: Native-Like Month/Year Scrolling Selector
 
-**Feature Branch**: `001-feat-native-scroll-month-year-selector`  
-**Created**: 2026-02-11  
-**Status**: Approved  
+**Feature Branch**: `001-feat-native-scroll-month-year-selector`
+**Created**: 2026-02-11
+**Status**: Approved
 **Input**: User description: "Introduce native-similar scrolling for date selection: start in calendar view, click header, then use month/year scrolling selectors instead of split paginated month and year panels."
 
 ## Reference Assets
@@ -10,7 +10,7 @@
 - Picker reference: `specs/001-feat-native-scroll-month-year-selector/references/native-picker-reference.png`
 - Selector reference: `specs/001-feat-native-scroll-month-year-selector/references/native-selector-reference.png`
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Switch from Calendar to Scroll Selectors (Priority: P1)
 
@@ -84,7 +84,7 @@ As a library consumer, I can enable or configure native-like selector behavior w
 - What happens if the current model value is invalid/empty when opening selector view?
 - How does selector view interact with range mode when the second panel is visible and one panel is currently active?
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -110,13 +110,13 @@ As a library consumer, I can enable or configure native-like selector behavior w
 - **FR-020**: System MUST support selector wheel up/down step controls for both month and year wheels with smooth repeated motion behavior.
 - **FR-021**: System MUST allow both selector panels to remain open in double-panel range mode while preserving independent month/year selection state per panel.
 
-### Key Entities *(include if feature involves data)*
+### Key Entities _(include if feature involves data)_
 
 - **Picker View Mode**: Represents active UI state (`calendar`, `selector`) and optional focus (`month`, `year`).
 - **Selector State**: Represents currently highlighted/selected month and year values used to update calendar period.
 - **Selection Context**: Represents which panel is active in range mode (`previous` vs `next`) when applying month/year changes.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

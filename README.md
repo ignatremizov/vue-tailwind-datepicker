@@ -9,7 +9,6 @@
 
 [![Commitizen friendly](https://img.shields.io/badge/commitizen-friendly-brightgreen.svg)](http://commitizen.github.io/cz-cli/)
 
-
 ## Documentation
 
 Go to [full documentation](https://vue-tailwind-datepicker.com)
@@ -37,19 +36,19 @@ How it works,
 
 ```vue
 <script setup>
-import { ref } from "vue";
-import VueTailwindDatepicker from "vue-tailwind-datepicker";
+import { ref } from 'vue'
+import VueTailwindDatepicker from 'vue-tailwind-datepicker'
 
-const dateValue = ref([]);
+const dateValue = ref([])
 const formatter = ref({
-  date: "DD MMM YYYY",
-  month: "MMM",
-});
+  date: 'DD MMM YYYY',
+  month: 'MMM',
+})
 </script>
 
 <template>
   <div>
-    <vue-tailwind-datepicker :formatter="formatter" v-model="dateValue" />
+    <VueTailwindDatepicker v-model="dateValue" :formatter="formatter" />
   </div>
 </template>
 ```
@@ -71,9 +70,9 @@ Use `timePickerStyle` to control whether time is disabled, text input, or wheel 
 
 ```vue
 <script setup>
-import { ref } from "vue";
+import { ref } from 'vue'
 
-const value = ref("");
+const value = ref('')
 </script>
 
 <template>
@@ -91,12 +90,12 @@ const value = ref("");
 
 ```vue
 <script setup>
-import { ref } from "vue";
+import { ref } from 'vue'
 
 const value = ref({
-  startDate: "",
-  endDate: "",
-});
+  startDate: '',
+  endDate: '',
+})
 </script>
 
 <template>
@@ -145,9 +144,9 @@ Enable native-like month/year scrolling with `selectorMode` (use `:selector-mode
 
 ```vue
 <script setup>
-import { ref } from "vue";
+import { ref } from 'vue'
 
-const singleDate = ref("");
+const singleDate = ref('')
 </script>
 
 <template>
@@ -159,12 +158,12 @@ const singleDate = ref("");
 
 ```vue
 <script setup>
-import { ref } from "vue";
+import { ref } from 'vue'
 
 const rangeDate = ref({
-  startDate: "",
-  endDate: "",
-});
+  startDate: '',
+  endDate: '',
+})
 </script>
 
 <template>
@@ -185,6 +184,13 @@ const rangeDate = ref({
   Recommended with `selector-mode` when you want a fully native-like keep-open flow.
   In `no-input` static mode this option is a no-op because there is no popover to close.
 
+**Popover behavior options**
+
+- `open-focus-target="input" | "calendar"`: controls where focus lands after popover open.
+- `:popover-transition="true|false"`: toggles enter/leave transition classes.
+- `:popover-restore-focus="false"` (default): prevents automatic refocus of the input/trigger when the popover closes.
+  Set `:popover-restore-focus="true"` to restore legacy trigger-refocus behavior.
+
 ```vue
 <vue-tailwind-datepicker
   v-model="rangeDate"
@@ -197,10 +203,13 @@ const rangeDate = ref({
   :selector-year-page-shift-jump="100"
   :selector-focus-tint="true"
   :close-on-range-selection="false"
+  open-focus-target="input"
+  :popover-transition="true"
+  :popover-restore-focus="false"
 />
 ```
 
-Selector wheel visuals are also themeable through CSS variables on `.vtd-datepicker` (month/year selected and hover colors, borders, typography, and wheel cell sizing). Calendar range preview colors/opacity are exposed via `--vtd-calendar-range-preview-bg` and `--vtd-calendar-range-preview-bg-dark`. See `docs/theming-options.md` for examples.
+Selector wheel visuals are also themeable through CSS variables on `.vtd-datepicker` (month/year selected and hover colors, borders, typography, wheel cell sizing, and shared selected/unselected wheel text tokens used by selector + time wheels). Calendar range preview colors/opacity are exposed via `--vtd-calendar-range-preview-bg` and `--vtd-calendar-range-preview-bg-dark`. See `docs/theming-options.md` for examples.
 
 ## Shortcut Layout Customization
 
@@ -256,7 +265,9 @@ Hooks are stable across locales and also apply when `selector-mode` is enabled:
 
 ```vue
 <vue-tailwind-datepicker v-model="rangeEn" use-range i18n="en" />
+
 <vue-tailwind-datepicker v-model="rangeDe" use-range i18n="de" />
+
 <vue-tailwind-datepicker
   v-model="rangeSelector"
   use-range
@@ -268,6 +279,48 @@ Hooks are stable across locales and also apply when `selector-mode` is enabled:
 
 Hooks are additive: selected/range/disabled/today semantics remain unchanged unless your host CSS explicitly overrides them.
 
+## Direct Year Input (Selector Mode)
+
+Use `directYearInput` to allow typing a year directly in selector mode. The feature is opt-in and defaults to `false`.
+
+```vue
+<script setup>
+import { ref } from 'vue'
+
+const value = ref({
+  startDate: '',
+  endDate: '',
+})
+</script>
+
+<template>
+  <vue-tailwind-datepicker
+    v-model="value"
+    use-range
+    :selector-mode="true"
+    :direct-year-input="true"
+    year-numbering-mode="historical"
+  />
+</template>
+```
+
+Behavior summary:
+
+- Valid typed tokens commit immediately to selector/calendar state and emit `update:modelValue` for the active context.
+- Year parsing supports signed `-99999..99999`; `year-numbering-mode="historical"` rejects `0`, while `astronomical` accepts `0`.
+- Typeahead intentionally supports historical/fantasy/scientific timelines (not only modern Gregorian UI assumptions):
+  - Prefix `1` anchors to `1950` for 1-digit starts.
+  - Prefix `2` anchors to the current year suffix for 1-digit starts.
+  - 2-digit tokens use a mid-century suffix (`xx50`).
+  - 3-digit non-zero prefixes use a mid-decade suffix (`xxx5`).
+  - Up to 5 digits are accepted before the token resets.
+  - `+` / `-` set explicit sign, `Backspace` edits the active token, and `Escape` clears it.
+  - Typeahead state auto-resets after 900 ms of idle time.
+- Enter confirms in place and keeps selector mode open.
+- Escape and invalid blur revert to the last valid year text.
+- In range mode, temporary `start > end` from live typing is allowed and is normalized only at explicit persist boundaries (`Apply` or close-with-persist toggle).
+- Cancel-like exits (Escape, Cancel button, backdrop dismiss) do not trigger range normalization.
+
 ## Theming options
 
 **Light Mode**
@@ -278,12 +331,37 @@ Hooks are additive: selected/range/disabled/today semantics remain unchanged unl
 
 ![Dark Mode](https://github.com/elreco/vue-tailwind-datepicker/blob/main/docs/dark.png?raw=true)
 
+## Local Dev Ports
+
+- `npm run dev` uses Vite dev-server defaults (typically `http://127.0.0.1:5173/` unless overridden).
+- `npm run preview` runs on `http://127.0.0.1:4173/` (configured in `package.json`).
+- `npm run docs:screenshots` accepts a base URL argument, for example:
+  - `npm run docs:screenshots -- http://127.0.0.1:5173/`
+  - `npm run docs:screenshots -- http://127.0.0.1:4180/` (useful when working across multiple worktrees).
+  - Screenshot quality is configurable via env vars:
+    - `DOC_SCREENSHOT_VIEWPORT_WIDTH` (default `1800`)
+    - `DOC_SCREENSHOT_VIEWPORT_HEIGHT` (default `1300`)
+    - `DOC_SCREENSHOT_DEVICE_SCALE` (default `2`)
+    - `DOC_SCREENSHOT_ZOOM` (default `1.0`)
+- `npm run docs:videos` generates MP4 animation captures (same URL argument pattern):
+  - `npm run docs:videos -- http://127.0.0.1:5173/`
+  - `npm run docs:videos -- http://127.0.0.1:4180/`
+
+## Dependency Pins (Dev)
+
+- `@headlessui/vue` is pinned to a GitHub release tarball from the fork to include Vue fixes not yet available in the upstream npm line used by this repo.
+- `js-beautify` is pinned via `overrides` to a fork tarball commit to break an upstream dev-only audit chain (through `@vue/test-utils`), until upstream publishes an equivalent fix.
+- When updating either pin, prefer a tagged release or commit SHA URL and run:
+  - `npm install`
+  - `npm run test:unit`
+  - `npm run build`
+  - `npm audit`
+
 ## Changelog
 
 All notable changes to this project will be documented in the [Releases Page](https://github.com/elreco/vue-tailwind-datepicker/releases).
 
 ## Sponsors
-
 
 - [Open Source AI Tools](https://ai.coderocket.app)
 - [www.coderocket.app](https://www.coderocket.app)

@@ -29,12 +29,12 @@ export type ShortcutMode = 'single' | 'range'
 
 export type ShortcutResolvedValue = Date | [Date, Date]
 
-export type ShortcutInvalidReason =
-  | 'disabled'
-  | 'blocked-date'
-  | 'mode-mismatch'
-  | 'resolver-error'
-  | 'invalid-result'
+export type ShortcutInvalidReason
+  = | 'disabled'
+    | 'blocked-date'
+    | 'mode-mismatch'
+    | 'resolver-error'
+    | 'invalid-result'
 
 export interface ShortcutConstraints {
   isDateBlocked: (date: Date) => boolean
@@ -129,4 +129,20 @@ export interface DateTimeErrorEventPayload {
   message: string
   field: DateTimeErrorField
   endpoint: DateTimeEndpointSelection | null
+}
+
+export type SelectorFocus = 'month' | 'year'
+export type SelectionPanel = 'previous' | 'next'
+export type YearNumberingMode = 'historical' | 'astronomical'
+
+export interface DirectYearInputConfig {
+  directYearInput: boolean
+  yearNumberingMode: YearNumberingMode
+}
+
+export interface SelectorYearInputTokenState {
+  rawText: string
+  normalizedText: string
+  parsedYear: number | null
+  isValidToken: boolean
 }

@@ -1,11 +1,11 @@
 # Feature Specification: Shortcut Extension Points in Date Picker Panel
 
-**Feature Branch**: `003-shortcut-extension-points`  
-**Created**: 2026-02-12  
-**Status**: Implemented  
+**Feature Branch**: `003-shortcut-extension-points`
+**Created**: 2026-02-12
+**Status**: Implemented
 **Input**: User description: "Support in-panel quick actions (Today, 3 business days, Next week, Next month) and extensible shortcut rendering for custom picker workflows."
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Built-in Date Shortcuts (Priority: P1)
 
@@ -82,7 +82,7 @@ As a keyboard or assistive-tech user, I can discover and activate shortcuts reli
 - Built-in shortcut determinism depends on browser-local time (`Date`/dayjs local timezone) at activation time, not server time.
 - Business-day semantics are fixed to Monday-Friday regardless of locale first-day-of-week configuration.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -109,13 +109,13 @@ As a keyboard or assistive-tech user, I can discover and activate shortcuts reli
 - **FR-021**: Built-in shortcut preset selection MUST use a dedicated public prop `shortcutPreset` with enum `legacy | modern`; default MUST be `legacy`.
 - **FR-022**: Shortcut disabled-state computation MUST be memoized per shortcut target and mode to avoid repeated resolver/activation pipeline work on unrelated rerenders; cache invalidation MUST occur when value, shortcut definitions, preset, range mode, or date-blocking constraints change, and time-sensitive disabled states MUST refresh without requiring user interaction.
 
-### Key Entities *(include if feature involves data)*
+### Key Entities _(include if feature involves data)_
 
 - **Shortcut Definition**: Label + resolver function/strategy that maps current context to target date.
 - **Shortcut Item Renderer**: Per-item extension hook for shortcut UI while preserving internal action wiring.
 - **Picker Context**: Current date value, timezone/locality assumptions, and active mode (single/range).
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

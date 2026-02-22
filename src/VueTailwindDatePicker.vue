@@ -1,50 +1,4 @@
 <script setup lang="ts">
-import {
-  Popover,
-  PopoverButton,
-  PopoverOverlay,
-  PopoverPanel,
-} from '@headlessui/vue'
-import type { Dayjs } from 'dayjs'
-import dayjs from 'dayjs'
-import localeData from 'dayjs/plugin/localeData'
-import localizedFormat from 'dayjs/plugin/localizedFormat'
-import customParseFormat from 'dayjs/plugin/customParseFormat'
-import isToday from 'dayjs/plugin/isToday'
-import isBetween from 'dayjs/plugin/isBetween'
-import duration from 'dayjs/plugin/duration'
-import weekOfYear from 'dayjs/plugin/weekOfYear'
-import type { Ref } from 'vue'
-import {
-  computed,
-  isProxy,
-  nextTick,
-  provide,
-  reactive,
-  ref,
-  unref,
-  watch,
-  watchEffect,
-} from 'vue'
-import {
-  analyzeFormatterTimeTokens,
-  localesMap,
-  maskDayjsEscapedLiterals,
-  normalizeDefaultTimeInput,
-} from './utils'
-import VtdHeader from './components/Header.vue'
-import VtdShortcut from './components/Shortcut.vue'
-import VtdCalendar from './components/Calendar.vue'
-import VtdYear from './components/Year.vue'
-import VtdWeek from './components/Week.vue'
-import VtdMonth from './components/Month.vue'
-import VtdTimeWheel from './components/TimeWheel.vue'
-import useDate from './composables/date'
-import useDom from './composables/dom'
-import useShortcut, {
-  legacyShortcutFallbackId,
-  resolveModernBuiltInDate,
-} from './composables/shortcut'
 import type {
   ApplyGuardState,
   DatePickerDay,
@@ -56,15 +10,61 @@ import type {
   InvalidShortcutEventPayload,
   LegacyShortcutDefinition,
   RangeDraftState,
+  SelectionPanel,
+  SelectorFocus,
   ShortcutDefinition,
   ShortcutFactory,
   ShortcutPreset,
   TypedShortcutDefinition,
+  YearNumberingMode,
 } from './types'
 import {
-  type BuiltInShortcutId,
-  type ShortcutActivationTarget,
-  type ShortcutDisabledState,
+  Popover,
+  PopoverButton,
+  PopoverOverlay,
+  PopoverPanel,
+} from '@headlessui/vue'
+import dayjs, { type Dayjs } from 'dayjs'
+import customParseFormat from 'dayjs/plugin/customParseFormat'
+import duration from 'dayjs/plugin/duration'
+import isBetween from 'dayjs/plugin/isBetween'
+import isToday from 'dayjs/plugin/isToday'
+import localeData from 'dayjs/plugin/localeData'
+import localizedFormat from 'dayjs/plugin/localizedFormat'
+import weekOfYear from 'dayjs/plugin/weekOfYear'
+import {
+  computed,
+  getCurrentInstance,
+  isProxy,
+  nextTick,
+  onMounted,
+  onUnmounted,
+  provide,
+  reactive,
+  ref,
+  unref,
+  watch,
+  watchEffect,
+  type Ref,
+} from 'vue'
+import VtdCalendar from './components/Calendar.vue'
+import VtdHeader from './components/Header.vue'
+import VtdMonth from './components/Month.vue'
+import VtdShortcut from './components/Shortcut.vue'
+import VtdTimeWheel from './components/TimeWheel.vue'
+import VtdWeek from './components/Week.vue'
+import VtdYear from './components/Year.vue'
+import useDate from './composables/date'
+import {
+  formatModelDateWithDirectYear,
+  parseModelDateWithDirectYear,
+} from './composables/directYearInput'
+import useDom from './composables/dom'
+import useShortcut, {
+  legacyShortcutFallbackId,
+  resolveModernBuiltInDate,
+} from './composables/shortcut'
+import {
   activateShortcutKey,
   atMouseOverKey,
   betweenRangeClassesKey,
@@ -72,7 +72,16 @@ import {
   getShortcutDisabledStateKey,
   isBetweenRangeKey,
   isShortcutDisabledKey,
+  type BuiltInShortcutId,
+  type ShortcutActivationTarget,
+  type ShortcutDisabledState,
 } from './keys'
+import {
+  analyzeFormatterTimeTokens,
+  localesMap,
+  maskDayjsEscapedLiterals,
+  normalizeDefaultTimeInput,
+} from './utils'
 
 export interface Props {
   noInput?: boolean
@@ -111,11 +120,16 @@ export interface Props {
   selectorMode?: boolean
   selectorFocusTint?: boolean
   selectorYearScrollMode?: 'boundary' | 'fractional'
+  directYearInput?: boolean
+  yearNumberingMode?: YearNumberingMode
   selectorYearHomeJump?: number
   selectorYearEndJump?: number
   selectorYearPageJump?: number
   selectorYearPageShiftJump?: number
   closeOnRangeSelection?: boolean
+  openFocusTarget?: 'calendar' | 'input'
+  popoverTransition?: boolean
+  popoverRestoreFocus?: boolean
   options?: {
     shortcuts: {
       today: string
@@ -132,14 +146,14 @@ export interface Props {
       cancel: string
     }
   }
-  modelValue:
-  | [Date, Date]
-  | { start: Date | string; end: Date | string }
-  | {
-    startDate: Date | string
-    endDate: Date | string
-  }
-  | string
+  modelValue?:
+    | [Date, Date]
+    | { start: Date | string, end: Date | string }
+    | {
+      startDate: Date | string
+      endDate: Date | string
+    }
+    | string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -171,11 +185,16 @@ const props = withDefaults(defineProps<Props>(), {
   selectorMode: false,
   selectorFocusTint: true,
   selectorYearScrollMode: 'boundary',
+  directYearInput: false,
+  yearNumberingMode: 'historical',
   selectorYearHomeJump: 100,
   selectorYearEndJump: 100,
   selectorYearPageJump: 10,
   selectorYearPageShiftJump: 100,
   closeOnRangeSelection: true,
+  openFocusTarget: 'input',
+  popoverTransition: true,
+  popoverRestoreFocus: false,
   options: () => ({
     shortcuts: {
       today: 'Today',
@@ -196,17 +215,20 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: Array<string> | Array<Dayjs> | string | Record<string, string>): void;
-  (e: 'invalid-shortcut', payload: InvalidShortcutEventPayload): void;
-  (e: 'selectMonth', value: Dayjs): void;
-  (e: 'selectYear', value: Dayjs): void;
-  (e: 'selectRightMonth', value: Dayjs): void;
-  (e: 'selectRightYear', value: Dayjs): void;
-  (e: 'clickPrev', value: Dayjs): void;
-  (e: 'clickNext', value: Dayjs): void;
-  (e: 'clickRightPrev', value: Dayjs): void;
-  (e: 'clickRightNext', value: Dayjs): void;
-  (e: 'error', value: DateTimeErrorEventPayload): void;
+  (
+    e: 'update:modelValue',
+    value: Array<string> | Array<Dayjs> | string | Record<string, string>,
+  ): void
+  (e: 'invalid-shortcut', payload: InvalidShortcutEventPayload): void
+  (e: 'selectMonth', value: Dayjs): void
+  (e: 'selectYear', value: Dayjs): void
+  (e: 'selectRightMonth', value: Dayjs): void
+  (e: 'selectRightYear', value: Dayjs): void
+  (e: 'clickPrev', value: Dayjs): void
+  (e: 'clickNext', value: Dayjs): void
+  (e: 'clickRightPrev', value: Dayjs): void
+  (e: 'clickRightNext', value: Dayjs): void
+  (e: 'error', value: DateTimeErrorEventPayload): void
 }>()
 
 const {
@@ -234,11 +256,33 @@ dayjs.extend(isBetween)
 dayjs.extend(duration)
 dayjs.extend(weekOfYear)
 
-const VtdRef = ref(null)
+const resolvedLocale = ref(props.i18n)
+
+function dayjsWithResolvedLocale(value?: string | number | Date | Dayjs) {
+  return dayjs(value).locale(resolvedLocale.value)
+}
+
+function resolveWeekdayLabels() {
+  const localeData = dayjsWithResolvedLocale().localeData()
+  return props.weekdaysSize === 'min'
+    ? localeData.weekdaysMin()
+    : localeData.weekdaysShort()
+}
+
+function resolveMonthLabels() {
+  const localeData = dayjsWithResolvedLocale().localeData()
+  return props.formatter.month === 'MMM'
+    ? localeData.monthsShort()
+    : localeData.months()
+}
+
+const VtdRef = ref<HTMLElement | null>(null)
 const VtdStaticRef = ref<HTMLElement | null>(null)
 const VtdPanelContentRef = ref<HTMLElement | null>(null)
 const VtdInputRef = ref<HTMLInputElement | null>(null)
 const VtdPopoverButtonRef = ref<unknown>(null)
+let preserveInputFocusOnNextPopoverClose = false
+let panelMeasureJobToken = 0
 const placement = ref<boolean | null>(null)
 const givenPlaceholder = ref('')
 const selection = ref<Dayjs | null>(null)
@@ -247,6 +291,8 @@ const hoverValue = ref<Dayjs[]>([])
 const applyValue = ref<Dayjs[]>([])
 const previous = ref<Dayjs | null>(null)
 const next = ref<Dayjs | null>(null)
+const liveAnnouncement = ref('')
+let lastSyncedTextInputSignature: string | null = null
 
 interface ResolvedModelDateValue {
   value: Dayjs | null
@@ -256,6 +302,37 @@ interface ResolvedModelDateValue {
 interface TimeWheelOption {
   label: string
   value: number | string
+}
+
+function announcePolite(message: string) {
+  if (!message)
+    return
+  liveAnnouncement.value = ''
+  nextTick(() => {
+    liveAnnouncement.value = message
+  })
+}
+
+function formatAnnouncementDate(dateValue: Dayjs) {
+  return dateValue.locale(resolvedLocale.value).format(props.formatter.date)
+}
+
+function announceMonthChanged(dateValue: Dayjs) {
+  announcePolite(`Month changed to ${dateValue.locale(resolvedLocale.value).format('MMMM YYYY')}.`)
+}
+
+function announceSingleDateSelection(dateValue: Dayjs, committed = false) {
+  const action = committed ? 'Date applied' : 'Date selected'
+  announcePolite(`${action}: ${formatAnnouncementDate(dateValue)}.`)
+}
+
+function announceRangeSelection(start: Dayjs, end: Dayjs, committed = false) {
+  const action = committed ? 'Range applied' : 'Range selected'
+  announcePolite(`${action}: ${formatAnnouncementDate(start)} to ${formatAnnouncementDate(end)}.`)
+}
+
+function announceRangeStartSelection(dateValue: Dayjs) {
+  announcePolite(`Range start selected: ${formatAnnouncementDate(dateValue)}.`)
 }
 
 interface TimeWheelStepPayload {
@@ -268,13 +345,95 @@ interface TimeWheelStepPayload {
 
 type ResolvedTimePickerStyle = 'none' | 'input' | 'wheel-inline' | 'wheel-page'
 
-const DATE_TIME_TOKEN_PATTERN = /\s*(HH:mm(?::ss)?|h{1,2}:mm(?::ss)?\s*[Aa])/
+interface VtdDebugEvent {
+  at: number
+  type: string
+  instance: string
+  payload?: Record<string, unknown>
+}
+
+interface VtdDebugStore {
+  mountedCount: number
+  events: VtdDebugEvent[]
+}
+
+interface VtdDebugWindow extends Window {
+  __VTD_DEBUG__?: VtdDebugStore
+  __VTD_DEBUG_ENABLED__?: boolean
+}
+
+const instanceUid = getCurrentInstance()?.uid ?? Math.round(Math.random() * 1_000_000)
+const debugInstanceLabel = `picker-${instanceUid}`
+
+function isDebugEnabled() {
+  if (!import.meta.env.DEV || typeof window === 'undefined')
+    return false
+
+  const runtimeWindow = window as VtdDebugWindow
+  return runtimeWindow.__VTD_DEBUG_ENABLED__ === true
+}
+
+function getDebugStore() {
+  if (typeof window === 'undefined')
+    return null
+
+  const runtimeWindow = window as VtdDebugWindow
+  if (!runtimeWindow.__VTD_DEBUG__) {
+    runtimeWindow.__VTD_DEBUG__ = {
+      mountedCount: 0,
+      events: [],
+    }
+  }
+  return runtimeWindow.__VTD_DEBUG__
+}
+
+function pushDebugEvent(type: string, payload?: Record<string, unknown>) {
+  if (!isDebugEnabled())
+    return
+
+  const store = getDebugStore()
+  if (!store)
+    return
+
+  const event: VtdDebugEvent = {
+    at: performance.now(),
+    type,
+    instance: debugInstanceLabel,
+  }
+  if (payload)
+    event.payload = payload
+  store.events.push(event)
+
+  // Keep the log bounded so long demo sessions do not balloon memory usage.
+  if (store.events.length > 2000)
+    store.events.splice(0, store.events.length - 2000)
+}
+
+function describeActiveElement() {
+  if (typeof document === 'undefined')
+    return 'none'
+
+  const active = document.activeElement
+  if (!(active instanceof HTMLElement))
+    return 'none'
+
+  const id = active.id ? `#${active.id}` : ''
+  const className
+    = typeof active.className === 'string' && active.className.trim().length > 0
+      ? `.${active.className.trim().split(/\s+/).slice(0, 2).join('.')}`
+      : ''
+  return `${active.tagName.toLowerCase()}${id}${className}`
+}
+
+const DATE_TIME_TOKEN_PATTERN = /\s*(?:HH:mm(?::ss)?|h{1,2}:mm(?::ss)?\s*[Aa])/
 const TIME_WHEEL_STEP_DEDUP_WINDOW_MS = 90
 
 const resolvedTimePickerStyle = computed<ResolvedTimePickerStyle>(() => props.timePickerStyle)
 const isDateTimeEnabled = computed(() => resolvedTimePickerStyle.value !== 'none')
 const isInlineTimePickerStyle = computed(() => {
-  return resolvedTimePickerStyle.value === 'input' || resolvedTimePickerStyle.value === 'wheel-inline'
+  return (
+    resolvedTimePickerStyle.value === 'input' || resolvedTimePickerStyle.value === 'wheel-inline'
+  )
 })
 const isInputTimePickerStyle = computed(() => resolvedTimePickerStyle.value === 'input')
 const isPageTimePickerStyle = computed(() => resolvedTimePickerStyle.value === 'wheel-page')
@@ -286,6 +445,16 @@ const isPageAutoSwitchMode = computed(() => props.timePageMode === 'after-date')
 const autoApplyEnabled = computed(() => props.autoApply && !isDateTimeEnabled.value)
 const showApplyFooter = computed(() => !autoApplyEnabled.value)
 const showMobileCancelFooter = computed(() => autoApplyEnabled.value)
+
+const useLegacyNoTimeSelectorHeightClamp = computed(() => {
+  return (
+    props.selectorMode
+    && props.asSingle
+    && !isDateTimeEnabled.value
+    && !showApplyFooter.value
+    && !showMobileCancelFooter.value
+  )
+})
 const formatterTimeTokens = computed(() => analyzeFormatterTimeTokens(props.formatter.date))
 const datetimeModeConfig = computed<DateTimeModeConfig>(() => ({
   datetime: isDateTimeEnabled.value,
@@ -325,13 +494,13 @@ const hourWheelStepDirection = reactive<Record<DateTimeEndpointSelection, -1 | 0
   start: 0,
   end: 0,
 })
-const lastMinuteWheelStepSignature = reactive<Record<DateTimeEndpointSelection, { key: string; at: number }>>({
-  start: { key: '', at: 0 },
-  end: { key: '', at: 0 },
+const lastMinuteWheelStepSignature = reactive<Record<DateTimeEndpointSelection, { key: string, semanticKey: string, at: number }>>({
+  start: { key: '', semanticKey: '', at: 0 },
+  end: { key: '', semanticKey: '', at: 0 },
 })
-const lastSecondWheelStepSignature = reactive<Record<DateTimeEndpointSelection, { key: string; at: number }>>({
-  start: { key: '', at: 0 },
-  end: { key: '', at: 0 },
+const lastSecondWheelStepSignature = reactive<Record<DateTimeEndpointSelection, { key: string, semanticKey: string, at: number }>>({
+  start: { key: '', semanticKey: '', at: 0 },
+  end: { key: '', semanticKey: '', at: 0 },
 })
 const meridiemWheelSyncDirection = reactive<Record<DateTimeEndpointSelection, -1 | 0 | 1>>({
   start: 0,
@@ -366,8 +535,10 @@ const dateTimeFormatDescription = computed(() => {
 const timePickerPanelOpen = ref(isInlineTimePickerStyle.value)
 
 const isTimePickerWheelStyle = computed(() => {
-  return resolvedTimePickerStyle.value === 'wheel-inline'
+  return (
+    resolvedTimePickerStyle.value === 'wheel-inline'
     || resolvedTimePickerStyle.value === 'wheel-page'
+  )
 })
 
 const shouldShowDatePanels = computed(() => {
@@ -400,12 +571,31 @@ const showAnyInlineTimePanel = computed(() => {
   return showPageTimePanelInline.value || showInlineTimePanelInline.value
 })
 
+const panelContentLockState = reactive({
+  shellWidth: 0,
+  width: 0,
+  height: 0,
+})
+
+const showDualRangeTimePanels = computed(() => {
+  return asRange() && !props.asSingle
+})
+
 const inlineRightHeightLockReady = ref(false)
 
 const shouldUseFillTimePanelLayout = computed(() => {
   if (showInlineTimePanelInline.value)
     return inlineRightHeightLockReady.value
-  return showPageTimePanelInline.value
+
+  if (!showPageTimePanelInline.value)
+    return false
+
+  // In dual wheel-page mode, defer "fill" layout until a valid panel lock is
+  // measured; otherwise the initial open can expand the wheel content height.
+  if (asRange() && !props.asSingle)
+    return panelContentLockState.height > 0
+
+  return true
 })
 
 const timePanelFillClass = computed(() => {
@@ -419,9 +609,9 @@ const hasMountedPageTimePanel = ref(false)
 const shouldRenderInlineTimePanels = computed(() => {
   if (showPageTimePanelInline.value || showInlineTimePanelInline.value)
     return true
-  return isPageTimePickerStyle.value
-    && showDualRangeTimePanels.value
-    && hasMountedPageTimePanel.value
+  return (
+    isPageTimePickerStyle.value && showDualRangeTimePanels.value && hasMountedPageTimePanel.value
+  )
 })
 
 const showStackedDateTimeControls = computed(() => {
@@ -437,9 +627,11 @@ const shouldShowTimePanelSwitchButton = computed(() => {
 })
 
 const shouldShowHeaderTimePanelSwitchButton = computed(() => {
-  return shouldShowTimePanelSwitchButton.value
+  return (
+    shouldShowTimePanelSwitchButton.value
     && !showApplyFooter.value
     && !showMobileCancelFooter.value
+  )
 })
 
 const timePanelSwitchLabel = computed(() => {
@@ -464,12 +656,6 @@ const timeWheelGridColumnClass = computed(() => {
     default:
       return 'grid-cols-2 sm:grid-cols-4'
   }
-})
-
-const panelContentLockState = reactive({
-  shellWidth: 0,
-  width: 0,
-  height: 0,
 })
 
 const shouldLockPanelContentSize = computed(() => {
@@ -513,6 +699,7 @@ const datepickerShellLockStyle = computed(() => {
 })
 
 function resetPanelContentLockState() {
+  panelMeasureJobToken += 1
   panelContentLockState.shellWidth = 0
   panelContentLockState.width = 0
   panelContentLockState.height = 0
@@ -520,6 +707,7 @@ function resetPanelContentLockState() {
 }
 
 function measureAndLockPanelContentSize() {
+  const measurementStartAt = performance.now()
   if (!shouldLockPanelContentSize.value)
     return
   if (!shouldShowDatePanels.value)
@@ -544,48 +732,51 @@ function measureAndLockPanelContentSize() {
   let measuredHeight = rect.height
   if (showInlineTimePanelInline.value) {
     const calendarPanels = Array.from(
-      panelElement.querySelectorAll<HTMLElement>('[data-vtd-selector-panel="previous"], [data-vtd-selector-panel="next"]'),
+      panelElement.querySelectorAll<HTMLElement>(
+        '[data-vtd-selector-panel="previous"], [data-vtd-selector-panel="next"]',
+      ),
     )
     const calendarHeight = calendarPanels.reduce((maxHeight, el) => {
-      const panelStyle = getComputedStyle(el)
-      const panelPaddingTop = Number.parseFloat(panelStyle.paddingTop || '0') || 0
-      const panelPaddingBottom = Number.parseFloat(panelStyle.paddingBottom || '0') || 0
-      const visibleChildrenHeight = Array.from(el.children).reduce((sum, child) => {
-        if (!(child instanceof HTMLElement))
-          return sum
-
-        const childStyle = getComputedStyle(child)
-        if (childStyle.display === 'none' || childStyle.position === 'absolute')
-          return sum
-
-        const childRect = child.getBoundingClientRect()
-        if (!childRect.height)
-          return sum
-
-        const marginTop = Number.parseFloat(childStyle.marginTop || '0') || 0
-        const marginBottom = Number.parseFloat(childStyle.marginBottom || '0') || 0
-        return sum + childRect.height + marginTop + marginBottom
-      }, 0)
-
-      const intrinsicHeight = panelPaddingTop + visibleChildrenHeight + panelPaddingBottom
-      if (!intrinsicHeight)
+      const panelHeight = el.getBoundingClientRect().height
+      if (!panelHeight)
         return maxHeight
-
-      return Math.max(maxHeight, intrinsicHeight)
+      return Math.max(maxHeight, panelHeight)
     }, 0)
 
+    const panelContentStyle = getComputedStyle(panelElement)
+    const panelPaddingTop = Number.parseFloat(panelContentStyle.paddingTop || '0') || 0
+    const panelPaddingBottom = Number.parseFloat(panelContentStyle.paddingBottom || '0') || 0
+
     if (calendarHeight > 0)
-      measuredHeight = calendarHeight
+      measuredHeight = calendarHeight + panelPaddingTop + panelPaddingBottom
   }
 
   panelContentLockState.height = Math.max(panelContentLockState.height, Math.ceil(measuredHeight))
   if (showInlineTimePanelInline.value && panelContentLockState.height > 0)
     inlineRightHeightLockReady.value = true
+
+  const measurementDuration = performance.now() - measurementStartAt
+  if (measurementDuration >= 4 || isDebugEnabled()) {
+    pushDebugEvent('panel-measure', {
+      durationMs: Number(measurementDuration.toFixed(2)),
+      shellWidth: panelContentLockState.shellWidth,
+      width: panelContentLockState.width,
+      height: panelContentLockState.height,
+      inlineRight: showInlineTimePanelInline.value,
+      open: isPopoverOpen(),
+    })
+  }
 }
 
 function queuePanelContentMeasurement() {
+  const token = ++panelMeasureJobToken
+  pushDebugEvent('panel-measure-queued', { token, open: isPopoverOpen() })
   nextTick(() => {
+    if (token !== panelMeasureJobToken)
+      return
     requestAnimationFrame(() => {
+      if (token !== panelMeasureJobToken)
+        return
       measureAndLockPanelContentSize()
     })
   })
@@ -601,19 +792,17 @@ function refreshPanelContentLockState() {
   queuePanelContentMeasurement()
 }
 
-const showDualRangeTimePanels = computed(() => {
-  return asRange() && !props.asSingle
-})
-
 const collapseDualRangeInlineRightTimePanel = computed(() => {
   return showDualRangeTimePanels.value && showInlineTimePanelInline.value
 })
 
 const showSingleRangeInputDualEndpointsUi = computed(() => {
-  return asRange()
+  return (
+    asRange()
     && props.asSingle
     && !isTimePickerWheelStyle.value
     && shouldShowDateTimeControls.value
+  )
 })
 
 const showDualRangeTimePanelsUi = computed(() => {
@@ -645,8 +834,9 @@ const timePanelEndpointLayoutStyle = computed(() => {
   if (!isTimePickerWheelStyle.value)
     return undefined
 
-  const configuredHeight
-    = isPageTimePickerStyle.value ? props.timeWheelPageHeight : props.timeWheelHeight
+  const configuredHeight = isPageTimePickerStyle.value
+    ? props.timeWheelPageHeight
+    : props.timeWheelHeight
   if (!Number.isFinite(configuredHeight) || configuredHeight <= 0)
     return undefined
 
@@ -673,26 +863,22 @@ const timePanelHeaderActionsClass = computed(() => {
   ]
 })
 
-const timePanelHeaderRowClass = computed(() => {
-  return [
-    'flex items-center gap-2',
-    showDualRangeTimePanelsUi.value || shouldCenterTimePanelEndpointToggle.value || shouldOverlayTimeFormatLabel.value
-      ? 'relative'
-      : 'justify-between',
-  ]
-})
-
 const shouldCenterTimePanelEndpointToggle = computed(() => {
-  return asRange()
+  return (
+    asRange()
     && !showDualRangeTimePanelsUi.value
     && showStackedDateTimeControls.value
     && !showInlineTimePanelInline.value
+    && !!props.shortcuts
+  )
 })
 
 const shouldShowInlineTimePanelEndpointToggle = computed(() => {
-  return asRange()
+  return (
+    asRange()
     && !showDualRangeTimePanelsUi.value
     && !shouldCenterTimePanelEndpointToggle.value
+  )
 })
 
 const shouldOverlayTimeFormatLabel = computed(() => {
@@ -703,15 +889,24 @@ const shouldOverlayTimeFormatLabel = computed(() => {
   return showDualRangeTimePanelsUi.value || shouldCenterTimePanelEndpointToggle.value
 })
 
+const timePanelHeaderRowClass = computed(() => {
+  return [
+    'flex items-center gap-2',
+    showDualRangeTimePanelsUi.value
+    || shouldCenterTimePanelEndpointToggle.value
+    || shouldOverlayTimeFormatLabel.value
+      ? 'relative'
+      : 'justify-between',
+  ]
+})
+
 const shouldShowInlineTimeFormatLabel = computed(() => {
   return !shouldOverlayTimeFormatLabel.value
 })
 
 const timePanelCenteredToggleWrapperClass = 'pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 justify-center px-2'
 const timePanelDualEndpointLabelsClass = computed(() => {
-  return [
-    'grid min-w-0 flex-1 grid-cols-2 gap-2',
-  ]
+  return ['grid min-w-0 flex-1 grid-cols-2 gap-2']
 })
 const timePanelDualEndpointLabelTextClass = 'truncate pl-1 text-xs font-medium text-vtd-secondary-700 dark:text-vtd-secondary-200'
 
@@ -989,7 +1184,7 @@ function extractDateOnlyFormatter(formatterDate: string) {
     return trimmedFormatter
 
   let datePart = trimmedFormatter.slice(0, match.index)
-  datePart = datePart.replace(/(?:\[(?:[Tt\s.,:;/_-]*)\]|[\sT.,:;/_-])+$/u, '').trimEnd()
+  datePart = datePart.replace(/(?:\[[Tt\s.,:;/_-]*\]|[\sT.,:;/_-])+$/u, '').trimEnd()
   return datePart || null
 }
 
@@ -1000,10 +1195,11 @@ function resolveHydrationTime(endpoint: DateTimeEndpointSelection) {
   if (!timeTokens.isValid || !timeTokens.normalizedTimeFormat)
     return null
 
-  const configuredTime = endpoint === 'end'
-    ? datetimeModeConfig.value.defaultEndTimeNormalized
-      ?? datetimeModeConfig.value.defaultTimeNormalized
-    : datetimeModeConfig.value.defaultTimeNormalized
+  const configuredTime
+    = endpoint === 'end'
+      ? (datetimeModeConfig.value.defaultEndTimeNormalized
+        ?? datetimeModeConfig.value.defaultTimeNormalized)
+      : datetimeModeConfig.value.defaultTimeNormalized
 
   if (configuredTime)
     return configuredTime
@@ -1079,10 +1275,13 @@ function resolveModelDateValue(
       }
     }
 
-    const strictDateTime = dayjs(trimmedValue, props.formatter.date, true)
-    if (strictDateTime.isValid()) {
+    const directYearDateTime = parseModelDateWithDirectYear(
+      trimmedValue,
+      props.formatter.date,
+    )
+    if (directYearDateTime) {
       return {
-        value: strictDateTime,
+        value: directYearDateTime,
         isHydrated: false,
       }
     }
@@ -1090,8 +1289,11 @@ function resolveModelDateValue(
     if (datetimeModeConfig.value.datetime) {
       const dateOnlyFormatter = extractDateOnlyFormatter(props.formatter.date)
       if (dateOnlyFormatter) {
-        const parsedDateOnly = dayjs(trimmedValue, dateOnlyFormatter, true)
-        if (parsedDateOnly.isValid())
+        const parsedDateOnly = parseModelDateWithDirectYear(
+          trimmedValue,
+          dateOnlyFormatter,
+        )
+        if (parsedDateOnly)
           return applyHydratedTimeToDate(parsedDateOnly, endpoint)
       }
     }
@@ -1115,7 +1317,9 @@ function assignDateTimeDraft(
   isHydrated = false,
 ) {
   const targetDraft
-    = endpoint === 'start' ? datetimeDraftState.start : datetimeDraftState.end
+    = endpoint === 'start'
+      ? datetimeDraftState.start
+      : datetimeDraftState.end
 
   if (!dateValue || !dateValue.isValid()) {
     targetDraft.datePart = null
@@ -1159,8 +1363,7 @@ function setDateTimeEndpoint(endpoint: DateTimeEndpointSelection) {
     return
   if (datetimeDraftState.activeEndpoint === endpoint) {
     datetimeDraftState.activeEndpoint = endpoint === 'start' ? 'end' : 'start'
-  }
-  else {
+  } else {
     datetimeDraftState.activeEndpoint = endpoint
   }
 }
@@ -1268,10 +1471,7 @@ function setApplyValueByEndpoint(endpoint: DateTimeEndpointSelection, dateValue:
 
   if (applyValue.value.length === 1) {
     applyValue.value = [applyValue.value[0], normalizedDate]
-    return
   }
-
-  return
 }
 
 function mergeDateWithDraftTime(dateValue: Dayjs, endpoint: DateTimeEndpointSelection) {
@@ -1315,22 +1515,25 @@ function applyDateTimePartsToDraft(
   const currentMeridiem = targetDraft.meridiem ?? (currentHour >= 12 ? 'PM' : 'AM')
 
   let nextHour = options.hour24 !== undefined ? normalize24Hour(options.hour24) : currentHour
-  const nextMinute = options.minute !== undefined
-    ? Math.min(Math.max(options.minute, 0), 59)
-    : currentMinute
-  const nextSecond = options.second !== undefined
-    ? Math.min(Math.max(options.second, 0), 59)
-    : currentSecond
+  const nextMinute
+    = options.minute !== undefined
+      ? Math.min(Math.max(options.minute, 0), 59)
+      : currentMinute
+  const nextSecond
+    = options.second !== undefined
+      ? Math.min(Math.max(options.second, 0), 59)
+      : currentSecond
 
   let nextMeridiem: 'AM' | 'PM' | null = null
   if (formatterTimeTokens.value.uses12Hour) {
     const resolvedMeridiem = options.meridiem ?? currentMeridiem
-    const hour12 = options.hour12 !== undefined
-      ? Math.min(Math.max(options.hour12, 1), 12)
-      : (() => {
-          const normalized = nextHour % 12
-          return normalized === 0 ? 12 : normalized
-        })()
+    const hour12
+      = options.hour12 !== undefined
+        ? Math.min(Math.max(options.hour12, 1), 12)
+        : (() => {
+            const normalized = nextHour % 12
+            return normalized === 0 ? 12 : normalized
+          })()
     nextHour = to24HourFrom12Hour(hour12, resolvedMeridiem)
     nextMeridiem = resolvedMeridiem
   }
@@ -1385,9 +1588,10 @@ function onDateTimeHourWheelUpdate(
     const meridiem: 'AM' | 'PM' = nextHour24 >= 12 ? 'PM' : 'AM'
     const currentMeridiem = getMeridiemWheelValue(endpoint) as 'AM' | 'PM'
     if (currentMeridiem !== meridiem) {
-      const meridiemDirection = directionHint !== 0
-        ? directionHint
-        : getCircularHourDelta(currentHour24, nextHour24)
+      const meridiemDirection
+        = directionHint !== 0
+          ? directionHint
+          : getCircularHourDelta(currentHour24, nextHour24)
       setMeridiemWheelSyncDirection(endpoint, meridiemDirection)
     }
     applyDateTimePartsToDraft(endpoint, {
@@ -1413,6 +1617,20 @@ function onDateTimeHourWheelStep(
   }
   markActiveDateTimeEndpoint(endpoint)
   setHourWheelStepDirection(endpoint, payload.delta)
+
+  if (!formatterTimeTokens.value.uses12Hour || payload.previousValue === null)
+    return
+
+  const currentHourValue = parseNumberValue(payload.value, getHourWheelValue(endpoint))
+  const previousHourValue = parseNumberValue(payload.previousValue, currentHourValue)
+  if (currentHourValue !== previousHourValue)
+    return
+
+  const hourDelta = resolveTimeWheelStepDelta(payload)
+  if (hourDelta === 0 || Math.abs(hourDelta) % 12 !== 0)
+    return
+
+  applyDateTimeHourCarry(endpoint, hourDelta)
 }
 
 function onDateTimeMinuteWheelUpdate(
@@ -1431,18 +1649,69 @@ function resolveTimeWheelStepDelta(payload: TimeWheelStepPayload) {
   return Math.trunc(payload.delta)
 }
 
+function normalizeWheelCycleValue(
+  rawValue: number | string | null,
+  fallbackValue: number,
+  cycleSize: number,
+) {
+  const parsed = parseNumberValue(rawValue ?? fallbackValue, fallbackValue)
+  const normalized = ((parsed % cycleSize) + cycleSize) % cycleSize
+  return Math.min(Math.max(normalized, 0), cycleSize - 1)
+}
+
+function resolveCyclicWheelStepDelta(
+  payload: TimeWheelStepPayload,
+  cycleSize: number,
+  fallbackPreviousValue: number,
+) {
+  const rawDelta = resolveTimeWheelStepDelta(payload)
+  if (rawDelta === 0)
+    return 0
+
+  const direction = rawDelta > 0 ? 1 : -1
+  const previousValue = normalizeWheelCycleValue(
+    payload.previousValue,
+    fallbackPreviousValue,
+    cycleSize,
+  )
+  const nextValue = normalizeWheelCycleValue(payload.value, previousValue, cycleSize)
+
+  // For boundary carries we prefer semantic 00<->(cycle-1) transitions over
+  // raw absolute-index deltas, which can be noisy around virtual-window rebase.
+  if (previousValue === cycleSize - 1 && nextValue === 0)
+    return 1
+  if (previousValue === 0 && nextValue === cycleSize - 1)
+    return -1
+
+  let semanticDelta = nextValue - previousValue
+  if (direction > 0 && semanticDelta < 0)
+    semanticDelta += cycleSize
+  else if (direction < 0 && semanticDelta > 0)
+    semanticDelta -= cycleSize
+
+  if (semanticDelta === 0)
+    return direction * cycleSize
+
+  return semanticDelta
+}
+
 function isDuplicateWheelStep(
   endpoint: DateTimeEndpointSelection,
   payload: TimeWheelStepPayload,
-  cache: Record<DateTimeEndpointSelection, { key: string; at: number }>,
+  cache: Record<DateTimeEndpointSelection, { key: string, semanticKey: string, at: number }>,
 ) {
   const key = `${payload.previousAbsoluteIndex}:${payload.absoluteIndex}:${String(payload.value)}`
+  const semanticKey = `${String(payload.previousValue)}:${String(payload.value)}`
   const now = Date.now()
   const previous = cache[endpoint]
-  if (previous.key === key && now - previous.at <= TIME_WHEEL_STEP_DEDUP_WINDOW_MS)
-    return true
+  if (now - previous.at <= TIME_WHEEL_STEP_DEDUP_WINDOW_MS) {
+    if (previous.key === key)
+      return true
+    if (previous.semanticKey === semanticKey)
+      return true
+  }
 
-  cache[endpoint] = { key, at: now }
+  cache[endpoint] = { key, semanticKey, at: now }
   return false
 }
 
@@ -1459,7 +1728,10 @@ function applyDateTimeHourCarry(
     return
   }
 
-  const currentHour = getDateTimeDraftByEndpoint(endpoint).hour ?? getDateTimeWheelSourceDate(endpoint)?.hour() ?? 0
+  const currentHour
+    = getDateTimeDraftByEndpoint(endpoint).hour
+      ?? getDateTimeWheelSourceDate(endpoint)?.hour()
+      ?? 0
   const nextHour24 = normalize24Hour(currentHour + hourCarry)
 
   if (formatterTimeTokens.value.uses12Hour) {
@@ -1469,14 +1741,14 @@ function applyDateTimeHourCarry(
     const meridiem: 'AM' | 'PM' = nextHour24 >= 12 ? 'PM' : 'AM'
     if (currentMeridiem !== meridiem)
       setMeridiemWheelSyncDirection(endpoint, hourCarry)
-    const payload: { hour12: number; meridiem: 'AM' | 'PM'; minute?: number } = { hour12, meridiem }
+    const payload: { hour12: number, meridiem: 'AM' | 'PM', minute?: number } = { hour12, meridiem }
     if (minute !== undefined)
       payload.minute = minute
     applyDateTimePartsToDraft(endpoint, payload)
     return
   }
 
-  const payload: { hour24: number; minute?: number } = { hour24: nextHour24 }
+  const payload: { hour24: number, minute?: number } = { hour24: nextHour24 }
   if (minute !== undefined)
     payload.minute = minute
   applyDateTimePartsToDraft(endpoint, payload)
@@ -1489,23 +1761,27 @@ function onDateTimeMinuteWheelStep(
   if (isDuplicateWheelStep(endpoint, payload, lastMinuteWheelStepSignature))
     return
 
+  if (payload.previousValue === null)
+    return
+
   // TODO(time-inline-day-boundary): evaluate optional day-boundary carry for
   // wheel-inline mode so hour/day updates can stay synchronized with calendar
   // dates when the hour wheel crosses midnight.
   const MINUTES_PER_HOUR = 60
   const currentMinute = Math.min(Math.max(getMinuteWheelValue(endpoint), 0), 59)
+  let expectedPreviousMinute = currentMinute
   if (payload.previousValue !== null) {
-    const expectedPreviousMinute = Math.min(
+    expectedPreviousMinute = Math.min(
       Math.max(parseNumberValue(payload.previousValue, currentMinute), 0),
       59,
     )
     if (expectedPreviousMinute !== currentMinute)
       return
   }
-  const minuteDelta = resolveTimeWheelStepDelta(payload)
+  const minuteDelta = resolveCyclicWheelStepDelta(payload, MINUTES_PER_HOUR, expectedPreviousMinute)
   if (minuteDelta === 0)
     return
-  const hourCarry = Math.floor((currentMinute + minuteDelta) / MINUTES_PER_HOUR)
+  const hourCarry = Math.floor((expectedPreviousMinute + minuteDelta) / MINUTES_PER_HOUR)
   if (hourCarry === 0)
     return
 
@@ -1520,20 +1796,28 @@ function onDateTimeSecondWheelStep(
   if (isDuplicateWheelStep(endpoint, payload, lastSecondWheelStepSignature))
     return
 
+  if (payload.previousValue === null)
+    return
+
   const SECONDS_PER_MINUTE = 60
   const currentSecond = Math.min(Math.max(getSecondWheelValue(endpoint), 0), 59)
+  let expectedPreviousSecond = currentSecond
   if (payload.previousValue !== null) {
-    const expectedPreviousSecond = Math.min(
+    expectedPreviousSecond = Math.min(
       Math.max(parseNumberValue(payload.previousValue, currentSecond), 0),
       59,
     )
     if (expectedPreviousSecond !== currentSecond)
       return
   }
-  const secondDelta = resolveTimeWheelStepDelta(payload)
+  const secondDelta = resolveCyclicWheelStepDelta(
+    payload,
+    SECONDS_PER_MINUTE,
+    expectedPreviousSecond,
+  )
   if (secondDelta === 0)
     return
-  const minuteCarry = Math.floor((currentSecond + secondDelta) / SECONDS_PER_MINUTE)
+  const minuteCarry = Math.floor((expectedPreviousSecond + secondDelta) / SECONDS_PER_MINUTE)
   if (minuteCarry === 0)
     return
 
@@ -1608,7 +1892,7 @@ function onDateTimeInput(
     hour24: parsedTime.hour(),
     minute: parsedTime.minute(),
     second: parsedTime.second(),
-    meridiem: (parsedTime.format('A') as 'AM' | 'PM'),
+    meridiem: parsedTime.format('A') as 'AM' | 'PM',
   })
 }
 
@@ -1631,13 +1915,17 @@ const datepicker = ref({
     previous: dayjs().year(),
     next: dayjs().year(),
   },
-  weeks:
-    props.weekdaysSize === 'min' ? dayjs.weekdaysMin() : dayjs.weekdaysShort(),
-  months:
-    props.formatter.month === 'MMM' ? dayjs.monthsShort() : dayjs.months(),
+  weeks: resolveWeekdayLabels(),
+  months: resolveMonthLabels(),
 })
 const weeks = computed(() => datepicker.value.weeks)
 const months = computed(() => datepicker.value.months)
+
+function refreshLocalizedCalendarLabels() {
+  const days = resolveWeekdayLabels()
+  datepicker.value.weeks = isFirstMonday() ? shuffleWeekdays(days) : days
+  datepicker.value.months = resolveMonthLabels()
+}
 
 function classifyWeekend(date: Dayjs) {
   const saturday = date.day() === 6
@@ -1714,12 +2002,12 @@ const calendar = computed(() => {
                       'date',
                       '()',
                     )
-                      || v.isBetween(
-                        hoverValue.value[1],
-                        hoverValue.value[0],
-                        'date',
-                        '(]',
-                      ))
+                    || v.isBetween(
+                      hoverValue.value[1],
+                      hoverValue.value[0],
+                      'date',
+                      '(]',
+                    ))
                     && previous.month() === v.month()
                   )
                 }
@@ -1733,7 +2021,7 @@ const calendar = computed(() => {
             return v as DatePickerDay
           })
       },
-      month: previous && previous.format(props.formatter.month),
+      month: previous && previous.locale(resolvedLocale.value).format(props.formatter.month),
       year: previous && previous.year(),
       years: () => {
         return Array.from(
@@ -1745,6 +2033,7 @@ const calendar = computed(() => {
       },
       onPrevious: () => {
         datepicker.value.previous = previous.subtract(1, 'month')
+        announceMonthChanged(datepicker.value.previous)
         emit('clickPrev', datepicker.value.previous)
       },
       onNext: () => {
@@ -1752,6 +2041,7 @@ const calendar = computed(() => {
         if (previous.diff(next, 'month') === -1)
           datepicker.value.next = next.add(1, 'month')
 
+        announceMonthChanged(datepicker.value.previous)
         emit('clickNext', datepicker.value.previous)
       },
       onPreviousYear: () => {
@@ -1759,6 +2049,36 @@ const calendar = computed(() => {
       },
       onNextYear: () => {
         datepicker.value.year.previous = datepicker.value.year.previous + 12
+      },
+      stepPreviousYear: () => {
+        datepicker.value.previous = previous.subtract(1, 'year')
+        emit('selectYear', datepicker.value.previous)
+        nextTick(() => {
+          if (
+            datepicker.value.next.isSame(datepicker.value.previous, 'month')
+            || datepicker.value.next.isBefore(datepicker.value.previous)
+          ) {
+            datepicker.value.next = datepicker.value.previous.add(1, 'month')
+          }
+
+          datepicker.value.year.previous = datepicker.value.previous.year()
+          datepicker.value.year.next = datepicker.value.next.year()
+        })
+      },
+      stepNextYear: () => {
+        datepicker.value.previous = previous.add(1, 'year')
+        emit('selectYear', datepicker.value.previous)
+        nextTick(() => {
+          if (
+            datepicker.value.next.isSame(datepicker.value.previous, 'month')
+            || datepicker.value.next.isBefore(datepicker.value.previous)
+          ) {
+            datepicker.value.next = datepicker.value.previous.add(1, 'month')
+          }
+
+          datepicker.value.year.previous = datepicker.value.previous.year()
+          datepicker.value.year.next = datepicker.value.next.year()
+        })
       },
       openMonth: () => {
         panel.previous.month = !panel.previous.month
@@ -1771,12 +2091,14 @@ const calendar = computed(() => {
         panel.previous.year = false
         panel.previous.calendar = !panel.previous.month
         emit('selectMonth', datepicker.value.previous)
+        announceMonthChanged(datepicker.value.previous)
         nextTick(() => {
           if (
             datepicker.value.next.isSame(datepicker.value.previous, 'month')
             || datepicker.value.next.isBefore(datepicker.value.previous)
-          )
+          ) {
             datepicker.value.next = datepicker.value.previous.add(1, 'month')
+          }
 
           datepicker.value.year.next = datepicker.value.next.year()
         })
@@ -1791,12 +2113,14 @@ const calendar = computed(() => {
         panel.previous.year = !panel.previous.year
         panel.previous.calendar = !panel.previous.year
         emit('selectYear', datepicker.value.previous)
+        announceMonthChanged(datepicker.value.previous)
         nextTick(() => {
           if (
             datepicker.value.next.isSame(datepicker.value.previous, 'month')
             || datepicker.value.next.isBefore(datepicker.value.previous)
-          )
+          ) {
             datepicker.value.next = datepicker.value.previous.add(1, 'month')
+          }
 
           datepicker.value.year.previous = datepicker.value.previous.year()
           datepicker.value.year.next = datepicker.value.next.year()
@@ -1831,12 +2155,12 @@ const calendar = computed(() => {
                       'date',
                       '()',
                     )
-                      || v.isBetween(
-                        hoverValue.value[1],
-                        hoverValue.value[0],
-                        'date',
-                        '(]',
-                      ))
+                    || v.isBetween(
+                      hoverValue.value[1],
+                      hoverValue.value[0],
+                      'date',
+                      '(]',
+                    ))
                     && next.month() === v.month()
                   )
                 }
@@ -1850,7 +2174,7 @@ const calendar = computed(() => {
             return v as DatePickerDay
           })
       },
-      month: next && next.format(props.formatter.month),
+      month: next && next.locale(resolvedLocale.value).format(props.formatter.month),
       year: next && next.year(),
       years: () => {
         return Array.from(
@@ -1865,10 +2189,12 @@ const calendar = computed(() => {
         if (next.diff(previous, 'month') === 1)
           datepicker.value.previous = previous.subtract(1, 'month')
 
+        announceMonthChanged(datepicker.value.next)
         emit('clickRightPrev', datepicker.value.next)
       },
       onNext: () => {
         datepicker.value.next = next.add(1, 'month')
+        announceMonthChanged(datepicker.value.next)
         emit('clickRightNext', datepicker.value.next)
       },
       onPreviousYear: () => {
@@ -1876,6 +2202,36 @@ const calendar = computed(() => {
       },
       onNextYear: () => {
         datepicker.value.year.next = datepicker.value.year.next + 12
+      },
+      stepPreviousYear: () => {
+        datepicker.value.next = next.subtract(1, 'year')
+        emit('selectRightYear', datepicker.value.next)
+        nextTick(() => {
+          if (
+            datepicker.value.previous.isSame(datepicker.value.next, 'month')
+            || datepicker.value.previous.isAfter(datepicker.value.next)
+          ) {
+            datepicker.value.previous = datepicker.value.next.subtract(1, 'month')
+          }
+
+          datepicker.value.year.previous = datepicker.value.previous.year()
+          datepicker.value.year.next = datepicker.value.next.year()
+        })
+      },
+      stepNextYear: () => {
+        datepicker.value.next = next.add(1, 'year')
+        emit('selectRightYear', datepicker.value.next)
+        nextTick(() => {
+          if (
+            datepicker.value.previous.isSame(datepicker.value.next, 'month')
+            || datepicker.value.previous.isAfter(datepicker.value.next)
+          ) {
+            datepicker.value.previous = datepicker.value.next.subtract(1, 'month')
+          }
+
+          datepicker.value.year.previous = datepicker.value.previous.year()
+          datepicker.value.year.next = datepicker.value.next.year()
+        })
       },
       openMonth: () => {
         panel.next.month = !panel.next.month
@@ -1888,6 +2244,7 @@ const calendar = computed(() => {
         panel.next.year = false
         panel.next.calendar = !panel.next.month
         emit('selectRightMonth', datepicker.value.next)
+        announceMonthChanged(datepicker.value.next)
         nextTick(() => {
           if (
             datepicker.value.previous.isSame(datepicker.value.next, 'month')
@@ -1913,6 +2270,7 @@ const calendar = computed(() => {
         panel.next.month = false
         panel.next.calendar = !panel.next.year
         emit('selectRightYear', datepicker.value.next)
+        announceMonthChanged(datepicker.value.next)
         nextTick(() => {
           if (
             datepicker.value.previous.isSame(datepicker.value.next, 'month')
@@ -1934,15 +2292,26 @@ const calendar = computed(() => {
 
 const displayDatepicker = ref(false)
 type PickerViewMode = 'calendar' | 'selector'
-type SelectorFocus = 'month' | 'year'
 type SelectionContext = 'single' | 'singleRangeDisplayed' | 'previousPanel' | 'nextPanel'
-type SelectionPanel = 'previous' | 'next'
 type SelectorMonthPayload = number | { month: number, year: number }
+type CommitBoundaryEvent
+  = | 'enterInPlace'
+    | 'apply'
+    | 'closeWithPersist'
+    | 'escape'
+    | 'cancel'
+    | 'backdropDismiss'
+    | 'blur'
 
 interface SelectorState {
   selectedMonth: number
   selectedYear: number
   anchorYear: number
+}
+
+interface RangeNormalizationState {
+  hasTemporaryInversion: boolean
+  normalizationBoundaryPending: boolean
 }
 
 interface SelectorPanelState {
@@ -1968,17 +2337,28 @@ interface TogglePickerViewOptions {
   restoreFocus?: boolean
 }
 
+interface CommitTypedYearOptions {
+  emitModelUpdate?: boolean
+  allowTemporaryInversion?: boolean
+  syncSelectorStateAfterCommit?: boolean
+}
+
 const SELECTOR_YEAR_WINDOW_SIZE = 401
 const SELECTOR_YEAR_WINDOW_RADIUS = Math.floor(SELECTOR_YEAR_WINDOW_SIZE / 2)
 const SELECTOR_YEAR_REANCHOR_THRESHOLD = 24
 
 const pickerViewMode = ref<PickerViewMode>('calendar')
 const selectorFocus = ref<SelectorFocus>('month')
+const suppressSelectorColumnFocus = ref(false)
 const selectionContext = ref<SelectionContext>('single')
 const selectorState = reactive<SelectorState>({
   selectedMonth: datepicker.value.previous.month(),
   selectedYear: datepicker.value.previous.year(),
   anchorYear: datepicker.value.previous.year(),
+})
+const rangeNormalizationState = reactive<RangeNormalizationState>({
+  hasTemporaryInversion: false,
+  normalizationBoundaryPending: false,
 })
 const selectorPanels = reactive<SelectorPanelState>({
   previous: false,
@@ -2035,6 +2415,249 @@ function resolveContextPanel(context: SelectionContext): SelectionPanel {
   return context === 'nextPanel' ? 'next' : 'previous'
 }
 
+function parseModelDateCandidate(value: unknown) {
+  return parseModelDateWithDirectYear(value, props.formatter.date)
+}
+
+function resolveModelRangeDates() {
+  let startDate: Dayjs | null = null
+  let endDate: Dayjs | null = null
+
+  if (Array.isArray(props.modelValue)) {
+    const [start, end] = props.modelValue
+    startDate = parseModelDateCandidate(start)
+    endDate = parseModelDateCandidate(end)
+  } else if (typeof props.modelValue === 'object') {
+    if (props.modelValue) {
+      const [start, end] = Object.values(props.modelValue)
+      startDate = parseModelDateCandidate(start)
+      endDate = parseModelDateCandidate(end)
+    }
+  } else if (typeof props.modelValue === 'string' && props.modelValue.length > 0) {
+    const [start, end] = props.modelValue.split(props.separator)
+    startDate = parseModelDateCandidate(start)
+    endDate = parseModelDateCandidate(end)
+  }
+
+  return { startDate, endDate }
+}
+
+function resolveModelValueKeys() {
+  if (typeof props.modelValue !== 'object' || !props.modelValue) {
+    return {
+      startKey: 'startDate',
+      endKey: 'endDate',
+    }
+  }
+
+  const [startKey = 'startDate', endKey = 'endDate'] = Object.keys(props.modelValue)
+  return { startKey, endKey }
+}
+
+function emitRangeModelValueFromFormatted(
+  startValue: string,
+  endValue: string,
+  stringValue: string = `${startValue}${props.separator}${endValue}`,
+) {
+  if (Array.isArray(props.modelValue)) {
+    emit('update:modelValue', [startValue, endValue])
+    return
+  }
+
+  if (typeof props.modelValue === 'object') {
+    const payload: Record<string, string> = {}
+    const { startKey, endKey } = resolveModelValueKeys()
+    payload[startKey] = startValue
+    payload[endKey] = endValue
+    emit('update:modelValue', payload)
+    return
+  }
+
+  emit('update:modelValue', stringValue)
+}
+
+function emitSingleModelValueFromFormatted(
+  value: string,
+  stringValue: string = value,
+) {
+  if (Array.isArray(props.modelValue)) {
+    emit('update:modelValue', [value])
+    return
+  }
+
+  if (typeof props.modelValue === 'object') {
+    const payload: Record<string, string> = {}
+    const { startKey } = resolveModelValueKeys()
+    payload[startKey] = value
+    emit('update:modelValue', payload)
+    return
+  }
+
+  emit('update:modelValue', stringValue)
+}
+
+function emitEmptyModelValue() {
+  if (Array.isArray(props.modelValue)) {
+    emit('update:modelValue', [])
+    return
+  }
+
+  if (typeof props.modelValue === 'object') {
+    const payload: Record<string, string> = {}
+    const { startKey, endKey } = resolveModelValueKeys()
+    payload[startKey] = ''
+    payload[endKey] = ''
+    emit('update:modelValue', payload)
+    return
+  }
+
+  emit('update:modelValue', '')
+}
+
+function emitRangeModelValue(startDate: Dayjs, endDate: Dayjs) {
+  const formattedStart = formatModelDateWithDirectYear(startDate, props.formatter.date)
+  const formattedEnd = formatModelDateWithDirectYear(endDate, props.formatter.date)
+  emitRangeModelValueFromFormatted(formattedStart, formattedEnd)
+}
+
+function emitSingleModelValue(value: Dayjs) {
+  const formattedValue = formatModelDateWithDirectYear(value, props.formatter.date)
+  emitSingleModelValueFromFormatted(formattedValue)
+}
+
+interface SelectionRangeValue {
+  start: Dayjs | null
+  end: Dayjs | null
+}
+
+type SelectionRangeSource = 'model' | 'apply' | 'hover' | 'interactive'
+
+function resolveModelSelectionRange(): SelectionRangeValue {
+  const { startDate, endDate } = resolveModelRangeDates()
+  return {
+    start: startDate,
+    end: endDate,
+  }
+}
+
+function resolveApplySelectionRange(): SelectionRangeValue {
+  const [start, end] = applyValue.value
+  return {
+    start: parseModelDateCandidate(start),
+    end: parseModelDateCandidate(end),
+  }
+}
+
+function resolveHoverSelectionRange(): SelectionRangeValue {
+  if (hoverValue.value.length < 2) {
+    return {
+      start: null,
+      end: null,
+    }
+  }
+
+  const [start, end] = hoverValue.value
+  return {
+    start: parseModelDateCandidate(start),
+    end: parseModelDateCandidate(end),
+  }
+}
+
+function resolveSelectionRange(source: SelectionRangeSource): SelectionRangeValue {
+  switch (source) {
+    case 'model':
+      return resolveModelSelectionRange()
+    case 'apply':
+      return resolveApplySelectionRange()
+    case 'hover':
+      return resolveHoverSelectionRange()
+    case 'interactive':
+      return autoApplyEnabled.value
+        ? resolveModelSelectionRange()
+        : resolveApplySelectionRange()
+    default:
+      return {
+        start: null,
+        end: null,
+      }
+  }
+}
+
+function emitActiveContextModelValueForTypedYear(context: SelectionContext) {
+  if (!asRange()) {
+    emitSingleModelValue(resolveContextDate(context))
+    return
+  }
+
+  const isNextPanel = context === 'nextPanel'
+  const { startDate, endDate } = resolveModelRangeDates()
+  const startFromApply = applyValue.value[0] ?? null
+  const endFromApply = applyValue.value[1] ?? null
+  const nextStart = isNextPanel
+    ? (startFromApply ?? startDate ?? datepicker.value.previous)
+    : datetimeModeConfig.value.datetime
+      ? mergeDateWithDraftTime(datepicker.value.previous, 'start')
+      : datepicker.value.previous
+  const nextEnd = isNextPanel
+    ? datetimeModeConfig.value.datetime
+      ? mergeDateWithDraftTime(datepicker.value.next, 'end')
+      : datepicker.value.next
+    : (endFromApply ?? endDate ?? datepicker.value.next)
+
+  emitRangeModelValue(nextStart, nextEnd)
+}
+
+function trackTemporaryRangeInversion() {
+  if (!asRange()) {
+    rangeNormalizationState.hasTemporaryInversion = false
+    rangeNormalizationState.normalizationBoundaryPending = false
+    return
+  }
+
+  rangeNormalizationState.hasTemporaryInversion = datepicker.value.previous.isAfter(
+    datepicker.value.next,
+    'date',
+  )
+}
+
+function shouldNormalizeRangeAtCommitBoundary(boundary: CommitBoundaryEvent) {
+  if (!asRange())
+    return false
+  if (boundary !== 'apply' && boundary !== 'closeWithPersist')
+    return false
+  return rangeNormalizationState.hasTemporaryInversion
+}
+
+function normalizeRangeAtCommitBoundary(boundary: CommitBoundaryEvent) {
+  rangeNormalizationState.normalizationBoundaryPending
+    = shouldNormalizeRangeAtCommitBoundary(boundary)
+  if (!rangeNormalizationState.normalizationBoundaryPending)
+    return false
+
+  const previousDate = datepicker.value.previous
+  datepicker.value.previous = datepicker.value.next
+  datepicker.value.next = previousDate
+  syncDatepickerYears()
+  rangeNormalizationState.hasTemporaryInversion = false
+  rangeNormalizationState.normalizationBoundaryPending = false
+  return true
+}
+
+function normalizeRangeAtBoundaryAndPersist(boundary: CommitBoundaryEvent) {
+  const normalized = normalizeRangeAtCommitBoundary(boundary)
+  if (!normalized)
+    return false
+
+  emitRangeModelValue(datepicker.value.previous, datepicker.value.next)
+  if (!props.autoApply)
+    applyValue.value = [datepicker.value.previous, datepicker.value.next]
+
+  if (props.selectorMode && pickerViewMode.value === 'selector')
+    syncSelectorState(selectionContext.value, { syncAnchor: false })
+
+  return true
+}
+
 function getPanelSelectedMonth(panel: SelectionPanel) {
   return resolveContextDate(resolveSelectionContext(panel)).month()
 }
@@ -2053,27 +2676,14 @@ function isPopoverOpen() {
   return !!(VtdRef.value && document.body.contains(VtdRef.value))
 }
 
-function resolvePopoverButtonElement() {
-  const refValue = VtdPopoverButtonRef.value as
-    | HTMLElement
-    | { $el?: unknown; $?: { vnode?: { el?: unknown } } }
-    | null
-
-  if (!refValue)
-    return null
-  if (refValue instanceof HTMLElement)
-    return refValue
-  if (refValue.$el instanceof HTMLElement)
-    return refValue.$el
-  if (refValue.$?.vnode?.el instanceof HTMLElement)
-    return refValue.$.vnode.el
-  return VtdInputRef.value?.closest('label') ?? null
-}
-
 function triggerPopoverButtonClick() {
-  const buttonElement = resolvePopoverButtonElement()
-  if (buttonElement)
-    buttonElement.click()
+  const refValue = VtdPopoverButtonRef.value as HTMLElement | { $el?: unknown } | null
+  if (refValue instanceof HTMLElement) {
+    refValue.click()
+    return
+  }
+  if (refValue?.$el instanceof HTMLElement)
+    refValue.$el.click()
 }
 
 function focusHeaderValue(panel: SelectionPanel, focus: SelectorFocus) {
@@ -2105,8 +2715,7 @@ function focusSelectorModeTarget(
       monthSelector.focus()
       return true
     }
-  }
-  else {
+  } else {
     const yearSelector = panelElement.querySelector<HTMLElement>('[aria-label="Year selector"]')
     if (yearSelector) {
       yearSelector.focus()
@@ -2134,7 +2743,9 @@ function focusCalendarModeTarget() {
   if (!queryRoot)
     return false
 
-  const preferredPanel = queryRoot.querySelector<HTMLElement>('[data-vtd-selector-panel="previous"]')
+  const preferredPanel = queryRoot.querySelector<HTMLElement>(
+    '[data-vtd-selector-panel="previous"]',
+  )
   const fallbackPanel = queryRoot.querySelector<HTMLElement>('[data-vtd-selector-panel="next"]')
   const panelElement = preferredPanel ?? fallbackPanel
   if (!panelElement)
@@ -2198,6 +2809,54 @@ function syncSelectorRangeOrder(context: SelectionContext) {
   }
 }
 
+function commitTypedYearToActiveContext(
+  context: SelectionContext,
+  year: number,
+  options: CommitTypedYearOptions = {},
+) {
+  const {
+    emitModelUpdate = true,
+    allowTemporaryInversion = true,
+    syncSelectorStateAfterCommit = true,
+  } = options
+
+  if (context === 'nextPanel') {
+    datepicker.value.next = datepicker.value.next.year(year)
+    emit('selectRightYear', datepicker.value.next)
+  } else {
+    datepicker.value.previous = datepicker.value.previous.year(year)
+    emit('selectYear', datepicker.value.previous)
+  }
+
+  if (!allowTemporaryInversion)
+    syncSelectorRangeOrder(context)
+
+  syncDatepickerYears()
+  trackTemporaryRangeInversion()
+
+  if (!props.autoApply) {
+    if (asRange()) {
+      if (datetimeModeConfig.value.datetime) {
+        const nextStart = mergeDateWithDraftTime(datepicker.value.previous, 'start')
+        const nextEnd = mergeDateWithDraftTime(datepicker.value.next, 'end')
+        applyValue.value = [nextStart, nextEnd]
+      } else {
+        applyValue.value = [datepicker.value.previous, datepicker.value.next]
+      }
+    } else if (datetimeModeConfig.value.datetime) {
+      applyValue.value = [mergeDateWithDraftTime(resolveContextDate(context), 'start')]
+    } else {
+      applyValue.value = [resolveContextDate(context)]
+    }
+  }
+
+  if (syncSelectorStateAfterCommit)
+    syncSelectorState(context, { syncAnchor: false })
+
+  if (emitModelUpdate)
+    emitActiveContextModelValueForTypedYear(context)
+}
+
 function applySelectorMonth(context: SelectionContext, month: number, year?: number) {
   if (context === 'nextPanel') {
     let nextDate = datepicker.value.next
@@ -2206,8 +2865,7 @@ function applySelectorMonth(context: SelectionContext, month: number, year?: num
     nextDate = nextDate.month(month)
     datepicker.value.next = nextDate
     emit('selectRightMonth', datepicker.value.next)
-  }
-  else {
+  } else {
     let previousDate = datepicker.value.previous
     if (typeof year === 'number')
       previousDate = previousDate.year(year)
@@ -2230,17 +2888,11 @@ function resolveSelectorMonthDelta(currentMonth: number, targetMonth: number) {
 }
 
 function applySelectorYear(context: SelectionContext, year: number) {
-  if (context === 'nextPanel') {
-    datepicker.value.next = datepicker.value.next.year(year)
-    emit('selectRightYear', datepicker.value.next)
-  }
-  else {
-    datepicker.value.previous = datepicker.value.previous.year(year)
-    emit('selectYear', datepicker.value.previous)
-  }
-
-  syncSelectorRangeOrder(context)
-  syncDatepickerYears()
+  commitTypedYearToActiveContext(context, year, {
+    emitModelUpdate: false,
+    allowTemporaryInversion: true,
+    syncSelectorStateAfterCommit: false,
+  })
 }
 
 function closeLegacyPanels() {
@@ -2268,8 +2920,10 @@ function shouldReanchorSelectorYearWindow(year: number) {
     return true
   const firstYear = years[0]
   const lastYear = years[years.length - 1]
-  return year <= firstYear + SELECTOR_YEAR_REANCHOR_THRESHOLD
+  return (
+    year <= firstYear + SELECTOR_YEAR_REANCHOR_THRESHOLD
     || year >= lastYear - SELECTOR_YEAR_REANCHOR_THRESHOLD
+  )
 }
 
 function ensureSelectorYearInWindow(year: number) {
@@ -2298,15 +2952,34 @@ function getPanelPickerViewMode(panelName: SelectionPanel): PickerViewMode {
 }
 
 function getSelectorColumnClass(focus: SelectorFocus) {
+  const isFocusActive = !suppressSelectorColumnFocus.value && selectorFocus.value === focus
   if (!props.selectorFocusTint) {
-    return selectorFocus.value === focus
+    return isFocusActive
       ? 'border-vtd-primary-300 dark:border-vtd-primary-500'
       : 'border-black/[.08] dark:border-vtd-secondary-700/[1]'
   }
 
-  return selectorFocus.value === focus
+  return isFocusActive
     ? 'border-vtd-primary-300 bg-vtd-primary-50/40 ring-2 ring-vtd-primary-400/35 ring-offset-1 ring-offset-transparent dark:border-vtd-primary-500 dark:bg-vtd-secondary-700/50 dark:ring-vtd-primary-500/35'
     : 'border-black/[.08] dark:border-vtd-secondary-700/[1]'
+}
+
+function clearSelectorColumnFocusSuppression() {
+  suppressSelectorColumnFocus.value = false
+}
+
+function onTimeWheelInteraction(event: Event) {
+  if (!props.selectorMode || pickerViewMode.value !== 'selector')
+    return
+
+  const target = event.target
+  if (!(target instanceof HTMLElement))
+    return
+
+  if (!target.closest('.vtd-time-wheel'))
+    return
+
+  suppressSelectorColumnFocus.value = true
 }
 
 function onSelectorColumnFocus(panelName: SelectionPanel, focus: SelectorFocus) {
@@ -2314,6 +2987,7 @@ function onSelectorColumnFocus(panelName: SelectionPanel, focus: SelectorFocus) 
     return
   selectionContext.value = resolveSelectionContext(panelName)
   selectorFocus.value = focus
+  clearSelectorColumnFocusSuppression()
 }
 
 function requestSelectorColumnFocus(panelName: SelectionPanel, focus: SelectorFocus) {
@@ -2323,8 +2997,12 @@ function requestSelectorColumnFocus(panelName: SelectionPanel, focus: SelectorFo
   const context = resolveSelectionContext(panelName)
   selectionContext.value = context
   selectorFocus.value = focus
+  clearSelectorColumnFocusSuppression()
+  if (focusSelectorModeTarget(context, focus))
+    return
   nextTick(() => {
-    focusSelectorModeTargetDeferred(context, focus)
+    if (!focusSelectorModeTarget(context, focus))
+      focusSelectorModeTargetDeferred(context, focus)
   })
 }
 
@@ -2334,6 +3012,7 @@ function enterSelectorMode(payload: HeaderInteractionPayload) {
   const { panel, focus } = payload
 
   selectorFocus.value = focus
+  clearSelectorColumnFocusSuppression()
   selectionContext.value = resolveSelectionContext(panel)
   if (isDualPanelRangeMode())
     selectorPanels[panel] = true
@@ -2358,6 +3037,7 @@ function togglePickerViewMode(
   const { panel, focus } = payload
 
   selectorFocus.value = focus
+  clearSelectorColumnFocusSuppression()
   selectionContext.value = resolveSelectionContext(panel)
   const isDualPanel = isDualPanelRangeMode()
 
@@ -2410,6 +3090,22 @@ function togglePickerViewMode(
   })
 }
 
+function closeSelectorWheelsToCalendar(panelName: SelectionPanel) {
+  if (!props.selectorMode || pickerViewMode.value !== 'selector')
+    return
+
+  selectionContext.value = resolveSelectionContext(panelName)
+  clearSelectorColumnFocusSuppression()
+  pickerViewMode.value = 'calendar'
+  selectorPanels.previous = false
+  selectorPanels.next = false
+  closeLegacyPanels()
+
+  nextTick(() => {
+    focusCalendarModeTargetDeferred()
+  })
+}
+
 function onSelectorMonthUpdate(panelName: SelectionPanel, payload: SelectorMonthPayload) {
   if (!props.selectorMode)
     return
@@ -2427,8 +3123,7 @@ function onSelectorMonthUpdate(panelName: SelectionPanel, payload: SelectorMonth
 
   if (typeof targetYear === 'number') {
     applySelectorMonth(context, targetMonth, targetYear)
-  }
-  else {
+  } else {
     // Month-only selector events infer year rollover from cyclic month deltas.
     const delta = resolveSelectorMonthDelta(contextDate.month(), targetMonth)
     const inferredDate = contextDate.add(delta, 'month')
@@ -2466,17 +3161,20 @@ function onSelectorYearUpdate(panelName: SelectionPanel, year: number) {
 }
 
 function onHeaderMonthStep(payload: HeaderMonthStepPayload) {
-  if (!props.selectorMode || pickerViewMode.value !== 'selector')
+  if (!props.selectorMode)
     return
 
-  const wheel = payload.panel === 'next'
-    ? nextSelectorMonthWheelRef.value
-    : previousSelectorMonthWheelRef.value
-  if (wheel) {
-    selectionContext.value = resolveSelectionContext(payload.panel)
-    wheel.stepBy(payload.delta)
-    closeLegacyPanels()
-    return
+  if (pickerViewMode.value === 'selector') {
+    const wheel
+      = payload.panel === 'next'
+        ? nextSelectorMonthWheelRef.value
+        : previousSelectorMonthWheelRef.value
+    if (wheel) {
+      selectionContext.value = resolveSelectionContext(payload.panel)
+      wheel.stepBy(payload.delta)
+      closeLegacyPanels()
+      return
+    }
   }
 
   const context = resolveSelectionContext(payload.panel)
@@ -2495,6 +3193,54 @@ function resetPickerViewMode() {
   selectorPanels.next = false
   if (props.selectorMode)
     closeLegacyPanels()
+}
+
+function onPopoverButtonClick(open: boolean, event?: MouseEvent) {
+  pushDebugEvent('trigger-click', {
+    open,
+    target: event?.target instanceof HTMLElement ? event.target.tagName.toLowerCase() : 'unknown',
+    activeElement: describeActiveElement(),
+  })
+
+  if (open && event && isTextInputLikeTarget(event.target)) {
+    event.stopPropagation()
+    pushDebugEvent('trigger-click-ignored-while-open')
+    return
+  }
+
+  if (open) {
+    normalizeRangeAtBoundaryAndPersist('closeWithPersist')
+  }
+  resetPickerViewMode()
+}
+
+function onPopoverButtonCaptureClick(open: boolean, event: MouseEvent) {
+  if (!open)
+    return
+  if (!isTextInputLikeTarget(event.target))
+    return
+
+  event.preventDefault()
+  event.stopPropagation()
+  event.stopImmediatePropagation()
+  pushDebugEvent('trigger-click-capture-blocked', {
+    target: event.target instanceof HTMLElement ? event.target.tagName.toLowerCase() : 'unknown',
+    activeElement: describeActiveElement(),
+  })
+}
+
+function onInputMouseDown(open: boolean, event: MouseEvent) {
+  stopInputEventWhenOpen(open, event)
+}
+
+function onInputClick(open: boolean, event: MouseEvent) {
+  stopInputEventWhenOpen(open, event)
+}
+
+function stopInputEventWhenOpen(open: boolean, event: MouseEvent) {
+  if (!open)
+    return
+  event.stopPropagation()
 }
 
 function isVisibleElement(element: HTMLElement) {
@@ -2521,23 +3267,113 @@ function isDisabledFocusTarget(element: HTMLElement) {
   return false
 }
 
-function getSelectorFocusCycleTargets() {
-  const queryRoot = getPickerQueryRoot()
-  if (!queryRoot)
-    return []
+interface FooterActionFocusTargets {
+  cancelButton: HTMLButtonElement | null
+  switchButton: HTMLButtonElement | null
+  applyButton: HTMLButtonElement | null
+}
 
+function resolveFooterActionFocusTargets(queryRoot: HTMLElement): FooterActionFocusTargets {
+  const footerButtons = Array.from(queryRoot.querySelectorAll<HTMLButtonElement>('.away-cancel-picker, .away-apply-picker'))
+    .filter(button => isVisibleElement(button) && !isDisabledFocusTarget(button))
+
+  const cancelButton
+    = footerButtons.find((button) => {
+      return (
+        button.classList.contains('away-cancel-picker')
+        && getElementLabelText(button) !== timePanelSwitchLabel.value
+      )
+    }) ?? null
+
+  const switchButton
+    = footerButtons.find((button) => {
+      return (
+        button.classList.contains('away-cancel-picker')
+        && getElementLabelText(button) === timePanelSwitchLabel.value
+      )
+    }) ?? null
+
+  const applyButton
+    = footerButtons.find(button => button.classList.contains('away-apply-picker'))
+      ?? null
+
+  return {
+    cancelButton,
+    switchButton,
+    applyButton,
+  }
+}
+
+interface FocusTargetCollectorOptions {
+  skipDisabled?: boolean
+}
+
+type FocusTargetPusher = (element: HTMLElement | null) => void
+
+function createFocusTargetCollector(options: FocusTargetCollectorOptions = {}) {
   const targets: HTMLElement[] = []
-  const pushTarget = (element: HTMLElement | null) => {
+  const pushTarget: FocusTargetPusher = (element) => {
     if (!element || !isVisibleElement(element))
+      return
+    if (options.skipDisabled && isDisabledFocusTarget(element))
       return
     if (targets.includes(element))
       return
     targets.push(element)
   }
 
+  return {
+    targets,
+    pushTarget,
+  }
+}
+
+function appendCalendarPanelFocusTarget(
+  queryRoot: HTMLElement,
+  panel: SelectionPanel,
+  pushTarget: FocusTargetPusher,
+) {
+  const panelElement = queryRoot.querySelector<HTMLElement>(`[data-vtd-selector-panel="${panel}"]`)
+  if (!panelElement)
+    return
+  const focusTarget
+    = panelElement.querySelector<HTMLElement>('.vtd-calendar-focus-target')
+      ?? panelElement.querySelector<HTMLElement>('.vtd-datepicker-date:not(:disabled)')
+  pushTarget(focusTarget)
+}
+
+function appendFooterActionFocusTargets(
+  footerActions: FooterActionFocusTargets,
+  pushTarget: FocusTargetPusher,
+) {
+  pushTarget(footerActions.cancelButton)
+  pushTarget(footerActions.switchButton)
+  pushTarget(footerActions.applyButton)
+}
+
+function resolveShortcutFocusTarget(queryRoot: HTMLElement) {
+  const shortcutButtons = Array.from(queryRoot.querySelectorAll<HTMLElement>('.vtd-shortcuts'))
+  const firstVisibleEnabledShortcut = shortcutButtons.find((button) => {
+    return isVisibleElement(button) && !isDisabledFocusTarget(button)
+  })
+  if (firstVisibleEnabledShortcut)
+    return firstVisibleEnabledShortcut
+
+  return shortcutButtons.find(button => isVisibleElement(button)) ?? null
+}
+
+function getSelectorFocusCycleTargets() {
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return []
+
+  const { targets, pushTarget } = createFocusTargetCollector()
+
   const appendPanelTargets = (panel: SelectionPanel) => {
     pushTarget(queryRoot.querySelector<HTMLElement>(`#vtd-header-${panel}-month`))
-    const panelElement = queryRoot.querySelector<HTMLElement>(`[data-vtd-selector-panel="${panel}"]`)
+    const panelElement = queryRoot.querySelector<HTMLElement>(
+      `[data-vtd-selector-panel="${panel}"]`,
+    )
     if (!panelElement)
       return
     pushTarget(panelElement.querySelector<HTMLElement>('[aria-label="Month selector"]'))
@@ -2549,7 +3385,9 @@ function getSelectorFocusCycleTargets() {
     appendPanelTargets('next')
 
   // Shortcuts are treated as a single focus stop in selector tab order.
-  pushTarget(queryRoot.querySelector<HTMLElement>('.vtd-shortcuts'))
+  pushTarget(resolveShortcutFocusTarget(queryRoot))
+  const footerActions = resolveFooterActionFocusTargets(queryRoot)
+  appendFooterActionFocusTargets(footerActions, pushTarget)
   return targets
 }
 
@@ -2558,36 +3396,28 @@ function getCalendarFocusCycleTargets() {
   if (!queryRoot)
     return []
 
-  const targets: HTMLElement[] = []
-  const pushTarget = (element: HTMLElement | null) => {
-    if (!element || !isVisibleElement(element))
-      return
-    if (targets.includes(element))
-      return
-    targets.push(element)
-  }
-
-  const appendCalendarTarget = (panel: SelectionPanel) => {
-    const panelElement = queryRoot.querySelector<HTMLElement>(`[data-vtd-selector-panel="${panel}"]`)
-    if (!panelElement)
-      return
-    pushTarget(panelElement.querySelector<HTMLElement>('.vtd-calendar-focus-target'))
-  }
+  const { targets, pushTarget } = createFocusTargetCollector()
 
   const isDoublePanel = asRange() && !props.asSingle
-  const previousHeader = queryRoot.querySelector<HTMLElement>('#vtd-header-previous-month')
-  const nextHeader = queryRoot.querySelector<HTMLElement>('#vtd-header-next-month')
-  const shortcutContainer = queryRoot.querySelector<HTMLElement>('.vtd-shortcuts')
+  const shortcutButton = resolveShortcutFocusTarget(queryRoot)
+  const appendPanelHeaderTargets = (panel: SelectionPanel) => {
+    pushTarget(queryRoot.querySelector<HTMLElement>(`#vtd-header-${panel}-month`))
+    if (!props.selectorMode)
+      pushTarget(queryRoot.querySelector<HTMLElement>(`#vtd-header-${panel}-year`))
+  }
 
   // Calendar mode tab order:
-  // previous calendar -> (next header -> next calendar) -> shortcuts -> previous header -> repeat
-  appendCalendarTarget('previous')
+  // previous calendar -> shortcuts -> previous header
+  // -> (next calendar -> next header) -> footer actions -> repeat
+  appendCalendarPanelFocusTarget(queryRoot, 'previous', pushTarget)
+  pushTarget(shortcutButton)
+  appendPanelHeaderTargets('previous')
   if (isDoublePanel) {
-    pushTarget(nextHeader)
-    appendCalendarTarget('next')
+    appendCalendarPanelFocusTarget(queryRoot, 'next', pushTarget)
+    appendPanelHeaderTargets('next')
   }
-  pushTarget(shortcutContainer)
-  pushTarget(previousHeader)
+  const footerActions = resolveFooterActionFocusTargets(queryRoot)
+  appendFooterActionFocusTargets(footerActions, pushTarget)
   return targets
 }
 
@@ -2596,19 +3426,24 @@ function getTimeModeFocusCycleTargets() {
   if (!queryRoot)
     return []
 
-  const targets: HTMLElement[] = []
-  const pushTarget = (element: HTMLElement | null) => {
-    if (!element || !isVisibleElement(element))
-      return
-    if (isDisabledFocusTarget(element))
-      return
-    if (targets.includes(element))
-      return
-    targets.push(element)
-  }
+  const { targets, pushTarget } = createFocusTargetCollector({ skipDisabled: true })
+
+  // Inline wheel mode keeps date panels visible, so keep calendar focusable in the cycle.
+  appendCalendarPanelFocusTarget(queryRoot, 'previous', pushTarget)
+  if (asRange() && !props.asSingle)
+    appendCalendarPanelFocusTarget(queryRoot, 'next', pushTarget)
 
   // Keep shortcuts as a single focus stop in time mode.
-  pushTarget(queryRoot.querySelector<HTMLElement>('.vtd-shortcuts'))
+  pushTarget(resolveShortcutFocusTarget(queryRoot))
+
+  // Keep header navigation available between shortcuts and time controls.
+  pushTarget(queryRoot.querySelector<HTMLElement>('#vtd-header-previous-month'))
+  if (!props.selectorMode)
+    pushTarget(queryRoot.querySelector<HTMLElement>('#vtd-header-previous-year'))
+  if (asRange() && !props.asSingle)
+    pushTarget(queryRoot.querySelector<HTMLElement>('#vtd-header-next-month'))
+  if (!props.selectorMode && asRange() && !props.asSingle)
+    pushTarget(queryRoot.querySelector<HTMLElement>('#vtd-header-next-year'))
 
   const endpointToggleButtons = Array.from(queryRoot.querySelectorAll<HTMLButtonElement>('button'))
     .filter((button) => {
@@ -2617,55 +3452,318 @@ function getTimeModeFocusCycleTargets() {
       const label = getElementLabelText(button)
       return label === 'Start' || label === 'End'
     })
-  endpointToggleButtons.forEach(button => pushTarget(button))
+  const activeEndpointLabel = activeDateTimeEndpoint.value === 'start' ? 'Start' : 'End'
+  const activeEndpointToggle
+    = endpointToggleButtons.find(button => getElementLabelText(button) === activeEndpointLabel)
+      ?? endpointToggleButtons[0]
+      ?? null
+  pushTarget(activeEndpointToggle)
 
   const wheelTargets = Array.from(queryRoot.querySelectorAll<HTMLElement>('.vtd-time-wheel[role="listbox"]'))
     .filter(target => isVisibleElement(target) && !isDisabledFocusTarget(target))
   wheelTargets.forEach(target => pushTarget(target))
 
-  const footerButtons = Array.from(queryRoot.querySelectorAll<HTMLButtonElement>('.away-cancel-picker, .away-apply-picker'))
-    .filter(button => isVisibleElement(button) && !isDisabledFocusTarget(button))
-
-  const footerCancelButton = footerButtons.find((button) => {
-    return button.classList.contains('away-cancel-picker')
-      && getElementLabelText(button) !== timePanelSwitchLabel.value
-  })
-  const footerSwitchButton = footerButtons.find((button) => {
-    return button.classList.contains('away-cancel-picker')
-      && getElementLabelText(button) === timePanelSwitchLabel.value
-  })
-  const footerApplyButton = footerButtons.find(button => button.classList.contains('away-apply-picker'))
-
-  pushTarget(footerCancelButton ?? null)
-  pushTarget(footerSwitchButton ?? null)
-  pushTarget(footerApplyButton ?? null)
+  const footerActions = resolveFooterActionFocusTargets(queryRoot)
+  appendFooterActionFocusTargets(footerActions, pushTarget)
 
   return targets
 }
 
 type PopoverCloseFn = (ref?: Ref | HTMLElement) => void
 
+function closePopover(close?: PopoverCloseFn) {
+  close?.()
+}
+
 function closePopoverFromPanel(close?: PopoverCloseFn) {
   resetPickerViewMode()
-  if (close) {
-    if (VtdInputRef.value) {
-      close(VtdInputRef.value)
-      return
-    }
-    close()
-    return
+  close?.()
+}
+
+function handleFooterActionArrowNavigation(event: KeyboardEvent) {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')
+    return false
+
+  const target = event.target
+  if (!(target instanceof HTMLElement))
+    return false
+  if (
+    !target.classList.contains('away-cancel-picker')
+    && !target.classList.contains('away-apply-picker')
+  ) {
+    return false
   }
-  if (!props.noInput)
-    triggerPopoverButtonClick()
+
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return false
+
+  const footerActions = resolveFooterActionFocusTargets(queryRoot)
+  const orderedTargets = [
+    footerActions.cancelButton,
+    footerActions.switchButton,
+    footerActions.applyButton,
+  ].filter((item): item is HTMLButtonElement => !!item)
+  if (orderedTargets.length <= 1)
+    return false
+
+  const currentIndex = orderedTargets.findIndex(item => item === target)
+  if (currentIndex < 0)
+    return false
+
+  event.preventDefault()
+  event.stopPropagation()
+  const delta = event.key === 'ArrowRight' ? 1 : -1
+  const nextIndex = (currentIndex + delta + orderedTargets.length) % orderedTargets.length
+  orderedTargets[nextIndex]?.focus()
+  return true
+}
+
+function resolveTimeEndpointToggleButton(
+  queryRoot: HTMLElement,
+  endpoint: DateTimeEndpointSelection,
+) {
+  const targetLabel = endpoint === 'start' ? 'Start' : 'End'
+  const toggleButtons = Array.from(queryRoot.querySelectorAll<HTMLButtonElement>('button'))
+    .filter((button) => {
+      if (!isVisibleElement(button) || isDisabledFocusTarget(button))
+        return false
+      return getElementLabelText(button) === targetLabel
+    })
+  return toggleButtons[0] ?? null
+}
+
+function handleTimeEndpointToggleArrowNavigation(event: KeyboardEvent) {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')
+    return false
+  if (!asRange() || !isTimePickerWheelStyle.value || !shouldShowDateTimeControls.value)
+    return false
+
+  const target = event.target
+  if (!(target instanceof HTMLElement))
+    return false
+
+  const targetLabel = getElementLabelText(target)
+  if (targetLabel !== 'Start' && targetLabel !== 'End')
+    return false
+
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return false
+
+  const nextEndpoint: DateTimeEndpointSelection = event.key === 'ArrowLeft' ? 'start' : 'end'
+  const nextToggleButton = resolveTimeEndpointToggleButton(queryRoot, nextEndpoint)
+  if (!nextToggleButton)
+    return false
+
+  event.preventDefault()
+  event.stopPropagation()
+  markActiveDateTimeEndpoint(nextEndpoint)
+
+  nextTick(() => {
+    const refreshedQueryRoot = getPickerQueryRoot()
+    if (!refreshedQueryRoot)
+      return
+    resolveTimeEndpointToggleButton(refreshedQueryRoot, nextEndpoint)?.focus()
+  })
+
+  return true
+}
+
+function resolveActiveFocusTargetIndex(targets: HTMLElement[], activeElement: HTMLElement | null) {
+  return targets.findIndex(target => target === activeElement || target.contains(activeElement))
+}
+
+interface FocusCycleOptions {
+  backward: boolean
+  fallbackIndex?: number
+  resolveCurrentIndex?: (targets: HTMLElement[], activeElement: HTMLElement | null) => number
+}
+
+function moveFocusInCycle(targets: HTMLElement[], options: FocusCycleOptions) {
+  if (targets.length < 1)
+    return false
+
+  const activeElement = document.activeElement as HTMLElement | null
+  let currentIndex = options.resolveCurrentIndex
+    ? options.resolveCurrentIndex(targets, activeElement)
+    : resolveActiveFocusTargetIndex(targets, activeElement)
+  if (currentIndex < 0)
+    currentIndex = options.fallbackIndex ?? (options.backward ? 0 : -1)
+
+  const delta = options.backward ? -1 : 1
+  const nextIndex = (currentIndex + delta + targets.length) % targets.length
+  targets[nextIndex]?.focus()
+  return true
+}
+
+function resolveSelectorFocusFallbackIndex(targets: HTMLElement[]) {
+  return targets.findIndex((target) => {
+    const panel = resolveContextPanel(selectionContext.value)
+    const expectedHeader = target.id === `vtd-header-${panel}-month`
+    const expectedMonth
+      = selectorFocus.value === 'month' && target.getAttribute('aria-label') === 'Month selector'
+    const expectedYear
+      = selectorFocus.value === 'year' && target.getAttribute('aria-label') === 'Year selector'
+    return expectedHeader || expectedMonth || expectedYear
+  })
+}
+
+function focusFirstTarget(targets: HTMLElement[]) {
+  if (targets.length < 1)
+    return false
+  targets[0].focus()
+  return true
+}
+
+function resolveSelectionPanelFromElement(element: HTMLElement): SelectionPanel | null {
+  const panelElement = element.closest<HTMLElement>('[data-vtd-selector-panel]')
+  const panelName = panelElement?.getAttribute('data-vtd-selector-panel')
+  if (panelName === 'previous' || panelName === 'next')
+    return panelName
+  return null
+}
+
+function isLegacyMonthHeaderButton(element: HTMLElement) {
+  return /^vtd-header-(?:previous|next)-month$/.test(element.id)
+}
+
+function handleLegacyMonthHeaderTab(event: KeyboardEvent) {
+  if (event.key !== 'Tab' || event.shiftKey || props.selectorMode)
+    return false
+
+  const target = event.target
+  if (!(target instanceof HTMLElement) || !isLegacyMonthHeaderButton(target))
+    return false
+
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return false
+
+  const yearId = target.id.replace(/-month$/, '-year')
+  const yearButton = queryRoot.querySelector<HTMLElement>(`#${yearId}`)
+  if (!yearButton || !isVisibleElement(yearButton) || isDisabledFocusTarget(yearButton))
+    return false
+
+  event.preventDefault()
+  event.stopPropagation()
+  yearButton.focus()
+  return true
+}
+
+function handleSelectorCalendarTabToHeader(event: KeyboardEvent) {
+  if (
+    event.key !== 'Tab'
+    || event.shiftKey
+    || !props.selectorMode
+    || pickerViewMode.value !== 'calendar'
+  ) {
+    return false
+  }
+
+  const target = event.target
+  if (!(target instanceof HTMLElement))
+    return false
+
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return false
+
+  // When shortcuts are visible, keep the shared cycle order:
+  // calendar -> shortcuts -> header. Only fast-path to header when
+  // there is no shortcut focus stop available.
+  if (resolveShortcutFocusTarget(queryRoot))
+    return false
+
+  const isCalendarDateTarget
+    = target.classList.contains('vtd-datepicker-date') || !!target.closest('.vtd-datepicker-date')
+  if (!isCalendarDateTarget)
+    return false
+
+  const panel
+    = resolveSelectionPanelFromElement(target)
+      ?? resolveContextPanel(selectionContext.value)
+
+  event.preventDefault()
+  event.stopPropagation()
+  focusHeaderValue(panel, 'month')
+  return true
+}
+
+function handleSelectorEnterShortcut(event: KeyboardEvent) {
+  if (
+    event.key !== 'Enter'
+    || event.altKey
+    || event.ctrlKey
+    || event.metaKey
+    || !props.selectorMode
+    || pickerViewMode.value !== 'selector'
+  ) {
+    return false
+  }
+
+  const target = event.target
+  if (!(target instanceof HTMLElement))
+    return false
+
+  const panel = resolveSelectionPanelFromElement(target)
+  if (!panel)
+    return false
+
+  if (target.closest('[aria-label="Month selector"]')) {
+    event.preventDefault()
+    event.stopPropagation()
+    requestSelectorColumnFocus(panel, 'year')
+    return true
+  }
+
+  if (target.closest('[aria-label="Year selector"]')) {
+    event.preventDefault()
+    event.stopPropagation()
+    closeSelectorWheelsToCalendar(panel)
+    return true
+  }
+
+  return false
 }
 
 function onPickerPanelKeydown(event: KeyboardEvent, close?: PopoverCloseFn) {
   if (event.key === 'Escape') {
+    if (props.selectorMode && pickerViewMode.value === 'selector') {
+      const target = event.target
+      const panel
+        = target instanceof HTMLElement
+          ? (resolveSelectionPanelFromElement(target) ?? resolveContextPanel(selectionContext.value))
+          : resolveContextPanel(selectionContext.value)
+      event.preventDefault()
+      event.stopPropagation()
+      togglePickerViewMode({
+        panel,
+        focus: selectorFocus.value,
+      })
+      return
+    }
+
     event.preventDefault()
     event.stopPropagation()
     closePopoverFromPanel(close)
     return
   }
+
+  if (handleFooterActionArrowNavigation(event))
+    return
+
+  if (handleTimeEndpointToggleArrowNavigation(event))
+    return
+
+  if (handleLegacyMonthHeaderTab(event))
+    return
+
+  if (handleSelectorCalendarTabToHeader(event))
+    return
+
+  if (handleSelectorEnterShortcut(event))
+    return
 
   if (event.key !== 'Tab')
     return
@@ -2675,15 +3773,21 @@ function onPickerPanelKeydown(event: KeyboardEvent, close?: PopoverCloseFn) {
     if (timeWheelTargets.length > 0) {
       event.preventDefault()
       event.stopPropagation()
+      moveFocusInCycle(timeWheelTargets, {
+        backward: event.shiftKey,
+        fallbackIndex: event.shiftKey ? 0 : -1,
+        resolveCurrentIndex(targets, activeElement) {
+          const currentIndex = resolveActiveFocusTargetIndex(targets, activeElement)
+          if (currentIndex >= 0 || !activeElement)
+            return currentIndex
 
-      const activeElement = document.activeElement as HTMLElement | null
-      let currentIndex = timeWheelTargets.findIndex(target => target === activeElement || target.contains(activeElement))
-      if (currentIndex < 0)
-        currentIndex = event.shiftKey ? 0 : -1
-
-      const delta = event.shiftKey ? -1 : 1
-      const nextIndex = (currentIndex + delta + timeWheelTargets.length) % timeWheelTargets.length
-      timeWheelTargets[nextIndex].focus()
+          const activeLabel = getElementLabelText(activeElement)
+          if (activeLabel !== 'Start' && activeLabel !== 'End')
+            return -1
+          const activeEndpointLabel = activeDateTimeEndpoint.value === 'start' ? 'Start' : 'End'
+          return targets.findIndex(target => getElementLabelText(target) === activeEndpointLabel)
+        },
+      })
       return
     }
   }
@@ -2697,27 +3801,73 @@ function onPickerPanelKeydown(event: KeyboardEvent, close?: PopoverCloseFn) {
 
   event.preventDefault()
   event.stopPropagation()
+  moveFocusInCycle(targets, {
+    backward: event.shiftKey,
+    fallbackIndex: 0,
+    resolveCurrentIndex(nextTargets, activeElement) {
+      const activeIndex = resolveActiveFocusTargetIndex(nextTargets, activeElement)
+      if (activeIndex >= 0)
+        return activeIndex
+      return resolveSelectorFocusFallbackIndex(nextTargets)
+    },
+  })
+}
 
-  const activeElement = document.activeElement as HTMLElement | null
-  let currentIndex = targets.findIndex(target => target === activeElement || target.contains(activeElement))
-  if (currentIndex < 0) {
-    currentIndex = targets.findIndex((target) => {
-      const panel = resolveContextPanel(selectionContext.value)
-      const expectedHeader = target.id === `vtd-header-${panel}-month`
-      const expectedMonth = selectorFocus.value === 'month' && target.getAttribute('aria-label') === 'Month selector'
-      const expectedYear = selectorFocus.value === 'year' && target.getAttribute('aria-label') === 'Year selector'
-      return expectedHeader || expectedMonth || expectedYear
-    })
+function isTextInputLikeTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement))
+    return false
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)
+    return true
+  return target.isContentEditable
+}
+
+function focusFirstPickerCycleTarget() {
+  if (isTimePickerWheelStyle.value && shouldShowDateTimeControls.value) {
+    const timeWheelTargets = getTimeModeFocusCycleTargets()
+    if (focusFirstTarget(timeWheelTargets))
+      return true
   }
-  if (currentIndex < 0)
-    currentIndex = 0
 
-  const delta = event.shiftKey ? -1 : 1
-  const nextIndex = (currentIndex + delta + targets.length) % targets.length
-  targets[nextIndex].focus()
+  const inSelectorMode = props.selectorMode && pickerViewMode.value === 'selector'
+  const targets = inSelectorMode
+    ? getSelectorFocusCycleTargets()
+    : getCalendarFocusCycleTargets()
+  if (focusFirstTarget(targets))
+    return true
+
+  return focusCalendarModeTarget()
 }
 
 function onInputKeydown(event: KeyboardEvent) {
+  if (!isTextInputLikeTarget(event.target))
+    return
+
+  if (
+    event.key === 'Escape'
+    && !event.altKey
+    && !event.ctrlKey
+    && !event.metaKey
+    && isPopoverOpen()
+  ) {
+    event.preventDefault()
+    event.stopPropagation()
+    preserveInputFocusOnNextPopoverClose = true
+    resetPickerViewMode()
+    triggerPopoverButtonClick()
+    return
+  }
+
+  if (event.key === 'Tab' && !event.shiftKey) {
+    if (!isPopoverOpen())
+      return
+    const focused = focusFirstPickerCycleTarget()
+    if (!focused)
+      return
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+
   if (event.key !== 'Enter' || event.altKey || event.ctrlKey || event.metaKey)
     return
 
@@ -2729,11 +3879,16 @@ function onInputKeydown(event: KeyboardEvent) {
     triggerPopoverButtonClick()
 
   nextTick(() => {
+    if (props.openFocusTarget === 'input' && !props.noInput) {
+      VtdInputRef.value?.focus()
+      return
+    }
     focusCalendarModeTargetDeferred()
   })
 }
 
 function onPopoverAfterEnter() {
+  pushDebugEvent('after-enter', { activeElement: describeActiveElement() })
   // Preserve lock dimensions across reopen cycles so inline-right wheels remain
   // bounded while a fresh measurement is queued.
   if (panelContentLockState.width <= 0 || panelContentLockState.height <= 0)
@@ -2744,9 +3899,49 @@ function onPopoverAfterEnter() {
       focusSelectorModeTargetDeferred(selectionContext.value, selectorFocus.value)
       return
     }
+    if (props.openFocusTarget === 'input' && !props.noInput) {
+      VtdInputRef.value?.focus()
+      return
+    }
     focusCalendarModeTargetDeferred()
   })
 }
+
+function onPopoverAfterLeave() {
+  pushDebugEvent('after-leave', { activeElement: describeActiveElement() })
+  if (preserveInputFocusOnNextPopoverClose) {
+    preserveInputFocusOnNextPopoverClose = false
+    nextTick(() => {
+      VtdInputRef.value?.focus()
+    })
+    return
+  }
+
+  if (!props.noInput && !props.popoverRestoreFocus && document.activeElement === VtdInputRef.value)
+    VtdInputRef.value?.blur()
+}
+
+onMounted(() => {
+  const store = getDebugStore()
+  if (!store)
+    return
+
+  store.mountedCount += 1
+  pushDebugEvent('mounted', {
+    mountedCount: store.mountedCount,
+  })
+})
+
+onUnmounted(() => {
+  const store = getDebugStore()
+  if (!store)
+    return
+
+  store.mountedCount = Math.max(0, store.mountedCount - 1)
+  pushDebugEvent('unmounted', {
+    mountedCount: store.mountedCount,
+  })
+})
 
 watch(
   () => props.selectorMode,
@@ -2813,7 +4008,7 @@ setTimeout(() => {
 }, 250)
 
 function isFirstMonday() {
-  return dayjs().localeData().firstDayOfWeek()
+  return dayjsWithResolvedLocale().localeData().firstDayOfWeek()
 }
 
 function shuffleWeekdays(days: dayjs.WeekdayNames): dayjs.WeekdayNames {
@@ -2823,13 +4018,7 @@ function shuffleWeekdays(days: dayjs.WeekdayNames): dayjs.WeekdayNames {
 }
 
 function asRange() {
-  if (!props.useRange && !props.asSingle)
-    return true
-  else if (!props.useRange && props.asSingle)
-    return false
-  else if (props.useRange && !props.asSingle)
-    return true
-  else return !!(props.useRange && props.asSingle)
+  return props.useRange || !props.asSingle
 }
 
 function inRangeDate(date: Dayjs) {
@@ -2837,28 +4026,13 @@ function inRangeDate(date: Dayjs) {
     return false
   if (pickerValue.value === '')
     return false
-  let s, e
-  if (Array.isArray(props.modelValue)) {
-    const [start, end] = props.modelValue
-    s = start
-    e = end
-  }
-  else if (typeof props.modelValue === 'object') {
-    if (props.modelValue) {
-      const [start, end] = Object.values(props.modelValue)
-      s = start
-      e = end
-    }
-  }
-  else {
-    const [start, end] = props.modelValue.split(props.separator)
-    s = start
-    e = end
-  }
+  const { start: s, end: e } = resolveSelectionRange('model')
+  if (!s || !e)
+    return false
 
   return date.isBetween(
-    dayjs(s, props.formatter.date, true),
-    dayjs(e, props.formatter.date, true),
+    s,
+    e,
     'date',
     '[]',
   )
@@ -2873,19 +4047,7 @@ function force() {
 
 function clearPicker() {
   pickerValue.value = ''
-  if (Array.isArray(props.modelValue)) {
-    emit('update:modelValue', [])
-  }
-  else if (typeof props.modelValue === 'object') {
-    const obj: Record<string, string> = {}
-    const [start, end] = Object.keys(props.modelValue)
-    obj[start] = ''
-    obj[end] = ''
-    emit('update:modelValue', obj)
-  }
-  else {
-    emit('update:modelValue', '')
-  }
+  emitEmptyModelValue()
   applyValue.value = []
   VtdInputRef.value && VtdInputRef.value.focus()
 }
@@ -2929,8 +4091,7 @@ function markDateTimeDraftInvalid(
 ) {
   if (!endpoint)
     return
-  const targetDraft
-    = endpoint === 'start' ? datetimeDraftState.start : datetimeDraftState.end
+  const targetDraft = endpoint === 'start' ? datetimeDraftState.start : datetimeDraftState.end
   targetDraft.isValid = false
   targetDraft.errorCode = code
 }
@@ -2958,7 +4119,10 @@ function evaluateDateTimeApplyGuard(): ApplyGuardState {
     return {
       canApply: false,
       blockedCode: datetimeDraftState.start.errorCode ?? 'invalid-time-input',
-      blockedField: datetimeDraftState.start.errorCode === 'config-missing-time-token' ? 'formatter' : 'time',
+      blockedField:
+        datetimeDraftState.start.errorCode === 'config-missing-time-token'
+          ? 'formatter'
+          : 'time',
       blockedEndpoint: 'start',
     }
   }
@@ -2967,7 +4131,10 @@ function evaluateDateTimeApplyGuard(): ApplyGuardState {
     return {
       canApply: false,
       blockedCode: datetimeDraftState.end.errorCode ?? 'invalid-time-input',
-      blockedField: datetimeDraftState.end.errorCode === 'config-missing-time-token' ? 'formatter' : 'time',
+      blockedField:
+        datetimeDraftState.end.errorCode === 'config-missing-time-token'
+          ? 'formatter'
+          : 'time',
       blockedEndpoint: 'end',
     }
   }
@@ -3079,17 +4246,15 @@ function isApplyButtonDisabled() {
     if (!hasRequiredSelection)
       return true
 
-    const startHasInputError = !datetimeDraftState.start.isValid
-      && (
-        datetimeDraftState.start.errorCode === 'invalid-time-input'
-        || datetimeDraftState.start.errorCode === 'dst-nonexistent-time'
-      )
-    const endHasInputError = asRange()
-      && !datetimeDraftState.end.isValid
-      && (
-        datetimeDraftState.end.errorCode === 'invalid-time-input'
-        || datetimeDraftState.end.errorCode === 'dst-nonexistent-time'
-      )
+    const startHasInputError
+      = !datetimeDraftState.start.isValid
+        && (datetimeDraftState.start.errorCode === 'invalid-time-input'
+          || datetimeDraftState.start.errorCode === 'dst-nonexistent-time')
+    const endHasInputError
+      = asRange()
+        && !datetimeDraftState.end.isValid
+        && (datetimeDraftState.end.errorCode === 'invalid-time-input'
+          || datetimeDraftState.end.errorCode === 'dst-nonexistent-time')
 
     return startHasInputError || endHasInputError
   }
@@ -3101,10 +4266,7 @@ function isApplyButtonDisabled() {
  * keyUp event
  * @since v1.0.5
  */
-function keyUp() {
-  if (datetimeModeConfig.value.datetime)
-    return
-
+function syncTextInputValue() {
   if (asRange()) {
     const [s, e] = pickerValue.value.split(props.separator)
     const [sd, ed] = [
@@ -3112,59 +4274,91 @@ function keyUp() {
       dayjs(e, props.formatter.date, true),
     ]
     if (sd.isValid() && ed.isValid()) {
+      const signature = `range:${sd.valueOf()}:${ed.valueOf()}`
+      if (signature === lastSyncedTextInputSignature)
+        return
+
       setDate(sd)
       setDate(ed)
-      if (Array.isArray(props.modelValue)) {
-        emit('update:modelValue', [s, e])
-      }
-      else if (typeof props.modelValue === 'object') {
-        const obj: Record<string, string> = {}
-        const [start, end] = Object.keys(props.modelValue)
-        obj[start] = s
-        obj[end] = e
-        emit('update:modelValue', obj)
-      }
-      else {
-        emit(
-          'update:modelValue',
-          useToValueFromArray(
-            {
-              previous: sd,
-              next: ed,
-            },
-            props,
-          ),
-        )
-      }
+      emitRangeModelValueFromFormatted(
+        s,
+        e,
+        useToValueFromArray(
+          {
+            previous: sd,
+            next: ed,
+          },
+          props,
+        ),
+      )
+      lastSyncedTextInputSignature = signature
+    } else {
+      lastSyncedTextInputSignature = null
     }
-  }
-  else {
+  } else {
     const d = dayjs(pickerValue.value, props.formatter.date, true)
     if (d.isValid()) {
+      const signature = `single:${d.valueOf()}`
+      if (signature === lastSyncedTextInputSignature)
+        return
+
       setDate(d)
-      if (Array.isArray(props.modelValue)) {
-        emit('update:modelValue', [pickerValue.value])
-      }
-      else if (typeof props.modelValue === 'object') {
-        const obj: Record<string, string> = {}
-        const [start] = Object.keys(props.modelValue)
-        obj[start] = pickerValue.value
-        emit('update:modelValue', obj)
-      }
-      else {
-        emit('update:modelValue', pickerValue.value)
-      }
+      emitSingleModelValueFromFormatted(pickerValue.value)
+      lastSyncedTextInputSignature = signature
+    } else {
+      lastSyncedTextInputSignature = null
     }
   }
 }
 
-function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
+function keyUp() {
+  syncTextInputValue()
+}
+
+type DateSelectionSource = 'keyboard' | 'pointer'
+interface DateSelectionPayload {
+  date: Dayjs
+  source?: DateSelectionSource
+  activationKey?: string
+}
+
+function normalizeDateSelectionPayload(payload: Dayjs | DateSelectionPayload) {
+  if (dayjs.isDayjs(payload)) {
+    return {
+      date: payload,
+      source: 'pointer' as DateSelectionSource,
+      activationKey: null as string | null,
+    }
+  }
+
+  return {
+    date: payload.date,
+    source: payload.source === 'keyboard' ? 'keyboard' : 'pointer',
+    activationKey: typeof payload.activationKey === 'string' ? payload.activationKey : null,
+  }
+}
+
+function setDate(payload: Dayjs | DateSelectionPayload, close?: (ref?: Ref | HTMLElement) => void) {
+  const { date, source, activationKey } = normalizeDateSelectionPayload(payload)
+
   if (datetimeModeConfig.value.datetime) {
     datetimeApplyError.value = null
     resetDateTimeDraftValidationState()
   }
 
   if (asRange()) {
+    const selectedRangeEndDate = applyValue.value.length >= 2 ? applyValue.value[1] : null
+    const shouldApplyKeyboardRange
+      = !autoApplyEnabled.value
+        && source === 'keyboard'
+        && activationKey === 'Enter'
+        && !!selectedRangeEndDate
+        && selectedRangeEndDate.isSame(date, 'date')
+    if (shouldApplyKeyboardRange) {
+      applyDate(close)
+      return
+    }
+
     if (previous.value) {
       datetimeDraftState.activeEndpoint = 'end'
       next.value = date
@@ -3177,8 +4371,7 @@ function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
             },
             props,
           )
-        }
-        else {
+        } else {
           pickerValue.value = useToValueFromArray(
             {
               previous: previous.value,
@@ -3188,38 +4381,25 @@ function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
           )
         }
         const [s, e] = pickerValue.value.split(props.separator)
-
-        if (Array.isArray(props.modelValue)) {
-          emit('update:modelValue', [
-            dayjs(s, props.formatter.date, true).format(props.formatter.date),
-            dayjs(e, props.formatter.date, true).format(props.formatter.date),
-          ])
-        }
-        else if (typeof props.modelValue === 'object') {
-          const obj: Record<string, string> = {}
-          const [start, end] = Object.keys(props.modelValue)
-          obj[start] = s
-          obj[end] = e
-          emit('update:modelValue', obj)
-        }
-        else {
-          emit(
-            'update:modelValue',
-            useToValueFromArray(
-              {
-                previous: dayjs(s, props.formatter.date, true),
-                next: dayjs(e, props.formatter.date, true),
-              },
-              props,
-            ),
-          )
-        }
-        const shouldClosePopover
-          = props.closeOnRangeSelection && typeof close === 'function'
+        const startDate = dayjs(s, props.formatter.date, true)
+        const endDate = dayjs(e, props.formatter.date, true)
+        emitRangeModelValueFromFormatted(
+          startDate.format(props.formatter.date),
+          endDate.format(props.formatter.date),
+          useToValueFromArray(
+            {
+              previous: startDate,
+              next: endDate,
+            },
+            props,
+          ),
+        )
+        announceRangeSelection(startDate, endDate, true)
+        const shouldClosePopover = props.closeOnRangeSelection && typeof close === 'function'
         // In `no-input` static mode there is no popover close callback, so
         // this option intentionally becomes a no-op.
         if (shouldClosePopover)
-          close()
+          closePopover(close)
 
         applyValue.value = []
         if (
@@ -3232,8 +4412,7 @@ function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
           datepicker.value.next = dayjs(e, props.formatter.date, true)
         }
         force()
-      }
-      else {
+      } else {
         const startBaseDate = applyValue.value[0] ?? previous.value
         const startDateWithDraftTime = mergeDateWithDraftTime(startBaseDate, 'start')
         const endDateWithDraftTime = mergeDateWithDraftTime(date, 'end')
@@ -3248,19 +4427,20 @@ function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
           datepicker.value.previous = s
           datepicker.value.next = e
         }
+        announceRangeSelection(s, e)
         assignDateTimeDraft('start', s, false)
         assignDateTimeDraft('end', e, false)
         openTimePanelAfterDateSelection()
         force()
       }
-    }
-    else {
+    } else {
       datetimeDraftState.activeEndpoint = 'start'
       applyValue.value = []
       previous.value = date
       selection.value = date
       hoverValue.value.push(date)
       applyValue.value.push(mergeDateWithDraftTime(date, 'start'))
+      announceRangeStartSelection(applyValue.value[0] ?? date)
       datepicker.value.previous = date
       if (datepicker.value.next.isSame(date, 'month')) {
         datepicker.value.previous = datepicker.value.next
@@ -3268,31 +4448,20 @@ function setDate(date: Dayjs, close?: (ref?: Ref | HTMLElement) => void) {
       }
       openTimePanelAfterDateSelection()
     }
-  }
-  else {
+  } else {
     if (autoApplyEnabled.value) {
       pickerValue.value = useToValueFromString(date, props)
-      if (Array.isArray(props.modelValue)) {
-        emit('update:modelValue', [pickerValue.value])
-      }
-      else if (typeof props.modelValue === 'object') {
-        const obj: Record<string, string> = {}
-        const [start] = Object.keys(props.modelValue)
-        obj[start] = pickerValue.value
-        emit('update:modelValue', obj)
-      }
-      else {
-        emit('update:modelValue', pickerValue.value)
-      }
+      emitSingleModelValueFromFormatted(pickerValue.value)
+      announceSingleDateSelection(date, true)
       if (close)
-        close()
+        closePopover(close)
 
       applyValue.value = []
       force()
-    }
-    else {
+    } else {
       const dateWithDraftTime = mergeDateWithDraftTime(date, 'start')
       applyValue.value = [dateWithDraftTime]
+      announceSingleDateSelection(dateWithDraftTime)
       assignDateTimeDraft('start', dateWithDraftTime, false)
       openTimePanelAfterDateSelection()
       force()
@@ -3314,79 +4483,37 @@ function applyDate(close?: (ref?: Ref | HTMLElement) => void) {
     resetDateTimeDraftValidationState()
   }
 
-  let date
+  if (asRange()) {
+    const normalizedAtApply = normalizeRangeAtCommitBoundary('apply')
+    if (normalizedAtApply && !props.autoApply) {
+      const [startDate, endDate] = applyValue.value
+      if (startDate && endDate)
+        applyValue.value = [endDate, startDate]
+      else applyValue.value = [datepicker.value.previous, datepicker.value.next]
+    }
+  }
+
   if (asRange()) {
     const [s, e] = applyValue.value
-    if (e.isBefore(s)) {
-      date = useToValueFromArray(
-        {
-          previous: e,
-          next: s,
-        },
-        props,
-      )
-    }
-    else {
-      date = useToValueFromArray(
-        {
-          previous: s,
-          next: e,
-        },
-        props,
-      )
-    }
-  }
-  else {
+    const startDate = e.isBefore(s) ? e : s
+    const endDate = e.isBefore(s) ? s : e
+    pickerValue.value = useToValueFromArray(
+      {
+        previous: startDate,
+        next: endDate,
+      },
+      props,
+    )
+    emitRangeModelValue(startDate, endDate)
+    announceRangeSelection(startDate, endDate, true)
+  } else {
     const [s] = applyValue.value
-    date = s
-  }
-  if (asRange()) {
-    const [s, e] = (date as string).split(props.separator)
-
-    if (Array.isArray(props.modelValue)) {
-      emit('update:modelValue', [
-        dayjs(s, props.formatter.date, true).format(props.formatter.date),
-        dayjs(e, props.formatter.date, true).format(props.formatter.date),
-      ])
-    }
-    else if (typeof props.modelValue === 'object') {
-      const obj: Record<string, string> = {}
-      const [start, end] = Object.keys(props.modelValue)
-      obj[start] = s
-      obj[end] = e
-      emit('update:modelValue', obj)
-    }
-    else {
-      emit(
-        'update:modelValue',
-        useToValueFromArray(
-          {
-            previous: dayjs(s, props.formatter.date, true),
-            next: dayjs(e, props.formatter.date, true),
-          },
-          props,
-        ),
-      )
-    }
-    pickerValue.value = date as string
-  }
-  else {
-    pickerValue.value = (date as Dayjs).format(props.formatter.date)
-    if (Array.isArray(props.modelValue)) {
-      emit('update:modelValue', [pickerValue.value])
-    }
-    else if (typeof props.modelValue === 'object') {
-      const obj: Record<string, string> = {}
-      const [start] = Object.keys(props.modelValue)
-      obj[start] = pickerValue.value
-      emit('update:modelValue', obj)
-    }
-    else {
-      emit('update:modelValue', pickerValue.value)
-    }
+    pickerValue.value = s.format(props.formatter.date)
+    emitSingleModelValueFromFormatted(pickerValue.value)
+    announceSingleDateSelection(s, true)
   }
   if (close)
-    close()
+    closePopover(close)
 }
 
 function atMouseOver(date: Dayjs) {
@@ -3394,8 +4521,7 @@ function atMouseOver(date: Dayjs) {
     return false
   if (previous.value) {
     hoverValue.value = [previous.value, date]
-  }
-  else {
+  } else {
     hoverValue.value = []
     return false
   }
@@ -3404,54 +4530,11 @@ function atMouseOver(date: Dayjs) {
 function isBetweenRange(date: DatePickerDay) {
   if (previous.value && autoApplyEnabled.value)
     return false
-  let s, e
-  if (hoverValue.value.length > 1) {
-    const [start, end] = hoverValue.value
-    s = dayjs(start, props.formatter.date, true)
-    e = dayjs(end, props.formatter.date, true)
-  }
-  else {
-    if (Array.isArray(props.modelValue)) {
-      if (autoApplyEnabled.value) {
-        const [start, end] = props.modelValue
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-      else {
-        const [start, end] = applyValue.value
-        s = dayjs(start, props.formatter.date, true)
-        e = dayjs(end, props.formatter.date, true)
-      }
-    }
-    else if (typeof props.modelValue === 'object') {
-      if (autoApplyEnabled.value) {
-        if (props.modelValue) {
-          const [start, end] = Object.values(props.modelValue)
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
-        }
-      }
-      else {
-        const [start, end] = applyValue.value
-        s = dayjs(start, props.formatter.date, true)
-        e = dayjs(end, props.formatter.date, true)
-      }
-    }
-    else {
-      if (autoApplyEnabled.value) {
-        const [start, end] = props.modelValue
-          ? props.modelValue.split(props.separator)
-          : [null, null]
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-      else {
-        const [start, end] = applyValue.value
-        s = dayjs(start, props.formatter.date, true)
-        e = dayjs(end, props.formatter.date, true)
-      }
-    }
-  }
+  const range
+    = hoverValue.value.length > 1
+      ? resolveSelectionRange('hover')
+      : resolveSelectionRange('interactive')
+  const { start: s, end: e } = range
   if (s && e) {
     return useBetweenRange(date, {
       previous: s,
@@ -3463,116 +4546,28 @@ function isBetweenRange(date: DatePickerDay) {
 
 function datepickerClasses(date: DatePickerDay) {
   const { today, active, off, disabled } = date
-  let classes, s, e
+  let classes: string | undefined
+  let s: Dayjs | null = null
+  let e: Dayjs | null = null
   if (asRange()) {
-    if (Array.isArray(props.modelValue)) {
-      if (selection.value) {
-        const [start, end] = hoverValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-      else {
-        if (autoApplyEnabled.value) {
-          const [start, end] = props.modelValue
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
-        }
-        else {
-          const [start, end] = applyValue.value
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
-        }
-      }
-    }
-    else if (typeof props.modelValue === 'object') {
-      if (selection.value) {
-        const [start, end] = hoverValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-      else {
-        if (autoApplyEnabled.value) {
-          const [start, end] = props.modelValue
-            ? Object.values(props.modelValue)
-            : [null, null]
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
-        }
-        else {
-          const [start, end] = applyValue.value
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
-        }
-      }
-    }
-    else {
-      if (selection.value) {
-        const [start, end] = hoverValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-      else {
-        if (autoApplyEnabled.value) {
-          const [start, end] = props.modelValue
-            ? props.modelValue.split(props.separator)
-            : [null, null]
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
-        }
-        else {
-          const [start, end] = applyValue.value
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
-        }
-      }
-    }
-  }
-  else {
-    if (Array.isArray(props.modelValue)) {
-      if (autoApplyEnabled.value) {
-        if (props.modelValue.length > 0) {
-          const [start] = props.modelValue
-          s = dayjs(start, props.formatter.date, true)
-        }
-      }
-      else {
-        const [start] = applyValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-      }
-    }
-    else if (typeof props.modelValue === 'object') {
-      if (autoApplyEnabled.value) {
-        if (props.modelValue) {
-          const [start] = Object.values(props.modelValue)
-          s = dayjs(start, props.formatter.date, true)
-        }
-      }
-      else {
-        const [start] = applyValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-      }
-    }
-    else {
-      if (autoApplyEnabled.value) {
-        if (props.modelValue) {
-          const [start] = props.modelValue.split(props.separator)
-          s = dayjs(start, props.formatter.date, true)
-        }
-      }
-      else {
-        const [start] = applyValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-      }
-    }
+    const useHoverRange = !!selection.value && hoverValue.value.length > 1
+    const range = useHoverRange
+      ? resolveSelectionRange('hover')
+      : resolveSelectionRange('interactive')
+    s = range.start
+    e = range.end
+  } else {
+    const range = resolveSelectionRange(autoApplyEnabled.value ? 'model' : 'apply')
+    s = range.start
   }
   if (active) {
     classes = today
       ? 'text-vtd-primary-500 font-semibold dark:text-vtd-primary-400 rounded-full focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring focus:ring-vtd-primary-500/10 focus:outline-none dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600/50 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/25'
-        : disabled
-          ? 'text-vtd-secondary-600 font-normal disabled:text-vtd-secondary-500 disabled:cursor-not-allowed rounded-full'
-          : date.isBetween(s as Dayjs, e as Dayjs, 'date', '()')
-            ? 'text-vtd-secondary-700 font-medium dark:text-vtd-secondary-100'
-            : 'text-vtd-secondary-600 font-medium dark:text-vtd-secondary-200 rounded-full'
+      : disabled
+        ? 'text-vtd-secondary-600 font-normal disabled:text-vtd-secondary-500 disabled:cursor-not-allowed rounded-full'
+        : s && e && date.isBetween(s, e, 'date', '()')
+          ? 'text-vtd-secondary-700 font-medium dark:text-vtd-secondary-100'
+          : 'text-vtd-secondary-600 font-medium dark:text-vtd-secondary-200 rounded-full'
   }
   if (off)
     classes = 'text-vtd-secondary-400 font-light disabled:cursor-not-allowed'
@@ -3596,8 +4591,7 @@ function datepickerClasses(date: DatePickerDay) {
           = 'vtd-datepicker-date-selected vtd-datepicker-date-selected-single disabled:cursor-not-allowed'
       }
     }
-  }
-  else if (s) {
+  } else if (s) {
     if (date.isSame(s, 'date') && !off) {
       classes
         = 'vtd-datepicker-date-selected vtd-datepicker-date-selected-single disabled:cursor-not-allowed'
@@ -3608,71 +4602,15 @@ function datepickerClasses(date: DatePickerDay) {
 }
 
 function betweenRangeClasses(date: Dayjs) {
-  let classes, s, e
-  classes = ''
+  let classes = ''
   if (!asRange())
     return classes
-  if (Array.isArray(props.modelValue)) {
-    if (hoverValue.value.length > 1) {
-      const [start, end] = hoverValue.value
-      s = start && dayjs(start, props.formatter.date, true)
-      e = end && dayjs(end, props.formatter.date, true)
-    }
-    else {
-      if (autoApplyEnabled.value) {
-        const [start, end] = props.modelValue
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-      else {
-        const [start, end] = applyValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-    }
-  }
-  else if (typeof props.modelValue === 'object') {
-    if (hoverValue.value.length > 1) {
-      const [start, end] = hoverValue.value
-      s = start && dayjs(start, props.formatter.date, true)
-      e = end && dayjs(end, props.formatter.date, true)
-    }
-    else {
-      if (autoApplyEnabled.value) {
-        if (props.modelValue) {
-          const [start, end] = Object.values(props.modelValue)
-          s = start && dayjs(start, props.formatter.date, true)
-          e = end && dayjs(end, props.formatter.date, true)
-        }
-      }
-      else {
-        const [start, end] = applyValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-    }
-  }
-  else {
-    if (hoverValue.value.length > 1) {
-      const [start, end] = hoverValue.value
-      s = start && dayjs(start, props.formatter.date, true)
-      e = end && dayjs(end, props.formatter.date, true)
-    }
-    else {
-      if (autoApplyEnabled.value) {
-        const [start, end] = props.modelValue
-          ? props.modelValue.split(props.separator)
-          : [null, null]
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-      else {
-        const [start, end] = applyValue.value
-        s = start && dayjs(start, props.formatter.date, true)
-        e = end && dayjs(end, props.formatter.date, true)
-      }
-    }
-  }
+  const range
+    = hoverValue.value.length > 1
+      ? resolveSelectionRange('hover')
+      : resolveSelectionRange('interactive')
+  const s = range.start
+  const e = range.end
 
   const startDate = dayjs.isDayjs(s) && s.isValid() ? s : null
   const endDate = dayjs.isDayjs(e) && e.isValid() ? e : null
@@ -3699,8 +4637,7 @@ function betweenRangeClasses(date: Dayjs) {
 
       if (startDate.isSame(endDate, 'date'))
         classes += ' rounded-full inset-0 vtd-datepicker-range-preview-edge'
-    }
-    else if (date.isSame(endDate, 'date')) {
+    } else if (date.isSame(endDate, 'date')) {
       if (endDate.isBefore(startDate))
         classes += ' rounded-l-full inset-0 vtd-datepicker-range-preview-edge'
 
@@ -3709,18 +4646,50 @@ function betweenRangeClasses(date: Dayjs) {
 
       if (startDate.isSame(endDate, 'date'))
         classes += ' rounded-full inset-0 vtd-datepicker-range-preview-edge'
-    }
-    else {
+    } else {
       classes += ' inset-0'
     }
   }
   return classes
 }
 
-function forceEmit(s: string, e: string) {
+function emitShortcut(s: string, e: string) {
+  if (asRange()) {
+    if (autoApplyEnabled.value) {
+      emitRangeModelValueFromFormatted(
+        s,
+        e,
+        useToValueFromArray(
+          {
+            previous: dayjs(s, props.formatter.date, true),
+            next: dayjs(e, props.formatter.date, true),
+          },
+          props,
+        ),
+      )
+      pickerValue.value = `${s}${props.separator}${e}`
+    } else {
+      applyValue.value = [
+        dayjs(s, props.formatter.date, true),
+        dayjs(e, props.formatter.date, true),
+      ]
+    }
+  } else {
+    if (autoApplyEnabled.value) {
+      emitSingleModelValueFromFormatted(s)
+      pickerValue.value = s
+    } else {
+      applyValue.value = [
+        dayjs(s, props.formatter.date, true),
+        dayjs(e, props.formatter.date, true),
+      ]
+    }
+  }
+
   datepicker.value.previous = dayjs(s, props.formatter.date, true)
   datepicker.value.next = dayjs(e, props.formatter.date, true)
 
+  /* eslint-disable style/indent-binary-ops */
   if (
     dayjs
       .duration(datepicker.value.next.diff(datepicker.value.previous))
@@ -3728,87 +4697,32 @@ function forceEmit(s: string, e: string) {
     || (dayjs
       .duration(datepicker.value.next.diff(datepicker.value.previous))
       .get('months') === 1
-      && dayjs
-        .duration(datepicker.value.next.diff(datepicker.value.previous))
-        .get('days') === 7)
-  )
+    && dayjs
+      .duration(datepicker.value.next.diff(datepicker.value.previous))
+      .get('days') === 7)
+  ) {
     datepicker.value.next = datepicker.value.next.subtract(1, 'month')
+  }
+  /* eslint-enable style/indent-binary-ops */
 
   if (
     datepicker.value.next.isSame(datepicker.value.previous, 'month')
     || datepicker.value.next.isBefore(datepicker.value.previous)
-  )
+  ) {
     datepicker.value.next = datepicker.value.previous.add(1, 'month')
+  }
 }
 
-function emitShortcut(s: string, e: string) {
-  if (asRange()) {
-    if (autoApplyEnabled.value) {
-      if (Array.isArray(props.modelValue)) {
-        emit('update:modelValue', [s, e])
-      }
-      else if (typeof props.modelValue === 'object') {
-        const obj: Record<string, string> = {}
-        const [start, end] = Object.keys(props.modelValue)
-        obj[start] = s
-        obj[end] = e
-        emit('update:modelValue', obj)
-      }
-      else {
-        emit(
-          'update:modelValue',
-          useToValueFromArray(
-            {
-              previous: dayjs(s, props.formatter.date, true),
-              next: dayjs(e, props.formatter.date, true),
-            },
-            props,
-          ),
-        )
-      }
-      pickerValue.value = `${s}${props.separator}${e}`
-    }
-    else {
-      applyValue.value = [
-        dayjs(s, props.formatter.date, true),
-        dayjs(e, props.formatter.date, true),
-      ]
-    }
-  }
-  else {
-    if (autoApplyEnabled.value) {
-      if (Array.isArray(props.modelValue)) {
-        emit('update:modelValue', [s])
-      }
-      else if (typeof props.modelValue === 'object') {
-        const obj: Record<string, string> = {}
-        const [start] = Object.keys(props.modelValue)
-        obj[start] = s
-        emit('update:modelValue', obj)
-      }
-      else {
-        emit('update:modelValue', s)
-      }
-      pickerValue.value = s
-    }
-    else {
-      applyValue.value = [
-        dayjs(s, props.formatter.date, true),
-        dayjs(e, props.formatter.date, true),
-      ]
-    }
-  }
-  forceEmit(s, e)
-}
-
-function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition | TypedShortcutDefinition {
+function getBuiltInShortcut(
+  target: BuiltInShortcutId,
+): LegacyShortcutDefinition | TypedShortcutDefinition {
   switch (target) {
     case 'today':
       return {
         id: 'today',
         label: props.options.shortcuts.today,
         atClick: () => {
-          const date = dayjs().toDate()
+          const date = dayjsWithResolvedLocale().toDate()
           return [date, date]
         },
       }
@@ -3817,7 +4731,7 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
         id: 'yesterday',
         label: props.options.shortcuts.yesterday,
         atClick: () => {
-          const date = dayjs().subtract(1, 'day').toDate()
+          const date = dayjsWithResolvedLocale().subtract(1, 'day').toDate()
           return [date, date]
         },
       }
@@ -3826,7 +4740,7 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
         id: 'past-7-days',
         label: props.options.shortcuts.past(7),
         atClick: () => {
-          const now = dayjs()
+          const now = dayjsWithResolvedLocale()
           return [
             now.subtract(6, 'day').toDate(),
             now.toDate(),
@@ -3838,7 +4752,7 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
         id: 'past-30-days',
         label: props.options.shortcuts.past(30),
         atClick: () => {
-          const now = dayjs()
+          const now = dayjsWithResolvedLocale()
           return [
             now.subtract(29, 'day').toDate(),
             now.toDate(),
@@ -3850,7 +4764,7 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
         id: 'this-month',
         label: props.options.shortcuts.currentMonth,
         atClick: () => {
-          const now = dayjs()
+          const now = dayjsWithResolvedLocale()
           return [
             now.date(1).toDate(),
             now.date(now.daysInMonth()).toDate(),
@@ -3862,7 +4776,7 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
         id: 'last-month',
         label: props.options.shortcuts.pastMonth,
         atClick: () => {
-          const now = dayjs()
+          const now = dayjsWithResolvedLocale()
           return [
             now.date(1).subtract(1, 'month').toDate(),
             now.date(0).toDate(),
@@ -3891,6 +4805,14 @@ function getBuiltInShortcut(target: BuiltInShortcutId): LegacyShortcutDefinition
 }
 
 function emitInvalidShortcut(payload: InvalidShortcutEventPayload) {
+  const reasonLabels: Record<InvalidShortcutEventPayload['reason'], string> = {
+    'disabled': 'shortcut is disabled',
+    'blocked-date': 'shortcut result is blocked by date constraints',
+    'mode-mismatch': 'shortcut is not available for the current mode',
+    'resolver-error': 'shortcut resolver failed',
+    'invalid-result': 'shortcut returned an invalid value',
+  }
+  announcePolite(`Shortcut unavailable: ${reasonLabels[payload.reason]}.`)
   emit('invalid-shortcut', payload)
 }
 
@@ -3901,7 +4823,9 @@ function applyShortcutResolvedValue(value: Date | [Date, Date]) {
   emitShortcut(s, e)
 }
 
-function isTypedShortcutDefinition(target: ShortcutActivationTarget): target is TypedShortcutDefinition {
+function isTypedShortcutDefinition(
+  target: ShortcutActivationTarget,
+): target is TypedShortcutDefinition {
   return typeof target !== 'string' && 'resolver' in target && typeof target.resolver === 'function'
 }
 
@@ -3941,7 +4865,7 @@ function getShortcutDisabledStateCacheKey(target: ShortcutActivationTarget, inde
 function getShortcutActivationState(
   target: ShortcutActivationTarget,
   index?: number,
-  options: { preferCached?: boolean; cacheResult?: boolean } = {},
+  options: { preferCached?: boolean, cacheResult?: boolean } = {},
 ) {
   const cacheKey = getShortcutDisabledStateCacheKey(target, index)
   if (options.preferCached) {
@@ -4061,10 +4985,11 @@ function activateShortcut(
 
   const shouldCloseAfterShortcutSelection
     = typeof close === 'function'
+      && autoApplyEnabled.value
       && (!asRange() || props.closeOnRangeSelection)
 
   if (shouldCloseAfterShortcutSelection)
-    close()
+    closePopover(close)
 }
 
 watch(
@@ -4101,25 +5026,38 @@ watchEffect(() => {
     if (asRange())
       givenPlaceholder.value = `${props.formatter.date}${props.separator}${props.formatter.date}`
     else givenPlaceholder.value = props.formatter.date
-  }
-  else {
+  } else {
     givenPlaceholder.value = props.placeholder
   }
 })
 
-dayjs.locale(props.i18n)
-watch(() => props.i18n, () => dayjs.locale(props.i18n))
+let localeLoadToken = 0
+watch(
+  () => props.i18n,
+  (locale) => {
+    const token = ++localeLoadToken
+    const nextLocale = locale || 'en'
+    nextTick(async () => {
+      if (locale in localesMap) {
+        try {
+          const localeData = await localesMap[locale]()
+          dayjs.locale(localeData, undefined, true)
+        } catch {
+          // Keep the previous locale registration if a dynamic locale chunk fails to load.
+        }
+      }
+      if (token !== localeLoadToken)
+        return
+      resolvedLocale.value = nextLocale
+      refreshLocalizedCalendarLabels()
+    })
+  },
+  { immediate: true },
+)
 
 watchEffect(() => {
-  const locale = props.i18n
   const modelValueCloned = props.modelValue
   nextTick(async () => {
-    if (locale in localesMap) {
-      const localeData = await localesMap[locale]()
-      dayjs.locale(localeData, undefined, true)
-      dayjs.locale(locale)
-    }
-
     let s: Dayjs | null = null
     let e: Dayjs | null = null
     let startHydrated = false
@@ -4135,13 +5073,11 @@ watchEffect(() => {
           startHydrated = resolvedStart.isHydrated
           endHydrated = resolvedEnd.isHydrated
         }
-      }
-      else if (typeof modelValueCloned === 'object') {
+      } else if (typeof modelValueCloned === 'object') {
         if (!isProxy(modelValueCloned)) {
           try {
             Object.keys(modelValueCloned)
-          }
-          catch (e) {
+          } catch {
             console.warn(
               '[Vue Tailwind Datepicker]: It looks like you want to use Object as the argument %cv-model',
               'font-style: italic; color: #42b883;',
@@ -4152,10 +5088,7 @@ watchEffect(() => {
               'font-style: italic; color: #42b883;',
               ', but you can replace manually.',
             )
-            emit('update:modelValue', {
-              startDate: '',
-              endDate: '',
-            })
+            emitEmptyModelValue()
           }
         }
         if (modelValueCloned) {
@@ -4167,9 +5100,8 @@ watchEffect(() => {
           startHydrated = resolvedStart.isHydrated
           endHydrated = resolvedEnd.isHydrated
         }
-      }
-      else {
-        if (modelValueCloned) {
+      } else {
+        if (typeof modelValueCloned === 'string' && modelValueCloned.length > 0) {
           const [start, end] = modelValueCloned.split(props.separator)
           const resolvedStart = resolveModelDateValue(start, 'start')
           const resolvedEnd = resolveModelDateValue(end, 'end')
@@ -4181,26 +5113,34 @@ watchEffect(() => {
       }
 
       if (s && e) {
-        pickerValue.value = useToValueFromArray(
-          {
-            previous: s,
-            next: e,
-          },
-          props,
-        )
+        const formattedStart = formatModelDateWithDirectYear(s, props.formatter.date)
+        const formattedEnd = formatModelDateWithDirectYear(e, props.formatter.date)
+        pickerValue.value = `${formattedStart}${props.separator}${formattedEnd}`
+        const preserveTemporaryInversion
+          = props.selectorMode
+            && props.directYearInput
+            && !props.autoApply
+            && pickerViewMode.value === 'selector'
+            && rangeNormalizationState.hasTemporaryInversion
+
         if (e.isBefore(s, 'month')) {
-          datepicker.value.previous = e
-          datepicker.value.next = s
-          datepicker.value.year.previous = e.year()
-          datepicker.value.year.next = s.year()
-        }
-        else if (e.isSame(s, 'month')) {
+          if (preserveTemporaryInversion) {
+            datepicker.value.previous = s
+            datepicker.value.next = e
+            datepicker.value.year.previous = s.year()
+            datepicker.value.year.next = e.year()
+          } else {
+            datepicker.value.previous = e
+            datepicker.value.next = s
+            datepicker.value.year.previous = e.year()
+            datepicker.value.year.next = s.year()
+          }
+        } else if (e.isSame(s, 'month')) {
           datepicker.value.previous = s
           datepicker.value.next = e.add(1, 'month')
           datepicker.value.year.previous = s.year()
           datepicker.value.year.next = s.add(1, 'year').year()
-        }
-        else {
+        } else {
           datepicker.value.previous = s
           datepicker.value.next = e
           datepicker.value.year.previous = s.year()
@@ -4210,8 +5150,7 @@ watchEffect(() => {
         assignDateTimeDraft('end', e, endHydrated)
         if (!autoApplyEnabled.value)
           applyValue.value = [s, e]
-      }
-      else {
+      } else {
         datepicker.value.previous = dayjs(props.startFrom)
         datepicker.value.next = dayjs(props.startFrom).add(1, 'month')
         datepicker.value.year.previous = datepicker.value.previous.year()
@@ -4219,8 +5158,7 @@ watchEffect(() => {
         assignDateTimeDraft('start', null)
         assignDateTimeDraft('end', null)
       }
-    }
-    else {
+    } else {
       if (Array.isArray(modelValueCloned)) {
         if (modelValueCloned.length > 0) {
           const [start] = modelValueCloned
@@ -4228,17 +5166,15 @@ watchEffect(() => {
           s = resolvedStart.value
           startHydrated = resolvedStart.isHydrated
         }
-      }
-      else if (typeof modelValueCloned === 'object') {
+      } else if (typeof modelValueCloned === 'object') {
         if (modelValueCloned) {
           const [start] = Object.values(modelValueCloned)
           const resolvedStart = resolveModelDateValue(start, 'start')
           s = resolvedStart.value
           startHydrated = resolvedStart.isHydrated
         }
-      }
-      else {
-        if (modelValueCloned.length) {
+      } else {
+        if (typeof modelValueCloned === 'string' && modelValueCloned.length > 0) {
           const [start] = modelValueCloned.split(props.separator)
           const resolvedStart = resolveModelDateValue(start, 'start')
           s = resolvedStart.value
@@ -4247,7 +5183,7 @@ watchEffect(() => {
       }
 
       if (s && s.isValid()) {
-        pickerValue.value = useToValueFromString(s, props)
+        pickerValue.value = formatModelDateWithDirectYear(s, props.formatter.date)
         datepicker.value.previous = s
         datepicker.value.next = s.add(1, 'month')
         datepicker.value.year.previous = s.year()
@@ -4256,8 +5192,7 @@ watchEffect(() => {
         assignDateTimeDraft('end', null)
         if (!autoApplyEnabled.value)
           applyValue.value = [s]
-      }
-      else {
+      } else {
         datepicker.value.previous = dayjs(props.startFrom)
         datepicker.value.next = dayjs(props.startFrom).add(1, 'month')
         datepicker.value.year.previous = datepicker.value.previous.year()
@@ -4266,13 +5201,7 @@ watchEffect(() => {
         assignDateTimeDraft('end', null)
       }
     }
-    const days
-      = props.weekdaysSize === 'min'
-        ? dayjs.weekdaysMin()
-        : dayjs.weekdaysShort()
-    datepicker.value.weeks = isFirstMonday() ? shuffleWeekdays(days) : days
-    datepicker.value.months
-      = props.formatter.month === 'MMM' ? dayjs.monthsShort() : dayjs.months()
+    refreshLocalizedCalendarLabels()
   })
 })
 
@@ -4311,34 +5240,83 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
 </script>
 
 <template>
-  <Popover v-if="!props.noInput" id="vtd" v-slot="{ open }: { open: boolean }" as="div" class="relative w-full">
-    <PopoverOverlay v-if="props.overlay && !props.disabled" class="fixed inset-0 bg-black opacity-30" />
+  <Popover
+    v-if="!props.noInput"
+    id="vtd"
+    v-slot="{ open }: { open: boolean }"
+    as="div"
+    class="relative w-full"
+    :restore-focus="props.popoverRestoreFocus"
+  >
+    <PopoverOverlay
+      v-if="props.overlay && !props.disabled"
+      class="fixed inset-0 bg-black opacity-30"
+    />
 
-    <PopoverButton ref="VtdPopoverButtonRef" as="label" class="relative block" @click="resetPickerViewMode">
+    <PopoverButton
+      ref="VtdPopoverButtonRef"
+      as="label"
+      data-vtd-popover-button="true"
+      class="relative block"
+      @click.capture="onPopoverButtonCaptureClick(open, $event)"
+      @click="onPopoverButtonClick(open, $event)"
+      @keydown.capture="onInputKeydown"
+    >
       <slot :value="pickerValue" :placeholder="givenPlaceholder" :clear="clearPicker">
-        <input ref="VtdInputRef" v-bind="$attrs" v-model="pickerValue" type="text" class="relative block w-full"
-          :disabled="props.disabled" :class="[
+        <input
+          ref="VtdInputRef"
+          v-bind="$attrs"
+          v-model="pickerValue"
+          type="text"
+          class="relative block w-full"
+          :disabled="props.disabled"
+          :class="[
             props.disabled ? 'cursor-default opacity-50' : 'opacity-100',
             inputClasses
-            || 'pl-3 pr-12 py-2.5 rounded-lg overflow-hidden border-solid text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 transition-colors bg-white border border-vtd-secondary-300 focus:border-vtd-primary-300 focus:ring focus:ring-vtd-primary-500/10 focus:outline-none dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/20',
-          ]" autocomplete="off" data-lpignore="true" data-form-type="other" :placeholder="givenPlaceholder"
-          @keyup.stop="keyUp" @keydown.stop="onInputKeydown">
+              || 'pl-3 pr-12 py-2.5 rounded-lg overflow-hidden border-solid text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 transition-colors bg-white border border-vtd-secondary-300 focus:border-vtd-primary-300 focus:ring focus:ring-vtd-primary-500/10 focus:outline-none dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/20',
+          ]"
+          autocomplete="off"
+          data-lpignore="true"
+          data-form-type="other"
+          :placeholder="givenPlaceholder"
+          @mousedown="onInputMouseDown(open, $event)"
+          @click="onInputClick(open, $event)"
+          @input.stop="syncTextInputValue"
+          @keyup.stop="keyUp"
+          @keydown.stop="onInputKeydown"
+        >
         <div class="absolute inset-y-0 right-0 inline-flex items-center rounded-md overflow-hidden">
-          <button type="button" :disabled="props.disabled" :class="props.disabled ? 'cursor-default opacity-50' : 'opacity-100'
-            " class="px-2 py-1 mr-1 focus:outline-none text-vtd-secondary-400 dark:text-vtd-secondary-400/70 rounded-md" @click="
-    props.disabled
-      ? false
-      : pickerValue
-        ? clearPicker()
-        : VtdInputRef?.focus()
-    ">
+          <button
+            type="button"
+            :disabled="props.disabled"
+            :class="props.disabled ? 'cursor-default opacity-50' : 'opacity-100'"
+            class="px-2 py-1 mr-1 focus:outline-none text-vtd-secondary-400 dark:text-vtd-secondary-400/70 rounded-md"
+            @click.stop="
+              props.disabled ? false : pickerValue ? clearPicker() : VtdInputRef?.focus()
+            "
+          >
             <slot name="inputIcon" :value="pickerValue">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg">
-                <path v-if="pickerValue" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                  d="M6 18L18 6M6 6l12 12" />
-                <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  v-if="pickerValue"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+                <path
+                  v-else
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
               </svg>
             </slot>
           </button>
@@ -4346,28 +5324,53 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
       </slot>
     </PopoverButton>
 
-    <transition enter-from-class="opacity-0 translate-y-3" enter-to-class="opacity-100 translate-y-0"
+    <transition
+      :css="props.popoverTransition"
+      enter-from-class="opacity-0 translate-y-3"
+      enter-to-class="opacity-100 translate-y-0"
       enter-active-class="transform transition ease-out duration-200"
-      leave-active-class="transform transition ease-in duration-150" leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 translate-y-3" @after-enter="onPopoverAfterEnter">
-      <PopoverPanel v-if="!props.disabled" v-slot="{ close }: { close: (ref?: Ref | HTMLElement) => void }" as="div"
-        class="relative z-50">
+      leave-active-class="transform transition ease-in duration-150"
+      leave-from-class="opacity-100 translate-y-0"
+      leave-to-class="opacity-0 translate-y-3"
+      @after-enter="onPopoverAfterEnter"
+      @after-leave="onPopoverAfterLeave"
+    >
+      <PopoverPanel
+        v-if="!props.disabled"
+        v-slot="{ close }: { close: (ref?: Ref | HTMLElement) => void }"
+        as="div"
+        class="relative z-50"
+      >
         <div class="absolute z-50 top-full sm:mt-2.5" :class="getAbsoluteParentClass(open)">
-          <div ref="VtdRef"
-            class="fixed inset-0 z-50 overflow-y-auto sm:overflow-visible sm:static sm:z-auto bg-white dark:bg-vtd-secondary-800 sm:rounded-lg shadow-sm">
+          <div
+            ref="VtdRef"
+            class="fixed inset-0 z-50 overflow-y-auto sm:overflow-visible sm:static sm:z-auto bg-white dark:bg-vtd-secondary-800 sm:rounded-lg shadow-sm"
+          >
             <div
               class="vtd-datepicker static sm:relative w-full sm:w-fit bg-white sm:rounded-lg sm:shadow-sm border-0 sm:border border-black/[.1] px-3 py-3 sm:px-4 sm:py-4 dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700/[1]"
               :class="[
                 getAbsoluteClass(open),
                 props.selectorMode && props.asSingle ? 'sm:w-[28.5rem]' : '',
-                props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-[23.5rem]' : '',
+                useLegacyNoTimeSelectorHeightClamp ? 'sm:h-[23.5rem]' : '',
                 collapseDualRangeInlineRightTimePanel ? 'sm:min-w-[78rem]' : '',
               ]"
               :style="datepickerShellLockStyle"
-              @keydown.capture="(event) => onPickerPanelKeydown(event, close)">
-              <div class="flex flex-wrap lg:flex-nowrap" :class="props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-full' : ''">
-                <VtdShortcut v-if="props.shortcuts" :shortcuts="props.shortcuts" :as-range="asRange()"
-                  :as-single="props.asSingle" :built-in-shortcuts="builtInShortcutItems" :close="close">
+              @keydown.capture="event => onPickerPanelKeydown(event, close)"
+              @focusin.capture="onTimeWheelInteraction"
+              @pointerdown.capture="onTimeWheelInteraction"
+            >
+              <div
+                class="flex flex-wrap lg:flex-nowrap"
+                :class="useLegacyNoTimeSelectorHeightClamp ? 'sm:h-full' : ''"
+              >
+                <VtdShortcut
+                  v-if="props.shortcuts"
+                  :shortcuts="props.shortcuts"
+                  :as-range="asRange()"
+                  :as-single="props.asSingle"
+                  :built-in-shortcuts="builtInShortcutItems"
+                  :close="close"
+                >
                   <template #shortcut-item="slotProps">
                     <slot name="shortcut-item" v-bind="slotProps" />
                   </template>
@@ -4376,182 +5379,266 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                   ref="VtdPanelContentRef"
                   class="relative flex flex-wrap sm:flex-nowrap p-1 w-full"
                   :class="[
-                    props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-full' : '',
+                    useLegacyNoTimeSelectorHeightClamp ? 'sm:h-full' : '',
                     showAnyInlineTimePanel ? 'sm:flex-1 sm:min-w-0' : 'sm:w-auto',
                   ]"
                   :style="panelContentLockStyle"
                 >
                   <template v-if="shouldShowDatePanels">
-                    <div v-if="asRange() && !props.asSingle && !collapseDualRangeInlineRightTimePanel"
-                    class="hidden h-full absolute inset-0 sm:flex justify-center items-center">
-                      <div class="h-full border-r border-black/[.1] dark:border-vtd-secondary-700/[1]" />
+                    <div
+                      v-if="asRange() && !props.asSingle && !collapseDualRangeInlineRightTimePanel"
+                      class="hidden h-full absolute inset-0 sm:flex justify-center items-center"
+                    >
+                      <div
+                        class="h-full border-r border-black/[.1] dark:border-vtd-secondary-700/[1]"
+                      />
                     </div>
-                    <div class="relative w-full" data-vtd-selector-panel="previous" :class="{
-                      'mb-3 sm:mb-0 sm:mr-2 md:w-1/2 lg:w-80':
-                        asRange() && !props.asSingle && !showInlineTimePanelInline,
-                      'mb-3 sm:mb-0 sm:mr-2 md:flex-1 md:min-w-0 lg:w-auto':
-                        asRange() && !props.asSingle && showInlineTimePanelInline,
-                      'lg:w-80': props.asSingle && !!props.shortcuts,
-                      'sm:min-h-[21.625rem]': props.asSingle && !props.selectorMode,
-                      'overflow-visible': isSelectorPanel('previous'),
-                      'overflow-hidden': !isSelectorPanel('previous'),
-                      'sm:h-full': props.selectorMode && props.asSingle && !isDateTimeEnabled,
-                    }">
-                    <VtdHeader
-                      :panel="panel.previous"
-                      :calendar="calendar.previous"
-                      panel-name="previous"
-                      :selector-mode="props.selectorMode"
-                      :selector-focus="selectorFocus"
-                      :picker-view-mode="getPanelPickerViewMode('previous')"
-                      @enter-selector-mode="enterSelectorMode"
-                      @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
-                      @step-month="onHeaderMonthStep"
-                    />
-                    <div class="px-0.5 sm:px-2" :class="{
-                      'sm:min-h-[17.625rem]': props.selectorMode,
-                    }">
-                      <template v-if="isSelectorPanel('previous')">
-                        <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
+                    <div
+                      class="relative w-full"
+                      data-vtd-selector-panel="previous"
+                      :class="{
+                        'mb-3 sm:mb-0 sm:mr-2 md:w-1/2 lg:w-80':
+                          asRange() && !props.asSingle && !showInlineTimePanelInline,
+                        'mb-3 sm:mb-0 sm:mr-2 md:flex-1 md:min-w-0 lg:w-auto':
+                          asRange() && !props.asSingle && showInlineTimePanelInline,
+                        'lg:w-80': props.asSingle && !!props.shortcuts,
+                        'sm:min-h-[21.75rem]':
+                          props.asSingle && !props.selectorMode && !showInlineTimePanelInline,
+                        'overflow-visible': isSelectorPanel('previous'),
+                        'overflow-hidden': !isSelectorPanel('previous'),
+                        'sm:h-full': useLegacyNoTimeSelectorHeightClamp,
+                      }"
+                    >
+                      <VtdHeader
+                        :panel="panel.previous"
+                        :calendar="calendar.previous"
+                        panel-name="previous"
+                        :selector-mode="props.selectorMode"
+                        :selector-focus="selectorFocus"
+                        :picker-view-mode="getPanelPickerViewMode('previous')"
+                        @enter-selector-mode="enterSelectorMode"
+                        @toggle-picker-view="
+                          payload => togglePickerViewMode(payload, { restoreFocus: true })
+                        "
+                        @step-month="onHeaderMonthStep"
+                        @focus-selector-column="
+                          payload => requestSelectorColumnFocus(payload.panel, payload.focus)
+                        "
+                      />
+                      <div
+                        class="px-0.5 sm:px-2"
+                        :class="{
+                          'sm:min-h-[17.75rem]': props.selectorMode,
+                        }"
+                      >
+                        <template v-if="isSelectorPanel('previous')">
                           <div
-                            class="rounded-md border p-1 min-w-0"
-                            :class="getSelectorColumnClass('month')"
+                            class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center"
                           >
-                            <VtdMonth
-                              :ref="setPreviousSelectorMonthWheelRef"
-                              :months="months"
-                              selector-mode
-                              :selected-month="getPanelSelectedMonth('previous')"
-                              :selected-year="getPanelSelectedYear('previous')"
-                              :selector-focus="selectorFocus"
-                              @focus-month="onSelectorColumnFocus('previous', 'month')"
-                              @request-focus-year="requestSelectorColumnFocus('previous', 'year')"
-                              @update-month="(month) => onSelectorMonthUpdate('previous', month)"
-                              @scroll-month="(month) => onSelectorMonthUpdate('previous', month)"
+                            <div
+                              class="rounded-md border p-1 min-w-0"
+                              :class="getSelectorColumnClass('month')"
+                            >
+                              <VtdMonth
+                                :ref="setPreviousSelectorMonthWheelRef"
+                                :months="months"
+                                selector-mode
+                                :selected-month="getPanelSelectedMonth('previous')"
+                                :selected-year="getPanelSelectedYear('previous')"
+                                :selector-focus="selectorFocus"
+                                @focus-month="onSelectorColumnFocus('previous', 'month')"
+                                @request-focus-year="requestSelectorColumnFocus('previous', 'year')"
+                                @keydown.enter.prevent="requestSelectorColumnFocus('previous', 'year')"
+                                @update-month="month => onSelectorMonthUpdate('previous', month)"
+                                @scroll-month="month => onSelectorMonthUpdate('previous', month)"
+                              />
+                            </div>
+                            <div
+                              class="rounded-md border p-1 min-w-0"
+                              :class="getSelectorColumnClass('year')"
+                            >
+                              <VtdYear
+                                panel-name="previous"
+                                :years="selectorYears"
+                                selector-mode
+                                :direct-year-input="props.directYearInput"
+                                :selected-month="getPanelSelectedMonth('previous')"
+                                :selected-year="getPanelSelectedYear('previous')"
+                                :selector-focus="selectorFocus"
+                                :year-numbering-mode="props.yearNumberingMode"
+                                :year-scroll-mode="props.selectorYearScrollMode"
+                                :home-jump="props.selectorYearHomeJump"
+                                :end-jump="props.selectorYearEndJump"
+                                :page-jump="props.selectorYearPageJump"
+                                :page-shift-jump="props.selectorYearPageShiftJump"
+                                @focus-year="onSelectorColumnFocus('previous', 'year')"
+                                @request-focus-month="
+                                  requestSelectorColumnFocus('previous', 'month')
+                                "
+                                @request-close-selector="
+                                  closeSelectorWheelsToCalendar('previous')
+                                "
+                                @keydown.enter.prevent="closeSelectorWheelsToCalendar('previous')"
+                                @update-year="year => onSelectorYearUpdate('previous', year)"
+                                @scroll-year="year => onSelectorYearUpdate('previous', year)"
+                              />
+                            </div>
+                          </div>
+                        </template>
+                        <template v-else>
+                          <VtdMonth
+                            v-show="panel.previous.month"
+                            :months="months"
+                            @update-month="calendar.previous.setMonth"
+                          />
+                          <VtdYear
+                            v-show="panel.previous.year"
+                            :years="calendar.previous.years()"
+                            @update-year="calendar.previous.setYear"
+                          />
+                          <div v-show="panel.previous.calendar">
+                            <VtdWeek :weeks="weeks" />
+                            <VtdCalendar
+                              :calendar="calendar.previous"
+                              :weeks="weeks"
+                              :as-range="asRange()"
+                              :week-number="weekNumber"
+                              @update-date="date => setDate(date, close)"
                             />
                           </div>
-                          <div
-                            class="rounded-md border p-1 min-w-0"
-                            :class="getSelectorColumnClass('year')"
-                          >
-                            <VtdYear
-                              :years="selectorYears"
-                              selector-mode
-                              :selected-month="getPanelSelectedMonth('previous')"
-                              :selected-year="getPanelSelectedYear('previous')"
-                              :selector-focus="selectorFocus"
-                              :year-scroll-mode="props.selectorYearScrollMode"
-                              :home-jump="props.selectorYearHomeJump"
-                              :end-jump="props.selectorYearEndJump"
-                              :page-jump="props.selectorYearPageJump"
-                              :page-shift-jump="props.selectorYearPageShiftJump"
-                              @focus-year="onSelectorColumnFocus('previous', 'year')"
-                              @request-focus-month="requestSelectorColumnFocus('previous', 'month')"
-                              @update-year="(year) => onSelectorYearUpdate('previous', year)"
-                              @scroll-year="(year) => onSelectorYearUpdate('previous', year)"
-                            />
-                          </div>
-                        </div>
-                      </template>
-                      <template v-else>
-                        <VtdMonth v-show="panel.previous.month" :months="months"
-                          @update-month="calendar.previous.setMonth" />
-                        <VtdYear v-show="panel.previous.year" :years="calendar.previous.years()"
-                          @update-year="calendar.previous.setYear" />
-                        <div v-show="panel.previous.calendar">
-                          <VtdWeek :weeks="weeks" />
-                          <VtdCalendar :calendar="calendar.previous" :weeks="weeks" :as-range="asRange()"
-                            :week-number="weekNumber" @update-date="(date) => setDate(date, close)" />
-                        </div>
-                      </template>
+                        </template>
+                      </div>
                     </div>
-                  </div>
 
-                    <div v-if="asRange() && !props.asSingle"
-                    data-vtd-selector-panel="next"
-                    class="relative w-full mt-3 sm:mt-0 sm:ml-2"
-                    :class="{
-                      'md:w-1/2 lg:w-80': asRange() && !props.asSingle && !showInlineTimePanelInline,
-                      'md:flex-1 md:min-w-0 lg:w-auto': asRange() && !props.asSingle && showInlineTimePanelInline,
-                      'overflow-visible': isSelectorPanel('next'),
-                      'overflow-hidden': !isSelectorPanel('next'),
-                    }">
-                    <VtdHeader
-                      as-prev-or-next
-                      :panel="panel.next"
-                      :calendar="calendar.next"
-                      panel-name="next"
-                      :selector-mode="props.selectorMode"
-                      :selector-focus="selectorFocus"
-                      :picker-view-mode="getPanelPickerViewMode('next')"
-                      @enter-selector-mode="enterSelectorMode"
-                      @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
-                      @step-month="onHeaderMonthStep"
-                    />
-                    <div class="px-0.5 sm:px-2" :class="{
-                      'sm:min-h-[17.625rem]': props.selectorMode,
-                    }">
-                      <template v-if="isSelectorPanel('next')">
-                        <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
+                    <div
+                      v-if="asRange() && !props.asSingle"
+                      data-vtd-selector-panel="next"
+                      class="relative w-full mt-3 sm:mt-0 sm:ml-2"
+                      :class="{
+                        'md:w-1/2 lg:w-80':
+                          asRange() && !props.asSingle && !showInlineTimePanelInline,
+                        'md:flex-1 md:min-w-0 lg:w-auto':
+                          asRange() && !props.asSingle && showInlineTimePanelInline,
+                        'overflow-visible': isSelectorPanel('next'),
+                        'overflow-hidden': !isSelectorPanel('next'),
+                      }"
+                    >
+                      <VtdHeader
+                        as-prev-or-next
+                        :panel="panel.next"
+                        :calendar="calendar.next"
+                        panel-name="next"
+                        :selector-mode="props.selectorMode"
+                        :selector-focus="selectorFocus"
+                        :picker-view-mode="getPanelPickerViewMode('next')"
+                        @enter-selector-mode="enterSelectorMode"
+                        @toggle-picker-view="
+                          payload => togglePickerViewMode(payload, { restoreFocus: true })
+                        "
+                        @step-month="onHeaderMonthStep"
+                        @focus-selector-column="
+                          payload => requestSelectorColumnFocus(payload.panel, payload.focus)
+                        "
+                      />
+                      <div
+                        class="px-0.5 sm:px-2"
+                        :class="{
+                          'sm:min-h-[17.75rem]': props.selectorMode,
+                        }"
+                      >
+                        <template v-if="isSelectorPanel('next')">
                           <div
-                            class="rounded-md border p-1 min-w-0"
-                            :class="getSelectorColumnClass('month')"
+                            class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center"
                           >
-                            <VtdMonth
-                              :ref="setNextSelectorMonthWheelRef"
-                              :months="months"
-                              selector-mode
-                              :selected-month="getPanelSelectedMonth('next')"
-                              :selected-year="getPanelSelectedYear('next')"
-                              :selector-focus="selectorFocus"
-                              @focus-month="onSelectorColumnFocus('next', 'month')"
-                              @request-focus-year="requestSelectorColumnFocus('next', 'year')"
-                              @update-month="(month) => onSelectorMonthUpdate('next', month)"
-                              @scroll-month="(month) => onSelectorMonthUpdate('next', month)"
-                            />
+                            <div
+                              class="rounded-md border p-1 min-w-0"
+                              :class="getSelectorColumnClass('month')"
+                            >
+                              <VtdMonth
+                                :ref="setNextSelectorMonthWheelRef"
+                                :months="months"
+                                selector-mode
+                                :selected-month="getPanelSelectedMonth('next')"
+                                :selected-year="getPanelSelectedYear('next')"
+                                :selector-focus="selectorFocus"
+                                @focus-month="onSelectorColumnFocus('next', 'month')"
+                                @request-focus-year="requestSelectorColumnFocus('next', 'year')"
+                                @keydown.enter.prevent="requestSelectorColumnFocus('next', 'year')"
+                                @update-month="month => onSelectorMonthUpdate('next', month)"
+                                @scroll-month="month => onSelectorMonthUpdate('next', month)"
+                              />
+                            </div>
+                            <div
+                              class="rounded-md border p-1 min-w-0"
+                              :class="getSelectorColumnClass('year')"
+                            >
+                              <VtdYear
+                                as-prev-or-next
+                                panel-name="next"
+                                :years="selectorYears"
+                                selector-mode
+                                :direct-year-input="props.directYearInput"
+                                :selected-month="getPanelSelectedMonth('next')"
+                                :selected-year="getPanelSelectedYear('next')"
+                                :selector-focus="selectorFocus"
+                                :year-numbering-mode="props.yearNumberingMode"
+                                :year-scroll-mode="props.selectorYearScrollMode"
+                                :home-jump="props.selectorYearHomeJump"
+                                :end-jump="props.selectorYearEndJump"
+                                :page-jump="props.selectorYearPageJump"
+                                :page-shift-jump="props.selectorYearPageShiftJump"
+                                @focus-year="onSelectorColumnFocus('next', 'year')"
+                                @request-focus-month="requestSelectorColumnFocus('next', 'month')"
+                                @request-close-selector="closeSelectorWheelsToCalendar('next')"
+                                @keydown.enter.prevent="closeSelectorWheelsToCalendar('next')"
+                                @update-year="year => onSelectorYearUpdate('next', year)"
+                                @scroll-year="year => onSelectorYearUpdate('next', year)"
+                              />
+                            </div>
                           </div>
-                          <div
-                            class="rounded-md border p-1 min-w-0"
-                            :class="getSelectorColumnClass('year')"
-                          >
-                            <VtdYear
+                        </template>
+                        <template v-else>
+                          <VtdMonth
+                            v-show="panel.next.month"
+                            :months="months"
+                            @update-month="calendar.next.setMonth"
+                          />
+                          <VtdYear
+                            v-show="panel.next.year"
+                            as-prev-or-next
+                            :years="calendar.next.years()"
+                            @update-year="calendar.next.setYear"
+                          />
+                          <div v-show="panel.next.calendar">
+                            <VtdWeek :weeks="weeks" />
+                            <VtdCalendar
                               as-prev-or-next
-                              :years="selectorYears"
-                              selector-mode
-                              :selected-month="getPanelSelectedMonth('next')"
-                              :selected-year="getPanelSelectedYear('next')"
-                              :selector-focus="selectorFocus"
-                              :year-scroll-mode="props.selectorYearScrollMode"
-                              :home-jump="props.selectorYearHomeJump"
-                              :end-jump="props.selectorYearEndJump"
-                              :page-jump="props.selectorYearPageJump"
-                              :page-shift-jump="props.selectorYearPageShiftJump"
-                              @focus-year="onSelectorColumnFocus('next', 'year')"
-                              @request-focus-month="requestSelectorColumnFocus('next', 'month')"
-                              @update-year="(year) => onSelectorYearUpdate('next', year)"
-                              @scroll-year="(year) => onSelectorYearUpdate('next', year)"
+                              :calendar="calendar.next"
+                              :weeks="weeks"
+                              :as-range="asRange()"
+                              :week-number="weekNumber"
+                              @update-date="date => setDate(date, close)"
                             />
                           </div>
-                        </div>
-                      </template>
-                      <template v-else>
-                        <VtdMonth v-show="panel.next.month" :months="months" @update-month="calendar.next.setMonth" />
-                        <VtdYear v-show="panel.next.year" as-prev-or-next :years="calendar.next.years()"
-                          @update-year="calendar.next.setYear" />
-                        <div v-show="panel.next.calendar">
-                          <VtdWeek :weeks="weeks" />
-                          <VtdCalendar as-prev-or-next :calendar="calendar.next" :weeks="weeks" :as-range="asRange()"
-                            :week-number="weekNumber" @update-date="(date) => setDate(date, close)" />
-                        </div>
-                      </template>
-                    </div>
+                        </template>
+                      </div>
                     </div>
                   </template>
                   <template v-if="shouldRenderInlineTimePanels">
-                    <div v-show="showPageTimePanelInline || showInlineTimePanelInline" class="w-full min-w-0 sm:flex-1 px-0.5 sm:px-2 flex flex-col sm:h-full">
-                      <div class="mt-2 w-full min-w-0 rounded-md border border-black/[.08] p-2 dark:border-vtd-secondary-700/[1]"
-                        :class="timePanelFillClass">
-                        <div class="flex flex-col gap-2" :class="shouldUseFillTimePanelLayout ? 'h-full' : ''">
+                    <div
+                      v-show="showPageTimePanelInline || showInlineTimePanelInline"
+                      class="w-full min-w-0 sm:flex-1 px-0.5 sm:px-2 flex flex-col sm:h-full"
+                      @focusin.capture="onTimeWheelInteraction"
+                      @pointerdown.capture="onTimeWheelInteraction"
+                    >
+                      <div
+                        class="mt-2 w-full min-w-0 rounded-md border border-black/[.08] p-2 dark:border-vtd-secondary-700/[1]"
+                        :class="timePanelFillClass"
+                      >
+                        <div
+                          class="flex flex-col gap-2"
+                          :class="shouldUseFillTimePanelLayout ? 'h-full' : ''"
+                        >
                           <div :class="timePanelHeaderRowClass">
                             <p
                               v-if="!showDualRangeTimePanelsUi"
@@ -4570,18 +5657,28 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                                 End time
                               </p>
                             </div>
-                            <div v-if="shouldCenterTimePanelEndpointToggle" :class="timePanelCenteredToggleWrapperClass">
+                            <div
+                              v-if="shouldCenterTimePanelEndpointToggle"
+                              data-vtd-time-endpoint-toggle-centered
+                              :class="timePanelCenteredToggleWrapperClass"
+                            >
                               <div :class="timePanelEndpointToggleGroupClass">
                                 <button
                                   type="button"
-                                  :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('start')]"
+                                  :class="[
+                                    timePanelEndpointToggleButtonClass,
+                                    timePanelEndpointToggleButtonStateClass('start'),
+                                  ]"
                                   @click="setDateTimeEndpoint('start')"
                                 >
                                   Start
                                 </button>
                                 <button
                                   type="button"
-                                  :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('end')]"
+                                  :class="[
+                                    timePanelEndpointToggleButtonClass,
+                                    timePanelEndpointToggleButtonStateClass('end'),
+                                  ]"
                                   @click="setDateTimeEndpoint('end')"
                                 >
                                   End
@@ -4590,22 +5687,32 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                             </div>
                             <p
                               v-if="shouldOverlayTimeFormatLabel"
-                              :class="[timePanelFormatLabelClass, 'absolute right-0 top-0']"
+                              class="absolute right-0 top-0"
+                              :class="[timePanelFormatLabelClass]"
                             >
                               {{ dateTimeFormatDescription }}
                             </p>
                             <div :class="timePanelHeaderActionsClass">
-                              <div v-if="shouldShowInlineTimePanelEndpointToggle" :class="timePanelEndpointToggleGroupClass">
+                              <div
+                                v-if="shouldShowInlineTimePanelEndpointToggle"
+                                :class="timePanelEndpointToggleGroupClass"
+                              >
                                 <button
                                   type="button"
-                                  :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('start')]"
+                                  :class="[
+                                    timePanelEndpointToggleButtonClass,
+                                    timePanelEndpointToggleButtonStateClass('start'),
+                                  ]"
                                   @click="setDateTimeEndpoint('start')"
                                 >
                                   Start
                                 </button>
                                 <button
                                   type="button"
-                                  :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('end')]"
+                                  :class="[
+                                    timePanelEndpointToggleButtonClass,
+                                    timePanelEndpointToggleButtonStateClass('end'),
+                                  ]"
                                   @click="setDateTimeEndpoint('end')"
                                 >
                                   End
@@ -4619,63 +5726,87 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                               >
                                 {{ timePanelSwitchLabel }}
                               </button>
-                              <p v-if="shouldShowInlineTimeFormatLabel" :class="timePanelFormatLabelClass">
+                              <p
+                                v-if="shouldShowInlineTimeFormatLabel"
+                                :class="timePanelFormatLabelClass"
+                              >
                                 {{ dateTimeFormatDescription }}
                               </p>
                             </div>
                           </div>
-                          <div class="w-full min-w-0" :class="timePanelEndpointLayoutClass" :style="timePanelEndpointLayoutStyle">
+                          <div
+                            class="w-full min-w-0"
+                            :class="timePanelEndpointLayoutClass"
+                            :style="timePanelEndpointLayoutStyle"
+                          >
                             <div
                               v-for="endpoint in visibleTimeEndpoints"
                               :key="endpoint"
                               class="vtd-time-endpoint min-w-0 flex flex-col gap-2"
-                              :class="showDualRangeTimePanelsUi ? 'vtd-time-endpoint-dual h-full min-h-0 w-full overflow-hidden rounded-md border border-black/[.1] px-2 py-4 dark:border-vtd-secondary-700/[1]' : 'vtd-time-endpoint-single w-full'"
+                              :class="
+                                showDualRangeTimePanelsUi
+                                  ? 'vtd-time-endpoint-dual h-full min-h-0 w-full overflow-hidden rounded-md border border-black/[.1] px-2 py-4 dark:border-vtd-secondary-700/[1]'
+                                  : 'vtd-time-endpoint-single w-full'
+                              "
                             >
                               <template v-if="isTimePickerWheelStyle">
                                 <div
                                   class="vtd-time-wheel-grid mt-1.5 mb-1 grid min-h-0 auto-rows-[minmax(0,1fr)] items-stretch gap-2"
-                                  :class="[timeWheelGridColumnClass, showDualRangeTimePanelsUi ? 'vtd-time-wheel-grid-dual' : 'vtd-time-wheel-grid-single w-full']"
+                                  :class="[
+                                    timeWheelGridColumnClass,
+                                    showDualRangeTimePanelsUi
+                                      ? 'vtd-time-wheel-grid-dual'
+                                      : 'vtd-time-wheel-grid-single w-full',
+                                  ]"
                                 >
                                   <VtdTimeWheel
-                                    ariaLabel="Hour wheel"
+                                    aria-label="Hour wheel"
                                     :items="hourWheelOptions"
                                     :model-value="getHourWheelValue(endpoint)"
-                                    :scrollMode="props.timeWheelScrollMode"
-                                    :fractionalOffset="getHourWheelFractionalOffset(endpoint)"
+                                    :scroll-mode="props.timeWheelScrollMode"
+                                    :fractional-offset="getHourWheelFractionalOffset(endpoint)"
                                     :disabled="!isDateTimeDraftReady(endpoint)"
-                                    @step="(payload) => onDateTimeHourWheelStep(payload, endpoint)"
-                                    @update:model-value="(value) => onDateTimeHourWheelUpdate(value, endpoint)"
+                                    @step="payload => onDateTimeHourWheelStep(payload, endpoint)"
+                                    @update:model-value="
+                                      value => onDateTimeHourWheelUpdate(value, endpoint)
+                                    "
                                   />
                                   <VtdTimeWheel
-                                    ariaLabel="Minute wheel"
+                                    aria-label="Minute wheel"
                                     :items="minuteWheelOptions"
                                     :model-value="getMinuteWheelValue(endpoint)"
-                                    :scrollMode="props.timeWheelScrollMode"
-                                    :fractionalOffset="getMinuteWheelFractionalOffset(endpoint)"
+                                    :scroll-mode="props.timeWheelScrollMode"
+                                    :fractional-offset="getMinuteWheelFractionalOffset(endpoint)"
                                     :disabled="!isDateTimeDraftReady(endpoint)"
-                                    @step="(payload) => onDateTimeMinuteWheelStep(payload, endpoint)"
-                                    @update:model-value="(value) => onDateTimeMinuteWheelUpdate(value, endpoint)"
+                                    @step="payload => onDateTimeMinuteWheelStep(payload, endpoint)"
+                                    @update:model-value="
+                                      value => onDateTimeMinuteWheelUpdate(value, endpoint)
+                                    "
                                   />
                                   <VtdTimeWheel
                                     v-if="formatterTimeTokens.usesSeconds"
-                                    ariaLabel="Second wheel"
+                                    aria-label="Second wheel"
                                     :items="secondWheelOptions"
                                     :model-value="getSecondWheelValue(endpoint)"
-                                    :scrollMode="props.timeWheelScrollMode"
+                                    :scroll-mode="props.timeWheelScrollMode"
                                     :disabled="!isDateTimeDraftReady(endpoint)"
-                                    @step="(payload) => onDateTimeSecondWheelStep(payload, endpoint)"
-                                    @update:model-value="(value) => onDateTimeSecondWheelUpdate(value, endpoint)"
+                                    @step="payload => onDateTimeSecondWheelStep(payload, endpoint)"
+                                    @update:model-value="
+                                      value => onDateTimeSecondWheelUpdate(value, endpoint)
+                                    "
                                   />
                                   <VtdTimeWheel
                                     v-if="formatterTimeTokens.uses12Hour"
-                                    ariaLabel="Meridiem wheel"
+                                    aria-label="Meridiem wheel"
                                     :items="meridiemWheelOptions"
                                     :model-value="getMeridiemWheelValue(endpoint)"
-                                    :scrollMode="props.timeWheelScrollMode"
-                                    :fractionalOffset="getMeridiemWheelFractionalOffset(endpoint)"
-                                    :syncDirection="getMeridiemWheelSyncDirection(endpoint)"
+                                    :scroll-mode="props.timeWheelScrollMode"
+                                    :fractional-offset="getMeridiemWheelFractionalOffset(endpoint)"
+                                    :sync-direction="getMeridiemWheelSyncDirection(endpoint)"
                                     :disabled="!isDateTimeDraftReady(endpoint)"
-                                    @update:model-value="(value) => onDateTimeMeridiemWheelUpdate(value, endpoint)"
+                                    @update:model-value="
+                                      value => onDateTimeMeridiemWheelUpdate(value, endpoint)
+                                    "
                                   />
                                 </div>
                               </template>
@@ -4686,18 +5817,27 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                                   type="text"
                                   class="block w-full rounded-md border border-vtd-secondary-300 px-3 py-2 text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 focus:border-vtd-primary-300 focus:outline-none focus:ring focus:ring-vtd-primary-500 focus:ring-opacity-10 dark:border-vtd-secondary-700 dark:bg-vtd-secondary-800 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-20"
                                   :disabled="!isDateTimeDraftReady(endpoint)"
-                                  @input="(event) => onDateTimeInput(event, endpoint)"
+                                  @input="event => onDateTimeInput(event, endpoint)"
                                 >
                               </template>
-                              <p v-if="getDateTimeValidationMessage(endpoint)" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                              <p
+                                v-if="getDateTimeValidationMessage(endpoint)"
+                                class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                              >
                                 {{ getDateTimeValidationMessage(endpoint) }}
                               </p>
                             </div>
                           </div>
-                          <p v-if="formatterTimeTokenErrorMessage" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                          <p
+                            v-if="formatterTimeTokenErrorMessage"
+                            class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                          >
                             {{ formatterTimeTokenErrorMessage }}
                           </p>
-                          <p v-else-if="panelLevelDateTimeErrorMessage" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                          <p
+                            v-else-if="panelLevelDateTimeErrorMessage"
+                            class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                          >
                             {{ panelLevelDateTimeErrorMessage }}
                           </p>
                         </div>
@@ -4706,7 +5846,10 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                   </template>
                 </div>
               </div>
-              <div v-if="showStackedDateTimeControls" class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]">
+              <div
+                v-if="showStackedDateTimeControls"
+                class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]"
+              >
                 <div class="mt-1.5 w-full min-w-0 flex flex-col gap-2">
                   <div :class="timePanelHeaderRowClass">
                     <p
@@ -4715,10 +5858,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                     >
                       {{ timePanelSingleEndpointTitle }}
                     </p>
-                    <div
-                      v-if="showDualRangeTimePanelsUi"
-                      :class="timePanelDualEndpointLabelsClass"
-                    >
+                    <div v-if="showDualRangeTimePanelsUi" :class="timePanelDualEndpointLabelsClass">
                       <p :class="timePanelDualEndpointLabelTextClass">
                         Start time
                       </p>
@@ -4726,18 +5866,28 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                         End time
                       </p>
                     </div>
-                    <div v-if="shouldCenterTimePanelEndpointToggle" :class="timePanelCenteredToggleWrapperClass">
+                    <div
+                      v-if="shouldCenterTimePanelEndpointToggle"
+                      data-vtd-time-endpoint-toggle-centered
+                      :class="timePanelCenteredToggleWrapperClass"
+                    >
                       <div :class="timePanelEndpointToggleGroupClass">
                         <button
                           type="button"
-                          :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('start')]"
+                          :class="[
+                            timePanelEndpointToggleButtonClass,
+                            timePanelEndpointToggleButtonStateClass('start'),
+                          ]"
                           @click="setDateTimeEndpoint('start')"
                         >
                           Start
                         </button>
                         <button
                           type="button"
-                          :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('end')]"
+                          :class="[
+                            timePanelEndpointToggleButtonClass,
+                            timePanelEndpointToggleButtonStateClass('end'),
+                          ]"
                           @click="setDateTimeEndpoint('end')"
                         >
                           End
@@ -4746,22 +5896,32 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                     </div>
                     <p
                       v-if="shouldOverlayTimeFormatLabel"
-                      :class="[timePanelFormatLabelClass, 'absolute right-0 top-0']"
+                      class="absolute right-0 top-0"
+                      :class="[timePanelFormatLabelClass]"
                     >
                       {{ dateTimeFormatDescription }}
                     </p>
                     <div :class="timePanelHeaderActionsClass">
-                      <div v-if="shouldShowInlineTimePanelEndpointToggle" :class="timePanelEndpointToggleGroupClass">
+                      <div
+                        v-if="shouldShowInlineTimePanelEndpointToggle"
+                        :class="timePanelEndpointToggleGroupClass"
+                      >
                         <button
                           type="button"
-                          :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('start')]"
+                          :class="[
+                            timePanelEndpointToggleButtonClass,
+                            timePanelEndpointToggleButtonStateClass('start'),
+                          ]"
                           @click="setDateTimeEndpoint('start')"
                         >
                           Start
                         </button>
                         <button
                           type="button"
-                          :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('end')]"
+                          :class="[
+                            timePanelEndpointToggleButtonClass,
+                            timePanelEndpointToggleButtonStateClass('end'),
+                          ]"
                           @click="setDateTimeEndpoint('end')"
                         >
                           End
@@ -4780,58 +5940,79 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                       </p>
                     </div>
                   </div>
-                  <div class="w-full min-w-0" :class="timePanelEndpointLayoutClass" :style="timePanelEndpointLayoutStyle">
+                  <div
+                    class="w-full min-w-0"
+                    :class="timePanelEndpointLayoutClass"
+                    :style="timePanelEndpointLayoutStyle"
+                  >
                     <div
                       v-for="endpoint in visibleTimeEndpoints"
                       :key="`stacked-${endpoint}`"
                       class="vtd-time-endpoint min-w-0 flex flex-col gap-2"
-                      :class="showDualRangeTimePanelsUi ? 'vtd-time-endpoint-dual h-full min-h-0 w-full overflow-hidden rounded-md border border-black/[.1] px-2 py-4 dark:border-vtd-secondary-700/[1]' : 'vtd-time-endpoint-single w-full'"
+                      :class="
+                        showDualRangeTimePanelsUi
+                          ? 'vtd-time-endpoint-dual h-full min-h-0 w-full overflow-hidden rounded-md border border-black/[.1] px-2 py-4 dark:border-vtd-secondary-700/[1]'
+                          : 'vtd-time-endpoint-single w-full'
+                      "
                     >
                       <template v-if="isTimePickerWheelStyle">
                         <div
                           class="vtd-time-wheel-grid mt-1.5 mb-1 grid min-h-0 auto-rows-[minmax(0,1fr)] items-stretch gap-2"
-                          :class="[timeWheelGridColumnClass, showDualRangeTimePanelsUi ? 'vtd-time-wheel-grid-dual' : 'vtd-time-wheel-grid-single w-full']"
+                          :class="[
+                            timeWheelGridColumnClass,
+                            showDualRangeTimePanelsUi
+                              ? 'vtd-time-wheel-grid-dual'
+                              : 'vtd-time-wheel-grid-single w-full',
+                          ]"
                         >
                           <VtdTimeWheel
-                            ariaLabel="Hour wheel"
-                                    :items="hourWheelOptions"
+                            aria-label="Hour wheel"
+                            :items="hourWheelOptions"
                             :model-value="getHourWheelValue(endpoint)"
-                            :scrollMode="props.timeWheelScrollMode"
-                            :fractionalOffset="getHourWheelFractionalOffset(endpoint)"
+                            :scroll-mode="props.timeWheelScrollMode"
+                            :fractional-offset="getHourWheelFractionalOffset(endpoint)"
                             :disabled="!isDateTimeDraftReady(endpoint)"
-                            @step="(payload) => onDateTimeHourWheelStep(payload, endpoint)"
-                            @update:model-value="(value) => onDateTimeHourWheelUpdate(value, endpoint)"
+                            @step="payload => onDateTimeHourWheelStep(payload, endpoint)"
+                            @update:model-value="
+                              value => onDateTimeHourWheelUpdate(value, endpoint)
+                            "
                           />
                           <VtdTimeWheel
-                            ariaLabel="Minute wheel"
-                                    :items="minuteWheelOptions"
+                            aria-label="Minute wheel"
+                            :items="minuteWheelOptions"
                             :model-value="getMinuteWheelValue(endpoint)"
-                            :scrollMode="props.timeWheelScrollMode"
-                            :fractionalOffset="getMinuteWheelFractionalOffset(endpoint)"
+                            :scroll-mode="props.timeWheelScrollMode"
+                            :fractional-offset="getMinuteWheelFractionalOffset(endpoint)"
                             :disabled="!isDateTimeDraftReady(endpoint)"
-                            @step="(payload) => onDateTimeMinuteWheelStep(payload, endpoint)"
-                            @update:model-value="(value) => onDateTimeMinuteWheelUpdate(value, endpoint)"
+                            @step="payload => onDateTimeMinuteWheelStep(payload, endpoint)"
+                            @update:model-value="
+                              value => onDateTimeMinuteWheelUpdate(value, endpoint)
+                            "
                           />
                           <VtdTimeWheel
                             v-if="formatterTimeTokens.usesSeconds"
-                            ariaLabel="Second wheel"
-                                    :items="secondWheelOptions"
+                            aria-label="Second wheel"
+                            :items="secondWheelOptions"
                             :model-value="getSecondWheelValue(endpoint)"
-                            :scrollMode="props.timeWheelScrollMode"
+                            :scroll-mode="props.timeWheelScrollMode"
                             :disabled="!isDateTimeDraftReady(endpoint)"
-                            @step="(payload) => onDateTimeSecondWheelStep(payload, endpoint)"
-                            @update:model-value="(value) => onDateTimeSecondWheelUpdate(value, endpoint)"
+                            @step="payload => onDateTimeSecondWheelStep(payload, endpoint)"
+                            @update:model-value="
+                              value => onDateTimeSecondWheelUpdate(value, endpoint)
+                            "
                           />
                           <VtdTimeWheel
                             v-if="formatterTimeTokens.uses12Hour"
-                            ariaLabel="Meridiem wheel"
+                            aria-label="Meridiem wheel"
                             :items="meridiemWheelOptions"
                             :model-value="getMeridiemWheelValue(endpoint)"
-                            :scrollMode="props.timeWheelScrollMode"
-                            :fractionalOffset="getMeridiemWheelFractionalOffset(endpoint)"
-                            :syncDirection="getMeridiemWheelSyncDirection(endpoint)"
+                            :scroll-mode="props.timeWheelScrollMode"
+                            :fractional-offset="getMeridiemWheelFractionalOffset(endpoint)"
+                            :sync-direction="getMeridiemWheelSyncDirection(endpoint)"
                             :disabled="!isDateTimeDraftReady(endpoint)"
-                            @update:model-value="(value) => onDateTimeMeridiemWheelUpdate(value, endpoint)"
+                            @update:model-value="
+                              value => onDateTimeMeridiemWheelUpdate(value, endpoint)
+                            "
                           />
                         </div>
                       </template>
@@ -4842,28 +6023,43 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                           type="text"
                           class="block w-full rounded-md border border-vtd-secondary-300 px-3 py-2 text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 focus:border-vtd-primary-300 focus:outline-none focus:ring focus:ring-vtd-primary-500 focus:ring-opacity-10 dark:border-vtd-secondary-700 dark:bg-vtd-secondary-800 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-20"
                           :disabled="!isDateTimeDraftReady(endpoint)"
-                          @input="(event) => onDateTimeInput(event, endpoint)"
+                          @input="event => onDateTimeInput(event, endpoint)"
                         >
                       </template>
-                      <p v-if="getDateTimeValidationMessage(endpoint)" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                      <p
+                        v-if="getDateTimeValidationMessage(endpoint)"
+                        class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                      >
                         {{ getDateTimeValidationMessage(endpoint) }}
                       </p>
                     </div>
                   </div>
-                  <p v-if="formatterTimeTokenErrorMessage" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                  <p
+                    v-if="formatterTimeTokenErrorMessage"
+                    class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                  >
                     {{ formatterTimeTokenErrorMessage }}
                   </p>
-                  <p v-else-if="panelLevelDateTimeErrorMessage" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                  <p
+                    v-else-if="panelLevelDateTimeErrorMessage"
+                    class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                  >
                     {{ panelLevelDateTimeErrorMessage }}
                   </p>
                 </div>
               </div>
               <div v-if="showApplyFooter">
-                <div class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]">
+                <div
+                  class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]"
+                >
                   <div class="mt-1.5 sm:flex sm:flex-row-reverse">
-                    <button type="button"
+                    <button
+                      type="button"
                       class="away-apply-picker w-full transition ease-out duration-300 inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-vtd-primary-600 text-base font-medium text-white hover:bg-vtd-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vtd-primary-500 sm:ml-3 sm:w-auto sm:text-sm dark:ring-offset-vtd-secondary-800 disabled:cursor-not-allowed"
-                      :disabled="isApplyButtonDisabled()" @click="applyDate(close)" v-text="props.options.footer.apply" />
+                      :disabled="isApplyButtonDisabled()"
+                      @click="applyDate(close)"
+                      v-text="props.options.footer.apply"
+                    />
                     <button
                       v-if="canToggleTimePanel || shouldShowTimePanelSwitchButton"
                       type="button"
@@ -4872,18 +6068,26 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                     >
                       {{ timePanelSwitchLabel }}
                     </button>
-                    <button type="button"
+                    <button
+                      type="button"
                       class="mt-3 away-cancel-picker w-full transition ease-out duration-300 inline-flex justify-center rounded-md border border-vtd-secondary-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-vtd-secondary-700 hover:bg-vtd-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vtd-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm dark:ring-offset-vtd-secondary-800"
-                      @click="close()" v-text="props.options.footer.cancel" />
+                      @click="closePopover(close)"
+                      v-text="props.options.footer.cancel"
+                    />
                   </div>
                 </div>
               </div>
               <div v-else-if="showMobileCancelFooter" class="sm:hidden">
-                <div class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]">
+                <div
+                  class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]"
+                >
                   <div class="mt-1.5 sm:flex sm:flex-row-reverse">
-                    <button type="button"
+                    <button
+                      type="button"
                       class="away-cancel-picker w-full transition ease-out duration-300 inline-flex justify-center rounded-md border border-vtd-secondary-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-vtd-secondary-700 hover:bg-vtd-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vtd-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm dark:ring-offset-vtd-secondary-800"
-                      @click="close()" v-text="props.options.footer.cancel" />
+                      @click="closePopover(close)"
+                      v-text="props.options.footer.cancel"
+                    />
                   </div>
                 </div>
               </div>
@@ -4899,13 +6103,24 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
       class="bg-white rounded-lg shadow-sm border border-black/[.1] px-3 py-3 sm:px-4 sm:py-4 dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700/[1]"
       :class="[
         props.selectorMode && props.asSingle ? 'sm:w-[28.5rem]' : '',
-        props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-[23.5rem]' : '',
+        useLegacyNoTimeSelectorHeightClamp ? 'sm:h-[23.5rem]' : '',
         collapseDualRangeInlineRightTimePanel ? 'sm:min-w-[78rem]' : '',
       ]"
-      @keydown.capture="onPickerPanelKeydown">
-      <div class="flex flex-wrap lg:flex-nowrap" :class="props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-full' : ''">
-        <VtdShortcut v-if="props.shortcuts" :shortcuts="props.shortcuts" :as-range="asRange()" :as-single="props.asSingle"
-          :built-in-shortcuts="builtInShortcutItems">
+      @keydown.capture="onPickerPanelKeydown"
+      @focusin.capture="onTimeWheelInteraction"
+      @pointerdown.capture="onTimeWheelInteraction"
+    >
+      <div
+        class="flex flex-wrap lg:flex-nowrap"
+        :class="useLegacyNoTimeSelectorHeightClamp ? 'sm:h-full' : ''"
+      >
+        <VtdShortcut
+          v-if="props.shortcuts"
+          :shortcuts="props.shortcuts"
+          :as-range="asRange()"
+          :as-single="props.asSingle"
+          :built-in-shortcuts="builtInShortcutItems"
+        >
           <template #shortcut-item="slotProps">
             <slot name="shortcut-item" v-bind="slotProps" />
           </template>
@@ -4914,179 +6129,259 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
           ref="VtdPanelContentRef"
           class="relative flex flex-wrap sm:flex-nowrap p-1 w-full"
           :class="[
-            props.selectorMode && props.asSingle && !isDateTimeEnabled ? 'sm:h-full' : '',
+            useLegacyNoTimeSelectorHeightClamp ? 'sm:h-full' : '',
             showAnyInlineTimePanel ? 'sm:flex-1 sm:min-w-0' : 'sm:w-auto',
           ]"
           :style="panelContentLockStyle"
         >
           <template v-if="shouldShowDatePanels">
-            <div v-if="asRange() && !props.asSingle && !collapseDualRangeInlineRightTimePanel"
-            class="hidden h-full absolute inset-0 sm:flex justify-center items-center">
+            <div
+              v-if="asRange() && !props.asSingle && !collapseDualRangeInlineRightTimePanel"
+              class="hidden h-full absolute inset-0 sm:flex justify-center items-center"
+            >
               <div class="h-full border-r border-black/[.1] dark:border-vtd-secondary-700/[1]" />
             </div>
-            <div class="relative w-full" data-vtd-selector-panel="previous" :class="{
-              'mb-3 sm:mb-0 sm:mr-2 md:w-1/2 lg:w-80': asRange() && !props.asSingle && !showInlineTimePanelInline,
-              'mb-3 sm:mb-0 sm:mr-2 md:flex-1 md:min-w-0 lg:w-auto': asRange() && !props.asSingle && showInlineTimePanelInline,
-              'lg:w-80': props.asSingle && !!props.shortcuts,
-              'sm:min-h-[21.625rem]': props.asSingle && !props.selectorMode,
-              'sm:h-full': props.selectorMode && props.asSingle && !isDateTimeEnabled,
-              'overflow-visible': isSelectorPanel('previous'),
-              'overflow-hidden': !isSelectorPanel('previous'),
-            }">
-            <VtdHeader
-              :panel="panel.previous"
-              :calendar="calendar.previous"
-              panel-name="previous"
-              :selector-mode="props.selectorMode"
-              :selector-focus="selectorFocus"
-              :picker-view-mode="getPanelPickerViewMode('previous')"
-              @enter-selector-mode="enterSelectorMode"
-              @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
-              @step-month="onHeaderMonthStep"
-            />
-            <div class="px-0.5 sm:px-2" :class="{
-              'sm:min-h-[17.625rem]': props.selectorMode,
-            }">
-              <template v-if="isSelectorPanel('previous')">
-                <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
+            <div
+              class="relative w-full"
+              data-vtd-selector-panel="previous"
+              :class="{
+                'mb-3 sm:mb-0 sm:mr-2 md:w-1/2 lg:w-80':
+                  asRange() && !props.asSingle && !showInlineTimePanelInline,
+                'mb-3 sm:mb-0 sm:mr-2 md:flex-1 md:min-w-0 lg:w-auto':
+                  asRange() && !props.asSingle && showInlineTimePanelInline,
+                'lg:w-80': props.asSingle && !!props.shortcuts,
+                'sm:min-h-[21.75rem]':
+                  props.asSingle && !props.selectorMode && !showInlineTimePanelInline,
+                'sm:h-full': useLegacyNoTimeSelectorHeightClamp,
+                'overflow-visible': isSelectorPanel('previous'),
+                'overflow-hidden': !isSelectorPanel('previous'),
+              }"
+            >
+              <VtdHeader
+                :panel="panel.previous"
+                :calendar="calendar.previous"
+                panel-name="previous"
+                :selector-mode="props.selectorMode"
+                :selector-focus="selectorFocus"
+                :picker-view-mode="getPanelPickerViewMode('previous')"
+                @enter-selector-mode="enterSelectorMode"
+                @toggle-picker-view="
+                  payload => togglePickerViewMode(payload, { restoreFocus: true })
+                "
+                @step-month="onHeaderMonthStep"
+                @focus-selector-column="
+                  payload => requestSelectorColumnFocus(payload.panel, payload.focus)
+                "
+              />
+              <div
+                class="px-0.5 sm:px-2"
+                :class="{
+                  'sm:min-h-[17.75rem]': props.selectorMode,
+                }"
+              >
+                <template v-if="isSelectorPanel('previous')">
                   <div
-                    class="rounded-md border p-1 min-w-0"
-                    :class="getSelectorColumnClass('month')"
+                    class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center"
                   >
-                    <VtdMonth
-                      :ref="setPreviousSelectorMonthWheelRef"
-                      :months="months"
-                      selector-mode
-                      :selected-month="getPanelSelectedMonth('previous')"
-                      :selected-year="getPanelSelectedYear('previous')"
-                      :selector-focus="selectorFocus"
-                      @focus-month="onSelectorColumnFocus('previous', 'month')"
-                      @request-focus-year="requestSelectorColumnFocus('previous', 'year')"
-                      @update-month="(month) => onSelectorMonthUpdate('previous', month)"
-                      @scroll-month="(month) => onSelectorMonthUpdate('previous', month)"
+                    <div
+                      class="rounded-md border p-1 min-w-0"
+                      :class="getSelectorColumnClass('month')"
+                    >
+                      <VtdMonth
+                        :ref="setPreviousSelectorMonthWheelRef"
+                        :months="months"
+                        selector-mode
+                        :selected-month="getPanelSelectedMonth('previous')"
+                        :selected-year="getPanelSelectedYear('previous')"
+                        :selector-focus="selectorFocus"
+                        @focus-month="onSelectorColumnFocus('previous', 'month')"
+                        @request-focus-year="requestSelectorColumnFocus('previous', 'year')"
+                        @keydown.enter.prevent="requestSelectorColumnFocus('previous', 'year')"
+                        @update-month="month => onSelectorMonthUpdate('previous', month)"
+                        @scroll-month="month => onSelectorMonthUpdate('previous', month)"
+                      />
+                    </div>
+                    <div
+                      class="rounded-md border p-1 min-w-0"
+                      :class="getSelectorColumnClass('year')"
+                    >
+                      <VtdYear
+                        panel-name="previous"
+                        :years="selectorYears"
+                        selector-mode
+                        :direct-year-input="props.directYearInput"
+                        :selected-month="getPanelSelectedMonth('previous')"
+                        :selected-year="getPanelSelectedYear('previous')"
+                        :selector-focus="selectorFocus"
+                        :year-numbering-mode="props.yearNumberingMode"
+                        :year-scroll-mode="props.selectorYearScrollMode"
+                        :home-jump="props.selectorYearHomeJump"
+                        :end-jump="props.selectorYearEndJump"
+                        :page-jump="props.selectorYearPageJump"
+                        :page-shift-jump="props.selectorYearPageShiftJump"
+                        @focus-year="onSelectorColumnFocus('previous', 'year')"
+                        @request-focus-month="requestSelectorColumnFocus('previous', 'month')"
+                        @request-close-selector="closeSelectorWheelsToCalendar('previous')"
+                        @keydown.enter.prevent="closeSelectorWheelsToCalendar('previous')"
+                        @update-year="year => onSelectorYearUpdate('previous', year)"
+                        @scroll-year="year => onSelectorYearUpdate('previous', year)"
+                      />
+                    </div>
+                  </div>
+                </template>
+                <template v-else>
+                  <VtdMonth
+                    v-show="panel.previous.month"
+                    :months="months"
+                    @update-month="calendar.previous.setMonth"
+                  />
+                  <VtdYear
+                    v-show="panel.previous.year"
+                    :years="calendar.previous.years()"
+                    @update-year="calendar.previous.setYear"
+                  />
+                  <div v-show="panel.previous.calendar">
+                    <VtdWeek :weeks="weeks" />
+                    <VtdCalendar
+                      :calendar="calendar.previous"
+                      :weeks="weeks"
+                      :as-range="asRange()"
+                      :week-number="weekNumber"
+                      @update-date="date => setDate(date)"
                     />
                   </div>
-                  <div
-                    class="rounded-md border p-1 min-w-0"
-                    :class="getSelectorColumnClass('year')"
-                  >
-                    <VtdYear
-                      :years="selectorYears"
-                      selector-mode
-                      :selected-month="getPanelSelectedMonth('previous')"
-                      :selected-year="getPanelSelectedYear('previous')"
-                      :selector-focus="selectorFocus"
-                      :year-scroll-mode="props.selectorYearScrollMode"
-                      :home-jump="props.selectorYearHomeJump"
-                      :end-jump="props.selectorYearEndJump"
-                      :page-jump="props.selectorYearPageJump"
-                      :page-shift-jump="props.selectorYearPageShiftJump"
-                      @focus-year="onSelectorColumnFocus('previous', 'year')"
-                      @request-focus-month="requestSelectorColumnFocus('previous', 'month')"
-                      @update-year="(year) => onSelectorYearUpdate('previous', year)"
-                      @scroll-year="(year) => onSelectorYearUpdate('previous', year)"
-                    />
-                  </div>
-                </div>
-              </template>
-              <template v-else>
-                <VtdMonth v-show="panel.previous.month" :months="months" @update-month="calendar.previous.setMonth" />
-                <VtdYear v-show="panel.previous.year" :years="calendar.previous.years()"
-                  @update-year="calendar.previous.setYear" />
-                <div v-show="panel.previous.calendar">
-                  <VtdWeek :weeks="weeks" />
-                  <VtdCalendar :calendar="calendar.previous" :weeks="weeks" :as-range="asRange()" :week-number="weekNumber"
-                    @update-date="(date) => setDate(date)" />
-                </div>
-              </template>
+                </template>
+              </div>
             </div>
-          </div>
 
-            <div v-if="asRange() && !props.asSingle"
-            data-vtd-selector-panel="next"
-            class="relative w-full mt-3 sm:mt-0 sm:ml-2"
-            :class="{
-              'md:w-1/2 lg:w-80': asRange() && !props.asSingle && !showInlineTimePanelInline,
-              'md:flex-1 md:min-w-0 lg:w-auto': asRange() && !props.asSingle && showInlineTimePanelInline,
-              'overflow-visible': isSelectorPanel('next'),
-              'overflow-hidden': !isSelectorPanel('next'),
-            }">
-            <VtdHeader
-              as-prev-or-next
-              :panel="panel.next"
-              :calendar="calendar.next"
-              panel-name="next"
-              :selector-mode="props.selectorMode"
-              :selector-focus="selectorFocus"
-              :picker-view-mode="getPanelPickerViewMode('next')"
-              @enter-selector-mode="enterSelectorMode"
-              @toggle-picker-view="(payload) => togglePickerViewMode(payload, { restoreFocus: true })"
-              @step-month="onHeaderMonthStep"
-            />
-            <div class="px-0.5 sm:px-2" :class="{
-              'sm:min-h-[17.625rem]': props.selectorMode,
-            }">
-              <template v-if="isSelectorPanel('next')">
-                <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center">
+            <div
+              v-if="asRange() && !props.asSingle"
+              data-vtd-selector-panel="next"
+              class="relative w-full mt-3 sm:mt-0 sm:ml-2"
+              :class="{
+                'md:w-1/2 lg:w-80': asRange() && !props.asSingle && !showInlineTimePanelInline,
+                'md:flex-1 md:min-w-0 lg:w-auto':
+                  asRange() && !props.asSingle && showInlineTimePanelInline,
+                'overflow-visible': isSelectorPanel('next'),
+                'overflow-hidden': !isSelectorPanel('next'),
+              }"
+            >
+              <VtdHeader
+                as-prev-or-next
+                :panel="panel.next"
+                :calendar="calendar.next"
+                panel-name="next"
+                :selector-mode="props.selectorMode"
+                :selector-focus="selectorFocus"
+                :picker-view-mode="getPanelPickerViewMode('next')"
+                @enter-selector-mode="enterSelectorMode"
+                @toggle-picker-view="
+                  payload => togglePickerViewMode(payload, { restoreFocus: true })
+                "
+                @step-month="onHeaderMonthStep"
+                @focus-selector-column="
+                  payload => requestSelectorColumnFocus(payload.panel, payload.focus)
+                "
+              />
+              <div
+                class="px-0.5 sm:px-2"
+                :class="{
+                  'sm:min-h-[17.75rem]': props.selectorMode,
+                }"
+              >
+                <template v-if="isSelectorPanel('next')">
                   <div
-                    class="rounded-md border p-1 min-w-0"
-                    :class="getSelectorColumnClass('month')"
+                    class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center"
                   >
-                    <VtdMonth
-                      :ref="setNextSelectorMonthWheelRef"
-                      :months="months"
-                      selector-mode
-                      :selected-month="getPanelSelectedMonth('next')"
-                      :selected-year="getPanelSelectedYear('next')"
-                      :selector-focus="selectorFocus"
-                      @focus-month="onSelectorColumnFocus('next', 'month')"
-                      @request-focus-year="requestSelectorColumnFocus('next', 'year')"
-                      @update-month="(month) => onSelectorMonthUpdate('next', month)"
-                      @scroll-month="(month) => onSelectorMonthUpdate('next', month)"
-                    />
+                    <div
+                      class="rounded-md border p-1 min-w-0"
+                      :class="getSelectorColumnClass('month')"
+                    >
+                      <VtdMonth
+                        :ref="setNextSelectorMonthWheelRef"
+                        :months="months"
+                        selector-mode
+                        :selected-month="getPanelSelectedMonth('next')"
+                        :selected-year="getPanelSelectedYear('next')"
+                        :selector-focus="selectorFocus"
+                        @focus-month="onSelectorColumnFocus('next', 'month')"
+                        @request-focus-year="requestSelectorColumnFocus('next', 'year')"
+                        @keydown.enter.prevent="requestSelectorColumnFocus('next', 'year')"
+                        @update-month="month => onSelectorMonthUpdate('next', month)"
+                        @scroll-month="month => onSelectorMonthUpdate('next', month)"
+                      />
+                    </div>
+                    <div
+                      class="rounded-md border p-1 min-w-0"
+                      :class="getSelectorColumnClass('year')"
+                    >
+                      <VtdYear
+                        as-prev-or-next
+                        panel-name="next"
+                        :years="selectorYears"
+                        selector-mode
+                        :direct-year-input="props.directYearInput"
+                        :selected-month="getPanelSelectedMonth('next')"
+                        :selected-year="getPanelSelectedYear('next')"
+                        :selector-focus="selectorFocus"
+                        :year-numbering-mode="props.yearNumberingMode"
+                        :year-scroll-mode="props.selectorYearScrollMode"
+                        :home-jump="props.selectorYearHomeJump"
+                        :end-jump="props.selectorYearEndJump"
+                        :page-jump="props.selectorYearPageJump"
+                        :page-shift-jump="props.selectorYearPageShiftJump"
+                        @focus-year="onSelectorColumnFocus('next', 'year')"
+                        @request-focus-month="requestSelectorColumnFocus('next', 'month')"
+                        @request-close-selector="closeSelectorWheelsToCalendar('next')"
+                        @keydown.enter.prevent="closeSelectorWheelsToCalendar('next')"
+                        @update-year="year => onSelectorYearUpdate('next', year)"
+                        @scroll-year="year => onSelectorYearUpdate('next', year)"
+                      />
+                    </div>
                   </div>
-                  <div
-                    class="rounded-md border p-1 min-w-0"
-                    :class="getSelectorColumnClass('year')"
-                  >
-                    <VtdYear
+                </template>
+                <template v-else>
+                  <VtdMonth
+                    v-show="panel.next.month"
+                    :months="months"
+                    @update-month="calendar.next.setMonth"
+                  />
+                  <VtdYear
+                    v-show="panel.next.year"
+                    as-prev-or-next
+                    :years="calendar.next.years()"
+                    @update-year="calendar.next.setYear"
+                  />
+                  <div v-show="panel.next.calendar">
+                    <VtdWeek :weeks="weeks" />
+                    <VtdCalendar
                       as-prev-or-next
-                      :years="selectorYears"
-                      selector-mode
-                      :selected-month="getPanelSelectedMonth('next')"
-                      :selected-year="getPanelSelectedYear('next')"
-                      :selector-focus="selectorFocus"
-                      :year-scroll-mode="props.selectorYearScrollMode"
-                      :home-jump="props.selectorYearHomeJump"
-                      :end-jump="props.selectorYearEndJump"
-                      :page-jump="props.selectorYearPageJump"
-                      :page-shift-jump="props.selectorYearPageShiftJump"
-                      @focus-year="onSelectorColumnFocus('next', 'year')"
-                      @request-focus-month="requestSelectorColumnFocus('next', 'month')"
-                      @update-year="(year) => onSelectorYearUpdate('next', year)"
-                      @scroll-year="(year) => onSelectorYearUpdate('next', year)"
+                      :calendar="calendar.next"
+                      :weeks="weeks"
+                      :as-range="asRange()"
+                      :week-number="weekNumber"
+                      @update-date="date => setDate(date)"
                     />
                   </div>
-                </div>
-              </template>
-              <template v-else>
-                <VtdMonth v-show="panel.next.month" :months="months" @update-month="calendar.next.setMonth" />
-                <VtdYear v-show="panel.next.year" as-prev-or-next :years="calendar.next.years()"
-                  @update-year="calendar.next.setYear" />
-                <div v-show="panel.next.calendar">
-                  <VtdWeek :weeks="weeks" />
-                  <VtdCalendar as-prev-or-next :calendar="calendar.next" :weeks="weeks" :as-range="asRange()"
-                    :week-number="weekNumber" @update-date="(date) => setDate(date)" />
-                </div>
-              </template>
-            </div>
+                </template>
+              </div>
             </div>
           </template>
           <template v-if="shouldRenderInlineTimePanels">
-            <div v-show="showPageTimePanelInline || showInlineTimePanelInline" class="w-full min-w-0 sm:flex-1 px-0.5 sm:px-2 flex flex-col sm:h-full">
-              <div class="mt-2 w-full min-w-0 rounded-md border border-black/[.08] p-2 dark:border-vtd-secondary-700/[1]"
-                :class="timePanelFillClass">
-                <div class="flex flex-col gap-2" :class="shouldUseFillTimePanelLayout ? 'h-full' : ''">
+            <div
+              v-show="showPageTimePanelInline || showInlineTimePanelInline"
+              class="w-full min-w-0 sm:flex-1 px-0.5 sm:px-2 flex flex-col sm:h-full"
+              @focusin.capture="onTimeWheelInteraction"
+              @pointerdown.capture="onTimeWheelInteraction"
+            >
+              <div
+                class="mt-2 w-full min-w-0 rounded-md border border-black/[.08] p-2 dark:border-vtd-secondary-700/[1]"
+                :class="timePanelFillClass"
+              >
+                <div
+                  class="flex flex-col gap-2"
+                  :class="shouldUseFillTimePanelLayout ? 'h-full' : ''"
+                >
                   <div :class="timePanelHeaderRowClass">
                     <p
                       v-if="!showDualRangeTimePanelsUi"
@@ -5094,10 +6389,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                     >
                       {{ timePanelSingleEndpointTitle }}
                     </p>
-                    <div
-                      v-if="showDualRangeTimePanelsUi"
-                      :class="timePanelDualEndpointLabelsClass"
-                    >
+                    <div v-if="showDualRangeTimePanelsUi" :class="timePanelDualEndpointLabelsClass">
                       <p :class="timePanelDualEndpointLabelTextClass">
                         Start time
                       </p>
@@ -5105,18 +6397,28 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                         End time
                       </p>
                     </div>
-                    <div v-if="shouldCenterTimePanelEndpointToggle" :class="timePanelCenteredToggleWrapperClass">
+                    <div
+                      v-if="shouldCenterTimePanelEndpointToggle"
+                      data-vtd-time-endpoint-toggle-centered
+                      :class="timePanelCenteredToggleWrapperClass"
+                    >
                       <div :class="timePanelEndpointToggleGroupClass">
                         <button
                           type="button"
-                          :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('start')]"
+                          :class="[
+                            timePanelEndpointToggleButtonClass,
+                            timePanelEndpointToggleButtonStateClass('start'),
+                          ]"
                           @click="setDateTimeEndpoint('start')"
                         >
                           Start
                         </button>
                         <button
                           type="button"
-                          :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('end')]"
+                          :class="[
+                            timePanelEndpointToggleButtonClass,
+                            timePanelEndpointToggleButtonStateClass('end'),
+                          ]"
                           @click="setDateTimeEndpoint('end')"
                         >
                           End
@@ -5125,22 +6427,32 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                     </div>
                     <p
                       v-if="shouldOverlayTimeFormatLabel"
-                      :class="[timePanelFormatLabelClass, 'absolute right-0 top-0']"
+                      class="absolute right-0 top-0"
+                      :class="[timePanelFormatLabelClass]"
                     >
                       {{ dateTimeFormatDescription }}
                     </p>
                     <div :class="timePanelHeaderActionsClass">
-                      <div v-if="shouldShowInlineTimePanelEndpointToggle" :class="timePanelEndpointToggleGroupClass">
+                      <div
+                        v-if="shouldShowInlineTimePanelEndpointToggle"
+                        :class="timePanelEndpointToggleGroupClass"
+                      >
                         <button
                           type="button"
-                          :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('start')]"
+                          :class="[
+                            timePanelEndpointToggleButtonClass,
+                            timePanelEndpointToggleButtonStateClass('start'),
+                          ]"
                           @click="setDateTimeEndpoint('start')"
                         >
                           Start
                         </button>
                         <button
                           type="button"
-                          :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('end')]"
+                          :class="[
+                            timePanelEndpointToggleButtonClass,
+                            timePanelEndpointToggleButtonStateClass('end'),
+                          ]"
                           @click="setDateTimeEndpoint('end')"
                         >
                           End
@@ -5159,58 +6471,79 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                       </p>
                     </div>
                   </div>
-                  <div class="w-full min-w-0" :class="timePanelEndpointLayoutClass" :style="timePanelEndpointLayoutStyle">
+                  <div
+                    class="w-full min-w-0"
+                    :class="timePanelEndpointLayoutClass"
+                    :style="timePanelEndpointLayoutStyle"
+                  >
                     <div
                       v-for="endpoint in visibleTimeEndpoints"
                       :key="`static-inline-${endpoint}`"
                       class="vtd-time-endpoint min-w-0 flex flex-col gap-2"
-                      :class="showDualRangeTimePanelsUi ? 'vtd-time-endpoint-dual h-full min-h-0 w-full overflow-hidden rounded-md border border-black/[.1] px-2 py-4 dark:border-vtd-secondary-700/[1]' : 'vtd-time-endpoint-single w-full'"
+                      :class="
+                        showDualRangeTimePanelsUi
+                          ? 'vtd-time-endpoint-dual h-full min-h-0 w-full overflow-hidden rounded-md border border-black/[.1] px-2 py-4 dark:border-vtd-secondary-700/[1]'
+                          : 'vtd-time-endpoint-single w-full'
+                      "
                     >
                       <template v-if="isTimePickerWheelStyle">
                         <div
                           class="vtd-time-wheel-grid mt-1.5 mb-1 grid min-h-0 auto-rows-[minmax(0,1fr)] items-stretch gap-2"
-                          :class="[timeWheelGridColumnClass, showDualRangeTimePanelsUi ? 'vtd-time-wheel-grid-dual' : 'vtd-time-wheel-grid-single w-full']"
+                          :class="[
+                            timeWheelGridColumnClass,
+                            showDualRangeTimePanelsUi
+                              ? 'vtd-time-wheel-grid-dual'
+                              : 'vtd-time-wheel-grid-single w-full',
+                          ]"
                         >
                           <VtdTimeWheel
-                            ariaLabel="Hour wheel"
-                                    :items="hourWheelOptions"
+                            aria-label="Hour wheel"
+                            :items="hourWheelOptions"
                             :model-value="getHourWheelValue(endpoint)"
-                            :scrollMode="props.timeWheelScrollMode"
-                            :fractionalOffset="getHourWheelFractionalOffset(endpoint)"
+                            :scroll-mode="props.timeWheelScrollMode"
+                            :fractional-offset="getHourWheelFractionalOffset(endpoint)"
                             :disabled="!isDateTimeDraftReady(endpoint)"
-                            @step="(payload) => onDateTimeHourWheelStep(payload, endpoint)"
-                            @update:model-value="(value) => onDateTimeHourWheelUpdate(value, endpoint)"
+                            @step="payload => onDateTimeHourWheelStep(payload, endpoint)"
+                            @update:model-value="
+                              value => onDateTimeHourWheelUpdate(value, endpoint)
+                            "
                           />
                           <VtdTimeWheel
-                            ariaLabel="Minute wheel"
-                                    :items="minuteWheelOptions"
+                            aria-label="Minute wheel"
+                            :items="minuteWheelOptions"
                             :model-value="getMinuteWheelValue(endpoint)"
-                            :scrollMode="props.timeWheelScrollMode"
-                            :fractionalOffset="getMinuteWheelFractionalOffset(endpoint)"
+                            :scroll-mode="props.timeWheelScrollMode"
+                            :fractional-offset="getMinuteWheelFractionalOffset(endpoint)"
                             :disabled="!isDateTimeDraftReady(endpoint)"
-                            @step="(payload) => onDateTimeMinuteWheelStep(payload, endpoint)"
-                            @update:model-value="(value) => onDateTimeMinuteWheelUpdate(value, endpoint)"
+                            @step="payload => onDateTimeMinuteWheelStep(payload, endpoint)"
+                            @update:model-value="
+                              value => onDateTimeMinuteWheelUpdate(value, endpoint)
+                            "
                           />
                           <VtdTimeWheel
                             v-if="formatterTimeTokens.usesSeconds"
-                            ariaLabel="Second wheel"
-                                    :items="secondWheelOptions"
+                            aria-label="Second wheel"
+                            :items="secondWheelOptions"
                             :model-value="getSecondWheelValue(endpoint)"
-                            :scrollMode="props.timeWheelScrollMode"
+                            :scroll-mode="props.timeWheelScrollMode"
                             :disabled="!isDateTimeDraftReady(endpoint)"
-                            @step="(payload) => onDateTimeSecondWheelStep(payload, endpoint)"
-                            @update:model-value="(value) => onDateTimeSecondWheelUpdate(value, endpoint)"
+                            @step="payload => onDateTimeSecondWheelStep(payload, endpoint)"
+                            @update:model-value="
+                              value => onDateTimeSecondWheelUpdate(value, endpoint)
+                            "
                           />
                           <VtdTimeWheel
                             v-if="formatterTimeTokens.uses12Hour"
-                            ariaLabel="Meridiem wheel"
+                            aria-label="Meridiem wheel"
                             :items="meridiemWheelOptions"
                             :model-value="getMeridiemWheelValue(endpoint)"
-                            :scrollMode="props.timeWheelScrollMode"
-                            :fractionalOffset="getMeridiemWheelFractionalOffset(endpoint)"
-                            :syncDirection="getMeridiemWheelSyncDirection(endpoint)"
+                            :scroll-mode="props.timeWheelScrollMode"
+                            :fractional-offset="getMeridiemWheelFractionalOffset(endpoint)"
+                            :sync-direction="getMeridiemWheelSyncDirection(endpoint)"
                             :disabled="!isDateTimeDraftReady(endpoint)"
-                            @update:model-value="(value) => onDateTimeMeridiemWheelUpdate(value, endpoint)"
+                            @update:model-value="
+                              value => onDateTimeMeridiemWheelUpdate(value, endpoint)
+                            "
                           />
                         </div>
                       </template>
@@ -5221,18 +6554,27 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                           type="text"
                           class="block w-full rounded-md border border-vtd-secondary-300 px-3 py-2 text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 focus:border-vtd-primary-300 focus:outline-none focus:ring focus:ring-vtd-primary-500 focus:ring-opacity-10 dark:border-vtd-secondary-700 dark:bg-vtd-secondary-800 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-20"
                           :disabled="!isDateTimeDraftReady(endpoint)"
-                          @input="(event) => onDateTimeInput(event, endpoint)"
+                          @input="event => onDateTimeInput(event, endpoint)"
                         >
                       </template>
-                      <p v-if="getDateTimeValidationMessage(endpoint)" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                      <p
+                        v-if="getDateTimeValidationMessage(endpoint)"
+                        class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                      >
                         {{ getDateTimeValidationMessage(endpoint) }}
                       </p>
                     </div>
                   </div>
-                  <p v-if="formatterTimeTokenErrorMessage" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                  <p
+                    v-if="formatterTimeTokenErrorMessage"
+                    class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                  >
                     {{ formatterTimeTokenErrorMessage }}
                   </p>
-                  <p v-else-if="panelLevelDateTimeErrorMessage" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+                  <p
+                    v-else-if="panelLevelDateTimeErrorMessage"
+                    class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                  >
                     {{ panelLevelDateTimeErrorMessage }}
                   </p>
                 </div>
@@ -5241,7 +6583,10 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
           </template>
         </div>
       </div>
-      <div v-if="showStackedDateTimeControls" class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]">
+      <div
+        v-if="showStackedDateTimeControls"
+        class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]"
+      >
         <div class="mt-1.5 w-full min-w-0 flex flex-col gap-2">
           <div :class="timePanelHeaderRowClass">
             <p
@@ -5250,10 +6595,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
             >
               {{ timePanelSingleEndpointTitle }}
             </p>
-            <div
-              v-if="showDualRangeTimePanelsUi"
-              :class="timePanelDualEndpointLabelsClass"
-            >
+            <div v-if="showDualRangeTimePanelsUi" :class="timePanelDualEndpointLabelsClass">
               <p :class="timePanelDualEndpointLabelTextClass">
                 Start time
               </p>
@@ -5261,18 +6603,28 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                 End time
               </p>
             </div>
-            <div v-if="shouldCenterTimePanelEndpointToggle" :class="timePanelCenteredToggleWrapperClass">
+            <div
+              v-if="shouldCenterTimePanelEndpointToggle"
+              data-vtd-time-endpoint-toggle-centered
+              :class="timePanelCenteredToggleWrapperClass"
+            >
               <div :class="timePanelEndpointToggleGroupClass">
                 <button
                   type="button"
-                  :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('start')]"
+                  :class="[
+                    timePanelEndpointToggleButtonClass,
+                    timePanelEndpointToggleButtonStateClass('start'),
+                  ]"
                   @click="setDateTimeEndpoint('start')"
                 >
                   Start
                 </button>
                 <button
                   type="button"
-                  :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('end')]"
+                  :class="[
+                    timePanelEndpointToggleButtonClass,
+                    timePanelEndpointToggleButtonStateClass('end'),
+                  ]"
                   @click="setDateTimeEndpoint('end')"
                 >
                   End
@@ -5281,22 +6633,32 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
             </div>
             <p
               v-if="shouldOverlayTimeFormatLabel"
-              :class="[timePanelFormatLabelClass, 'absolute right-0 top-0']"
+              class="absolute right-0 top-0"
+              :class="[timePanelFormatLabelClass]"
             >
               {{ dateTimeFormatDescription }}
             </p>
             <div :class="timePanelHeaderActionsClass">
-              <div v-if="shouldShowInlineTimePanelEndpointToggle" :class="timePanelEndpointToggleGroupClass">
+              <div
+                v-if="shouldShowInlineTimePanelEndpointToggle"
+                :class="timePanelEndpointToggleGroupClass"
+              >
                 <button
                   type="button"
-                  :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('start')]"
+                  :class="[
+                    timePanelEndpointToggleButtonClass,
+                    timePanelEndpointToggleButtonStateClass('start'),
+                  ]"
                   @click="setDateTimeEndpoint('start')"
                 >
                   Start
                 </button>
                 <button
                   type="button"
-                  :class="[timePanelEndpointToggleButtonClass, timePanelEndpointToggleButtonStateClass('end')]"
+                  :class="[
+                    timePanelEndpointToggleButtonClass,
+                    timePanelEndpointToggleButtonStateClass('end'),
+                  ]"
                   @click="setDateTimeEndpoint('end')"
                 >
                   End
@@ -5315,58 +6677,71 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
               </p>
             </div>
           </div>
-          <div class="w-full min-w-0" :class="timePanelEndpointLayoutClass" :style="timePanelEndpointLayoutStyle">
+          <div
+            class="w-full min-w-0"
+            :class="timePanelEndpointLayoutClass"
+            :style="timePanelEndpointLayoutStyle"
+          >
             <div
               v-for="endpoint in visibleTimeEndpoints"
               :key="`static-stacked-${endpoint}`"
               class="vtd-time-endpoint min-w-0 flex flex-col gap-2"
-              :class="showDualRangeTimePanelsUi ? 'vtd-time-endpoint-dual h-full min-h-0 w-full overflow-hidden rounded-md border border-black/[.1] px-2 py-4 dark:border-vtd-secondary-700/[1]' : 'vtd-time-endpoint-single w-full'"
+              :class="
+                showDualRangeTimePanelsUi
+                  ? 'vtd-time-endpoint-dual h-full min-h-0 w-full overflow-hidden rounded-md border border-black/[.1] px-2 py-4 dark:border-vtd-secondary-700/[1]'
+                  : 'vtd-time-endpoint-single w-full'
+              "
             >
               <template v-if="isTimePickerWheelStyle">
                 <div
                   class="vtd-time-wheel-grid mt-1.5 mb-1 grid min-h-0 auto-rows-[minmax(0,1fr)] items-stretch gap-2"
-                  :class="[timeWheelGridColumnClass, showDualRangeTimePanelsUi ? 'vtd-time-wheel-grid-dual' : 'vtd-time-wheel-grid-single w-full']"
+                  :class="[
+                    timeWheelGridColumnClass,
+                    showDualRangeTimePanelsUi
+                      ? 'vtd-time-wheel-grid-dual'
+                      : 'vtd-time-wheel-grid-single w-full',
+                  ]"
                 >
                   <VtdTimeWheel
-                    ariaLabel="Hour wheel"
-                                    :items="hourWheelOptions"
+                    aria-label="Hour wheel"
+                    :items="hourWheelOptions"
                     :model-value="getHourWheelValue(endpoint)"
-                    :scrollMode="props.timeWheelScrollMode"
-                    :fractionalOffset="getHourWheelFractionalOffset(endpoint)"
+                    :scroll-mode="props.timeWheelScrollMode"
+                    :fractional-offset="getHourWheelFractionalOffset(endpoint)"
                     :disabled="!isDateTimeDraftReady(endpoint)"
-                    @step="(payload) => onDateTimeHourWheelStep(payload, endpoint)"
-                    @update:model-value="(value) => onDateTimeHourWheelUpdate(value, endpoint)"
+                    @step="payload => onDateTimeHourWheelStep(payload, endpoint)"
+                    @update:model-value="value => onDateTimeHourWheelUpdate(value, endpoint)"
                   />
                   <VtdTimeWheel
-                    ariaLabel="Minute wheel"
-                                    :items="minuteWheelOptions"
+                    aria-label="Minute wheel"
+                    :items="minuteWheelOptions"
                     :model-value="getMinuteWheelValue(endpoint)"
-                    :scrollMode="props.timeWheelScrollMode"
-                    :fractionalOffset="getMinuteWheelFractionalOffset(endpoint)"
+                    :scroll-mode="props.timeWheelScrollMode"
+                    :fractional-offset="getMinuteWheelFractionalOffset(endpoint)"
                     :disabled="!isDateTimeDraftReady(endpoint)"
-                    @step="(payload) => onDateTimeMinuteWheelStep(payload, endpoint)"
-                    @update:model-value="(value) => onDateTimeMinuteWheelUpdate(value, endpoint)"
+                    @step="payload => onDateTimeMinuteWheelStep(payload, endpoint)"
+                    @update:model-value="value => onDateTimeMinuteWheelUpdate(value, endpoint)"
                   />
                   <VtdTimeWheel
                     v-if="formatterTimeTokens.usesSeconds"
-                    ariaLabel="Second wheel"
-                                    :items="secondWheelOptions"
+                    aria-label="Second wheel"
+                    :items="secondWheelOptions"
                     :model-value="getSecondWheelValue(endpoint)"
-                    :scrollMode="props.timeWheelScrollMode"
+                    :scroll-mode="props.timeWheelScrollMode"
                     :disabled="!isDateTimeDraftReady(endpoint)"
-                    @step="(payload) => onDateTimeSecondWheelStep(payload, endpoint)"
-                    @update:model-value="(value) => onDateTimeSecondWheelUpdate(value, endpoint)"
+                    @step="payload => onDateTimeSecondWheelStep(payload, endpoint)"
+                    @update:model-value="value => onDateTimeSecondWheelUpdate(value, endpoint)"
                   />
                   <VtdTimeWheel
                     v-if="formatterTimeTokens.uses12Hour"
-                    ariaLabel="Meridiem wheel"
+                    aria-label="Meridiem wheel"
                     :items="meridiemWheelOptions"
                     :model-value="getMeridiemWheelValue(endpoint)"
-                    :scrollMode="props.timeWheelScrollMode"
-                    :fractionalOffset="getMeridiemWheelFractionalOffset(endpoint)"
-                    :syncDirection="getMeridiemWheelSyncDirection(endpoint)"
+                    :scroll-mode="props.timeWheelScrollMode"
+                    :fractional-offset="getMeridiemWheelFractionalOffset(endpoint)"
+                    :sync-direction="getMeridiemWheelSyncDirection(endpoint)"
                     :disabled="!isDateTimeDraftReady(endpoint)"
-                    @update:model-value="(value) => onDateTimeMeridiemWheelUpdate(value, endpoint)"
+                    @update:model-value="value => onDateTimeMeridiemWheelUpdate(value, endpoint)"
                   />
                 </div>
               </template>
@@ -5377,18 +6752,27 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                   type="text"
                   class="block w-full rounded-md border border-vtd-secondary-300 px-3 py-2 text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 focus:border-vtd-primary-300 focus:outline-none focus:ring focus:ring-vtd-primary-500 focus:ring-opacity-10 dark:border-vtd-secondary-700 dark:bg-vtd-secondary-800 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-20"
                   :disabled="!isDateTimeDraftReady(endpoint)"
-                  @input="(event) => onDateTimeInput(event, endpoint)"
+                  @input="event => onDateTimeInput(event, endpoint)"
                 >
               </template>
-              <p v-if="getDateTimeValidationMessage(endpoint)" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+              <p
+                v-if="getDateTimeValidationMessage(endpoint)"
+                class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+              >
                 {{ getDateTimeValidationMessage(endpoint) }}
               </p>
             </div>
           </div>
-          <p v-if="formatterTimeTokenErrorMessage" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+          <p
+            v-if="formatterTimeTokenErrorMessage"
+            class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+          >
             {{ formatterTimeTokenErrorMessage }}
           </p>
-          <p v-else-if="panelLevelDateTimeErrorMessage" class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400">
+          <p
+            v-else-if="panelLevelDateTimeErrorMessage"
+            class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+          >
             {{ panelLevelDateTimeErrorMessage }}
           </p>
         </div>
@@ -5396,9 +6780,13 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
       <div v-if="showApplyFooter">
         <div class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]">
           <div class="mt-1.5 sm:flex sm:flex-row-reverse">
-            <button type="button"
+            <button
+              type="button"
               class="away-apply-picker w-full transition ease-out duration-300 inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-vtd-primary-600 text-base font-medium text-white hover:bg-vtd-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vtd-primary-500 sm:ml-3 sm:w-auto sm:text-sm dark:ring-offset-vtd-secondary-800 disabled:cursor-not-allowed"
-              :disabled="isApplyButtonDisabled()" @click="applyDate()" v-text="props.options.footer.apply" />
+              :disabled="isApplyButtonDisabled()"
+              @click="applyDate()"
+              v-text="props.options.footer.apply"
+            />
             <button
               v-if="canToggleTimePanel || shouldShowTimePanelSwitchButton"
               type="button"
@@ -5412,11 +6800,14 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
       </div>
     </div>
   </div>
+  <p aria-live="polite" aria-atomic="true" class="sr-only">
+    {{ liveAnnouncement }}
+  </p>
 </template>
 
 <style>
-@import "tailwindcss";
-@import "./index.css";
+@import 'tailwindcss';
+@import './index.css';
 
 .vtd-time-panel-fill {
   @apply h-full;
@@ -5448,12 +6839,14 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
 
 .vtd-datepicker::before {
   --vtd-datepicker: 0px;
-  content: "";
+  content: '';
   @apply absolute top-0 w-4 h-4 bg-white shadow border border-black/[.1] dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700;
   transform: translate(50%, -50%) rotate(-45deg);
-  clip-path: polygon(calc(var(--vtd-datepicker) * -1) calc(var(--vtd-datepicker) * -1),
-      calc(100% + var(--vtd-datepicker)) calc(var(--vtd-datepicker) * -1),
-      calc(100% + var(--vtd-datepicker)) calc(100% + var(--vtd-datepicker)));
+  clip-path: polygon(
+    calc(var(--vtd-datepicker) * -1) calc(var(--vtd-datepicker) * -1),
+    calc(100% + var(--vtd-datepicker)) calc(var(--vtd-datepicker) * -1),
+    calc(100% + var(--vtd-datepicker)) calc(100% + var(--vtd-datepicker))
+  );
 }
 
 .vtd-datepicker.place-left::before {

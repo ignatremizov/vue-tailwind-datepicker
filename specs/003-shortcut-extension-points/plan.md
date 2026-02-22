@@ -9,19 +9,19 @@ Add extensible, in-panel shortcut behavior with a typed resolver contract, inval
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.9, Vue 3.5 SFCs  
-**Primary Dependencies**: Vue 3, dayjs, @headlessui/vue, tailwindcss  
-**Storage**: N/A (component-local state and event flow only)  
-**Testing**: `npm run typecheck`, `npm run build`, manual quickstart flows for shortcut semantics and accessibility  
-**Target Platform**: Browser-based Vue 3 component library (desktop and mobile)  
-**Project Type**: Single frontend component library  
-**Performance Goals**: Shortcut activation updates selection with no noticeable lag and preserves current panel responsiveness; disabled-state checks avoid repeated resolver execution on unrelated rerenders  
-**Constraints**: Backward compatible defaults, local-time deterministic calculations, no extra popup/panel for shortcut actions  
+**Language/Version**: TypeScript 5.9, Vue 3.5 SFCs
+**Primary Dependencies**: Vue 3, dayjs, @headlessui/vue, tailwindcss
+**Storage**: N/A (component-local state and event flow only)
+**Testing**: `npm run typecheck`, `npm run build`, manual quickstart flows for shortcut semantics and accessibility
+**Target Platform**: Browser-based Vue 3 component library (desktop and mobile)
+**Project Type**: Single frontend component library
+**Performance Goals**: Shortcut activation updates selection with no noticeable lag and preserves current panel responsiveness; disabled-state checks avoid repeated resolver execution on unrelated rerenders
+**Constraints**: Backward compatible defaults, local-time deterministic calculations, no extra popup/panel for shortcut actions
 **Scale/Scope**: Primary work in `src/VueTailwindDatePicker.vue`, `src/components/Shortcut.vue`, and typing/event contracts
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
 Constitution source: `specs/constitution.md`
 

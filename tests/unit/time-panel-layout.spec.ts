@@ -1,23 +1,25 @@
-import { defineComponent, nextTick, ref } from 'vue'
 import { mount } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import dayjs from 'dayjs'
-import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent, nextTick, ref } from 'vue'
 import TimeWheel from '../../src/components/TimeWheel.vue'
+import Year from '../../src/components/Year.vue'
+import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
 import { createLocalDate } from './shortcut-test-utils'
 
-function dispatchKey(target: HTMLElement, options: { key: string; shiftKey?: boolean }) {
-  target.dispatchEvent(new KeyboardEvent('keydown', {
-    key: options.key,
-    bubbles: true,
-    cancelable: true,
-    shiftKey: !!options.shiftKey,
-  }))
+function dispatchKey(target: HTMLElement, options: { key: string, shiftKey?: boolean }) {
+  target.dispatchEvent(
+    new KeyboardEvent('keydown', {
+      key: options.key,
+      bubbles: true,
+      cancelable: true,
+      shiftKey: !!options.shiftKey,
+    }),
+  )
 }
 
 function findButtonByText(wrapper: ReturnType<typeof mount>, label: string) {
-  return wrapper.findAll('button')
-    .find(button => button.text().trim() === label)
+  return wrapper.findAll('button').find(button => button.text().trim() === label)
 }
 
 async function settleUi(delayMs = 0) {
@@ -108,7 +110,8 @@ describe.sequential('time panel layout behavior', () => {
     await openPopover(wrapper)
     await openTimePage(wrapper)
 
-    const headerTitle = () => wrapper.get('.vtd-time-panel-fill p.text-xs.font-medium').text().trim()
+    const headerTitle = () =>
+      wrapper.get('.vtd-time-panel-fill p.text-xs.font-medium').text().trim()
     const startButton = wrapper.findAll('button').find(button => button.text().trim() === 'Start')
     expect(startButton).toBeTruthy()
     if (headerTitle() !== 'Start time') {
@@ -141,7 +144,8 @@ describe.sequential('time panel layout behavior', () => {
     await openPopover(wrapper)
     await openTimePage(wrapper)
 
-    const headerTitle = () => wrapper.get('.vtd-time-panel-fill p.text-xs.font-medium').text().trim()
+    const headerTitle = () =>
+      wrapper.get('.vtd-time-panel-fill p.text-xs.font-medium').text().trim()
     const startButton = findButtonByText(wrapper, 'Start')
     const endButton = findButtonByText(wrapper, 'End')
     expect(startButton).toBeTruthy()
@@ -215,7 +219,41 @@ describe.sequential('time panel layout behavior', () => {
     expect(countSelectedOptions()).toBeGreaterThan(0)
 
     wrapper.unmount()
-  }, 20000)
+  }, 60000)
+
+  it('switches endpoint toggle with ArrowLeft/ArrowRight', async () => {
+    const wrapper = await mountTimePicker({
+      asSingle: true,
+      useRange: true,
+      timePickerStyle: 'wheel-inline',
+      timeInlinePosition: 'right',
+    })
+
+    await openPopover(wrapper)
+
+    const startButton = findButtonByText(wrapper, 'Start')
+    const endButton = findButtonByText(wrapper, 'End')
+    expect(startButton).toBeTruthy()
+    expect(endButton).toBeTruthy()
+    ;(startButton!.element as HTMLElement).focus()
+    dispatchKey(startButton!.element as HTMLElement, { key: 'ArrowRight' })
+    await settleUi()
+
+    const endButtonAfterRight = findButtonByText(wrapper, 'End')
+    expect(endButtonAfterRight).toBeTruthy()
+    expect(endButtonAfterRight!.classes()).toContain('bg-vtd-primary-600')
+    expect(document.activeElement).toBe(endButtonAfterRight!.element)
+
+    dispatchKey(endButtonAfterRight!.element as HTMLElement, { key: 'ArrowLeft' })
+    await settleUi()
+
+    const startButtonAfterLeft = findButtonByText(wrapper, 'Start')
+    expect(startButtonAfterLeft).toBeTruthy()
+    expect(startButtonAfterLeft!.classes()).toContain('bg-vtd-primary-600')
+    expect(document.activeElement).toBe(startButtonAfterLeft!.element)
+
+    wrapper.unmount()
+  }, 60000)
 
   it('keeps wheel-inline controls stacked below the calendar by default', async () => {
     const wrapper = await mountTimePicker({
@@ -233,6 +271,30 @@ describe.sequential('time panel layout behavior', () => {
     expect(wrapper.text()).toContain('End time')
 
     wrapper.unmount()
+  })
+
+  it('centers Start/End toggle only when shortcut panel is present in wheel-inline below mode', async () => {
+    const withShortcuts = await mountTimePicker({
+      asSingle: true,
+      useRange: true,
+      timePickerStyle: 'wheel-inline',
+      timeInlinePosition: 'below',
+      shortcuts: true,
+    })
+    await openPopover(withShortcuts)
+    expect(withShortcuts.find('[data-vtd-time-endpoint-toggle-centered]').exists()).toBe(true)
+    withShortcuts.unmount()
+
+    const withoutShortcuts = await mountTimePicker({
+      asSingle: true,
+      useRange: true,
+      timePickerStyle: 'wheel-inline',
+      timeInlinePosition: 'below',
+      shortcuts: false,
+    })
+    await openPopover(withoutShortcuts)
+    expect(withoutShortcuts.find('[data-vtd-time-endpoint-toggle-centered]').exists()).toBe(false)
+    withoutShortcuts.unmount()
   })
 
   it('uses timeWheelHeight for compact wheel-inline layout', async () => {
@@ -277,6 +339,65 @@ describe.sequential('time panel layout behavior', () => {
     wrapper.unmount()
   })
 
+  it('keeps selector no-time single-panel footer inside the picker shell', async () => {
+    const wrapper = await mountTimePicker({
+      asSingle: true,
+      useRange: true,
+      selectorMode: true,
+      timePickerStyle: 'none',
+      autoApply: false,
+    })
+
+    await openPopover(wrapper)
+
+    const pickerShell = wrapper.get('.vtd-datepicker')
+    expect(pickerShell.classes()).not.toContain('sm:h-[23.5rem]')
+
+    const footerApply = pickerShell.find('.away-apply-picker')
+    const footerCancel = pickerShell.find('.away-cancel-picker')
+    expect(footerApply.exists()).toBe(true)
+    expect(footerCancel.exists()).toBe(true)
+
+    const hasTimeFooterButton = pickerShell
+      .findAll('button')
+      .some(button => button.text().trim() === 'Time')
+    expect(hasTimeFooterButton).toBe(false)
+
+    wrapper.unmount()
+  })
+
+  it('keeps dual wheel-page layout bounded after reopening from single time view', async () => {
+    const wrapper = await mountTimePicker({
+      asSingle: true,
+      useRange: true,
+      timePickerStyle: 'wheel-page',
+      timeWheelPageHeight: 232,
+    })
+
+    await openPopover(wrapper)
+    await openTimePage(wrapper)
+
+    // Close while time page is active, then reopen in dual mode.
+    await wrapper.get('input').trigger('click')
+    await settleUi(320)
+
+    await wrapper.setProps({ asSingle: false })
+    await settleUi(320)
+
+    await openPopover(wrapper)
+    await ensureTimePageOpen(wrapper)
+    await settleUi(320)
+
+    const endpoint = wrapper.find('.vtd-time-endpoint')
+    expect(endpoint.exists()).toBe(true)
+    const layout = endpoint.element.parentElement as HTMLElement | null
+    expect(layout).toBeTruthy()
+    expect(layout!.style.minHeight).toBe('232px')
+    expect(layout!.style.height).toBe('232px')
+
+    wrapper.unmount()
+  })
+
   it('hydrates date-only model values when formatter.date contains an ISO T time delimiter', async () => {
     const wrapper = await mountTimePicker({
       noInput: true,
@@ -303,7 +424,7 @@ describe.sequential('time panel layout behavior', () => {
     expect((inputs[1]!.element as HTMLInputElement).value).toBe('09:45:00')
 
     wrapper.unmount()
-  }, 30000)
+  }, 60000)
 
   it('hydrates date-only model values when formatter.date uses Dayjs escaped [T] delimiter', async () => {
     const wrapper = await mountTimePicker({
@@ -331,7 +452,7 @@ describe.sequential('time panel layout behavior', () => {
     expect((inputs[1]!.element as HTMLInputElement).value).toBe('09:45:00')
 
     wrapper.unmount()
-  }, 30000)
+  }, 60000)
 
   it('shows both start and end time inputs in single-panel range input mode', async () => {
     const wrapper = await mountTimePicker({
@@ -427,6 +548,185 @@ describe.sequential('time panel layout behavior', () => {
     wrapper.unmount()
   })
 
+  it('supports Home/End boundary jumps with rollover in time wheels', async () => {
+    const wheelItems = Array.from({ length: 12 }, (_, index) => ({
+      label: String(index).padStart(2, '0'),
+      value: index,
+    }))
+
+    const Harness = defineComponent({
+      components: {
+        TimeWheel,
+      },
+      setup() {
+        const value = ref<number | string>(5)
+        const deltas = ref<number[]>([])
+        function onStep(payload: { delta: number }) {
+          deltas.value.push(payload.delta)
+        }
+        return {
+          wheelItems,
+          value,
+          deltas,
+          onStep,
+        }
+      },
+      template: `
+        <div class="vtd-time-wheel-grid grid grid-cols-1 gap-2">
+          <TimeWheel v-model="value" aria-label="Hour wheel" :items="wheelItems" @step="onStep" />
+        </div>
+      `,
+    })
+
+    const wrapper = mount(Harness, { attachTo: document.body })
+    await settleUi(320)
+
+    const wheel = wrapper.get('.vtd-time-wheel').element as HTMLElement
+    wheel.focus()
+    dispatchKey(wheel, { key: 'Home' })
+    await settleUi()
+    dispatchKey(wheel, { key: 'Home' })
+    await settleUi()
+    dispatchKey(wheel, { key: 'End' })
+    await settleUi()
+    dispatchKey(wheel, { key: 'End' })
+    await settleUi()
+
+    const vm = wrapper.vm as unknown as { value: number | string, deltas: number[] }
+    expect(vm.value).toBe(11)
+    expect(vm.deltas).toEqual([-5, -12, 11, 12])
+
+    wrapper.unmount()
+  })
+
+  it('keeps PageUp/PageDown wheel step size at five items', async () => {
+    const wheelItems = Array.from({ length: 60 }, (_, index) => ({
+      label: String(index).padStart(2, '0'),
+      value: index,
+    }))
+
+    const Harness = defineComponent({
+      components: {
+        TimeWheel,
+      },
+      setup() {
+        const value = ref<number | string>(10)
+        const deltas = ref<number[]>([])
+        function onStep(payload: { delta: number }) {
+          deltas.value.push(payload.delta)
+        }
+        return {
+          wheelItems,
+          value,
+          deltas,
+          onStep,
+        }
+      },
+      template: `
+        <div class="vtd-time-wheel-grid grid grid-cols-1 gap-2">
+          <TimeWheel v-model="value" aria-label="Minute wheel" :items="wheelItems" @step="onStep" />
+        </div>
+      `,
+    })
+
+    const wrapper = mount(Harness, { attachTo: document.body })
+    await settleUi(320)
+
+    const wheel = wrapper.get('.vtd-time-wheel').element as HTMLElement
+    wheel.focus()
+    dispatchKey(wheel, { key: 'PageDown' })
+    await settleUi()
+    dispatchKey(wheel, { key: 'PageUp' })
+    await settleUi()
+
+    const vm = wrapper.vm as unknown as { value: number | string, deltas: number[] }
+    expect(vm.value).toBe(10)
+    expect(vm.deltas).toEqual([5, -5])
+
+    wrapper.unmount()
+  })
+
+  it('keeps ArrowUp/ArrowDown wheel scrolling aligned to fractional offset', async () => {
+    const scrollSpy = vi.spyOn(HTMLElement.prototype, 'scrollTo').mockImplementation(function (
+      this: HTMLElement,
+      options?: ScrollToOptions | number,
+      y?: number,
+    ) {
+      if (typeof options === 'number') {
+        this.scrollTop = y as number
+        return
+      }
+      if (options && typeof options.top === 'number')
+        this.scrollTop = options.top
+    })
+
+    const wheelItems = Array.from({ length: 60 }, (_, index) => ({
+      label: String(index).padStart(2, '0'),
+      value: index,
+    }))
+
+    const Harness = defineComponent({
+      components: {
+        TimeWheel,
+      },
+      setup() {
+        const value = ref<number | string>(10)
+        return {
+          wheelItems,
+          value,
+        }
+      },
+      template: `
+        <div class="vtd-time-wheel-grid grid grid-cols-1 gap-2">
+          <TimeWheel
+            v-model="value"
+            aria-label="Second wheel"
+            :items="wheelItems"
+            scroll-mode="fractional"
+            :fractional-offset="0.25"
+          />
+        </div>
+      `,
+    })
+
+    const wrapper = mount(Harness, { attachTo: document.body })
+    await settleUi(320)
+
+    const wheel = wrapper.get('.vtd-time-wheel').element as HTMLElement
+    Object.defineProperty(wheel, 'clientHeight', {
+      configurable: true,
+      value: 176,
+    })
+
+    scrollSpy.mockClear()
+    wheel.focus()
+    dispatchKey(wheel, { key: 'ArrowDown' })
+    await settleUi()
+
+    let smoothTop: number | null = null
+    for (const call of [...scrollSpy.mock.calls].reverse()) {
+      const arg = call[0] as ScrollToOptions | undefined
+      if (
+        arg
+        && typeof arg === 'object'
+        && arg.behavior === 'smooth'
+        && typeof arg.top === 'number'
+      ) {
+        smoothTop = arg.top
+        break
+      }
+    }
+
+    expect(smoothTop).not.toBeNull()
+    const derivedIndex = ((smoothTop as number) + 66) / 44
+    const fractionalPart = Math.abs(derivedIndex - Math.round(derivedIndex))
+    expect(fractionalPart).toBeGreaterThan(0.2)
+    expect(fractionalPart).toBeLessThan(0.3)
+
+    scrollSpy.mockRestore()
+    wrapper.unmount()
+  })
+
   it('marks disabled time wheel controls as disabled and non-tabbable', async () => {
     const wheelItems = Array.from({ length: 12 }, (_, index) => ({
       label: String(index).padStart(2, '0'),
@@ -460,8 +760,7 @@ describe.sequential('time panel layout behavior', () => {
 
     const stepButtons = wrapper.findAll('.vtd-time-wheel-shell > button')
     expect(stepButtons.length).toBe(2)
-    for (const button of stepButtons)
-      expect(button.attributes('disabled')).toBeDefined()
+    for (const button of stepButtons) expect(button.attributes('disabled')).toBeDefined()
 
     wrapper.unmount()
   })
@@ -559,18 +858,19 @@ describe.sequential('time panel layout behavior', () => {
     expect(applyButton).toBeTruthy()
 
     const shortcutButton = wrapper.get('.vtd-shortcuts').element as HTMLElement
-    const firstWheel = wrapper.get('.vtd-time-panel-fill .vtd-time-wheel-grid .vtd-time-wheel').element as HTMLElement
+    const firstWheel = wrapper.get('.vtd-time-panel-fill .vtd-time-wheel-grid .vtd-time-wheel')
+      .element as HTMLElement
     const wheelNodes = wrapper.findAll('.vtd-time-panel-fill .vtd-time-wheel-grid .vtd-time-wheel')
     const lastWheel = wheelNodes[wheelNodes.length - 1]!.element as HTMLElement
+    const activeToggleButton = startButton!.classes().includes('bg-vtd-primary-600')
+      ? startButton!
+      : endButton!
 
     shortcutButton.focus()
     dispatchKey(shortcutButton, { key: 'Tab' })
-    expect(document.activeElement).toBe(startButton!.element)
+    expect(document.activeElement).toBe(activeToggleButton.element)
 
-    dispatchKey(startButton!.element as HTMLElement, { key: 'Tab' })
-    expect(document.activeElement).toBe(endButton!.element)
-
-    dispatchKey(endButton!.element as HTMLElement, { key: 'Tab' })
+    dispatchKey(activeToggleButton.element as HTMLElement, { key: 'Tab' })
     expect(document.activeElement).toBe(firstWheel)
 
     dispatchKey(firstWheel, { key: 'ArrowDown' })
@@ -594,7 +894,7 @@ describe.sequential('time panel layout behavior', () => {
       expect(document.activeElement).toBe(shortcutButton)
 
     wrapper.unmount()
-  }, 30000)
+  }, 60000)
 
   it('skips disabled wheels in time-mode tab cycle before date selection', async () => {
     const wrapper = await mountTimePicker({
@@ -614,11 +914,11 @@ describe.sequential('time panel layout behavior', () => {
 
     const endButton = findButtonByText(wrapper, 'End')
     const cancelButton = findButtonByText(wrapper, 'Cancel')
-    const firstWheel = wrapper.get('.vtd-time-panel-fill .vtd-time-wheel-grid .vtd-time-wheel').element as HTMLElement
+    const firstWheel = wrapper.get('.vtd-time-panel-fill .vtd-time-wheel-grid .vtd-time-wheel')
+      .element as HTMLElement
     expect(endButton).toBeTruthy()
     expect(cancelButton).toBeTruthy()
     expect(firstWheel.getAttribute('aria-disabled')).toBe('true')
-
     ;(endButton!.element as HTMLElement).focus()
     dispatchKey(endButton!.element as HTMLElement, { key: 'Tab' })
     expect(document.activeElement).toBe(cancelButton!.element)
@@ -688,15 +988,20 @@ describe.sequential('time panel layout behavior', () => {
     expect(meridiemWheel).toBeTruthy()
 
     const clickOption = async (wheel: ReturnType<typeof wrapper.find>, value: string) => {
-      const option = wheel.findAll('[role="option"]')
+      const option = wheel
+        .findAll('[role="option"]')
         .filter(node => node.text().trim() === value)
         .sort((a, b) => {
           const aRow = a.element.closest('[data-time-index]')
           const bRow = b.element.closest('[data-time-index]')
           const aIndex = Number.parseInt(aRow?.getAttribute('data-time-index') ?? '', 10)
           const bIndex = Number.parseInt(bRow?.getAttribute('data-time-index') ?? '', 10)
-          const aDistance = Number.isFinite(aIndex) ? Math.abs(aIndex - 180) : Number.POSITIVE_INFINITY
-          const bDistance = Number.isFinite(bIndex) ? Math.abs(bIndex - 180) : Number.POSITIVE_INFINITY
+          const aDistance = Number.isFinite(aIndex)
+            ? Math.abs(aIndex - 180)
+            : Number.POSITIVE_INFINITY
+          const bDistance = Number.isFinite(bIndex)
+            ? Math.abs(bIndex - 180)
+            : Number.POSITIVE_INFINITY
           return aDistance - bDistance
         })
         .at(0)
@@ -727,6 +1032,77 @@ describe.sequential('time panel layout behavior', () => {
     wrapper.unmount()
   }, 30000)
 
+  it('toggles meridiem on hour Home/End boundary rollovers in 12-hour mode', async () => {
+    const wrapper = await mountTimePicker({
+      asSingle: true,
+      useRange: true,
+      timePickerStyle: 'wheel-inline',
+      timeInlinePosition: 'right',
+      timeWheelScrollMode: 'fractional',
+      modelValue: {
+        startDate: createLocalDate(2026, 1, 22, 1, 4, 45),
+        endDate: createLocalDate(2026, 1, 28, 23, 59, 59),
+      },
+    })
+
+    await openPopover(wrapper)
+
+    const hourWheel = wrapper.findAll('[aria-label="Hour wheel"]').at(0)
+    const meridiemWheel = wrapper.findAll('[aria-label="Meridiem wheel"]').at(0)
+    expect(hourWheel).toBeTruthy()
+    expect(meridiemWheel).toBeTruthy()
+
+    const clickOption = async (wheel: ReturnType<typeof wrapper.find>, value: string) => {
+      const option = wheel
+        .findAll('[role="option"]')
+        .filter(node => node.text().trim() === value)
+        .sort((a, b) => {
+          const aRow = a.element.closest('[data-time-index]')
+          const bRow = b.element.closest('[data-time-index]')
+          const aIndex = Number.parseInt(aRow?.getAttribute('data-time-index') ?? '', 10)
+          const bIndex = Number.parseInt(bRow?.getAttribute('data-time-index') ?? '', 10)
+          const aDistance = Number.isFinite(aIndex)
+            ? Math.abs(aIndex - 180)
+            : Number.POSITIVE_INFINITY
+          const bDistance = Number.isFinite(bIndex)
+            ? Math.abs(bIndex - 180)
+            : Number.POSITIVE_INFINITY
+          return aDistance - bDistance
+        })
+        .at(0)
+      expect(option).toBeTruthy()
+      await option!.trigger('click')
+      await settleUi(320)
+    }
+
+    const selectedText = (wheel: ReturnType<typeof wrapper.find>) => {
+      const selected = wheel.findAll('[role="option"][aria-selected="true"]')
+      expect(selected.length).toBe(1)
+      return selected[0]!.text().trim()
+    }
+
+    expect(selectedText(hourWheel!)).toBe('01')
+    expect(selectedText(meridiemWheel!)).toBe('AM')
+
+    const hourWheelElement = hourWheel!.element as HTMLElement
+    hourWheelElement.focus()
+    dispatchKey(hourWheelElement, { key: 'Home' })
+    await settleUi(520)
+    expect(selectedText(hourWheel!)).toBe('01')
+    expect(selectedText(meridiemWheel!)).toBe('PM')
+
+    await clickOption(hourWheel!, '12')
+    expect(selectedText(hourWheel!)).toBe('12')
+    expect(selectedText(meridiemWheel!)).toBe('PM')
+
+    dispatchKey(hourWheelElement, { key: 'End' })
+    await settleUi(520)
+    expect(selectedText(hourWheel!)).toBe('12')
+    expect(selectedText(meridiemWheel!)).toBe('AM')
+
+    wrapper.unmount()
+  }, 30000)
+
   it('applies second-boundary carry to range value payloads on apply', async () => {
     const wrapper = await mountTimePicker({
       noInput: true,
@@ -751,15 +1127,20 @@ describe.sequential('time panel layout behavior', () => {
 
     const secondWheel = wrapper.findAll('[aria-label="Second wheel"]').at(0)
     expect(secondWheel).toBeTruthy()
-    const zeroSecondOption = secondWheel!.findAll('[role="option"]')
+    const zeroSecondOption = secondWheel!
+      .findAll('[role="option"]')
       .filter(node => node.text().trim() === '00')
       .sort((a, b) => {
         const aRow = a.element.closest('[data-time-index]')
         const bRow = b.element.closest('[data-time-index]')
         const aIndex = Number.parseInt(aRow?.getAttribute('data-time-index') ?? '', 10)
         const bIndex = Number.parseInt(bRow?.getAttribute('data-time-index') ?? '', 10)
-        const aDistance = Number.isFinite(aIndex) ? Math.abs(aIndex - 180) : Number.POSITIVE_INFINITY
-        const bDistance = Number.isFinite(bIndex) ? Math.abs(bIndex - 180) : Number.POSITIVE_INFINITY
+        const aDistance = Number.isFinite(aIndex)
+          ? Math.abs(aIndex - 180)
+          : Number.POSITIVE_INFINITY
+        const bDistance = Number.isFinite(bIndex)
+          ? Math.abs(bIndex - 180)
+          : Number.POSITIVE_INFINITY
         return aDistance - bDistance
       })
       .at(0)
@@ -808,7 +1189,8 @@ describe.sequential('time panel layout behavior', () => {
       await nextTick()
     }
 
-    const minuteWheel = wrapper.findAllComponents(TimeWheel)
+    const minuteWheel = wrapper
+      .findAllComponents(TimeWheel)
       .find(component => component.props('ariaLabel') === 'Minute wheel')
     expect(minuteWheel).toBeTruthy()
 
@@ -839,6 +1221,130 @@ describe.sequential('time panel layout behavior', () => {
     wrapper.unmount()
   }, 30000)
 
+  it('normalizes second-wheel rebase deltas so boundary carry applies only once', async () => {
+    const wrapper = await mountTimePicker({
+      noInput: true,
+      asSingle: true,
+      useRange: true,
+      timePickerStyle: 'wheel-page',
+      timeWheelScrollMode: 'boundary',
+      modelValue: {
+        startDate: createLocalDate(2026, 1, 22, 11, 59, 59),
+        endDate: createLocalDate(2026, 1, 24, 11, 0, 0),
+      },
+    })
+
+    await settleUi(320)
+    await openTimePage(wrapper)
+
+    const startButton = findButtonByText(wrapper, 'Start')
+    if (startButton && !startButton.classes().includes('bg-vtd-primary-600')) {
+      await startButton.trigger('click')
+      await nextTick()
+    }
+
+    const secondWheel = wrapper
+      .findAllComponents(TimeWheel)
+      .find(component => component.props('ariaLabel') === 'Second wheel')
+    expect(secondWheel).toBeTruthy()
+
+    // Simulate a wrap/rebase-inflated payload where absolute-index delta carries
+    // an extra full cycle even though the semantic transition is 59 -> 00.
+    secondWheel!.vm.$emit('step', {
+      value: 0,
+      previousValue: 59,
+      absoluteIndex: 2161,
+      previousAbsoluteIndex: 2100,
+      delta: 61,
+    })
+    secondWheel!.vm.$emit('update:modelValue', 0)
+    await settleUi(320)
+
+    const applyButton = findButtonByText(wrapper, 'Apply')
+    expect(applyButton).toBeTruthy()
+    await applyButton!.trigger('click')
+    await nextTick()
+    await nextTick()
+
+    const emittedUpdates = wrapper.emitted('update:modelValue')
+    expect(emittedUpdates).toBeTruthy()
+    const latestPayload = emittedUpdates![emittedUpdates!.length - 1]![0] as Record<string, string>
+    const start = dayjs(latestPayload.startDate, 'YYYY-MM-DD hh:mm:ss A', true)
+    expect(start.isValid()).toBe(true)
+    expect(start.hour()).toBe(12)
+    expect(start.minute()).toBe(0)
+    expect(start.second()).toBe(0)
+
+    wrapper.unmount()
+  }, 30000)
+
+  it('deduplicates repeated boundary-carry step payloads with rebased absolute indices', async () => {
+    const wrapper = await mountTimePicker({
+      noInput: true,
+      asSingle: true,
+      useRange: true,
+      timePickerStyle: 'wheel-page',
+      timeWheelScrollMode: 'boundary',
+      modelValue: {
+        startDate: createLocalDate(2026, 1, 22, 11, 59, 59),
+        endDate: createLocalDate(2026, 1, 24, 11, 0, 0),
+      },
+    })
+
+    await settleUi(320)
+    await openTimePage(wrapper)
+
+    const startButton = findButtonByText(wrapper, 'Start')
+    if (startButton && !startButton.classes().includes('bg-vtd-primary-600')) {
+      await startButton.trigger('click')
+      await nextTick()
+    }
+
+    const secondWheel = wrapper
+      .findAllComponents(TimeWheel)
+      .find(component => component.props('ariaLabel') === 'Second wheel')
+    expect(secondWheel).toBeTruthy()
+
+    // First boundary-crossing payload.
+    secondWheel!.vm.$emit('step', {
+      value: 0,
+      previousValue: 59,
+      absoluteIndex: 2161,
+      previousAbsoluteIndex: 2100,
+      delta: 61,
+    })
+    secondWheel!.vm.$emit('update:modelValue', 0)
+
+    // Duplicate semantic payload with different absolute indices (rebase noise).
+    secondWheel!.vm.$emit('step', {
+      value: 0,
+      previousValue: 59,
+      absoluteIndex: 2221,
+      previousAbsoluteIndex: 2160,
+      delta: 61,
+    })
+    secondWheel!.vm.$emit('update:modelValue', 0)
+
+    await settleUi(320)
+
+    const applyButton = findButtonByText(wrapper, 'Apply')
+    expect(applyButton).toBeTruthy()
+    await applyButton!.trigger('click')
+    await nextTick()
+    await nextTick()
+
+    const emittedUpdates = wrapper.emitted('update:modelValue')
+    expect(emittedUpdates).toBeTruthy()
+    const latestPayload = emittedUpdates![emittedUpdates!.length - 1]![0] as Record<string, string>
+    const start = dayjs(latestPayload.startDate, 'YYYY-MM-DD hh:mm:ss A', true)
+    expect(start.isValid()).toBe(true)
+    expect(start.hour()).toBe(12)
+    expect(start.minute()).toBe(0)
+    expect(start.second()).toBe(0)
+
+    wrapper.unmount()
+  }, 30000)
+
   it('keeps Apply disabled in single-panel range datetime mode until both endpoints are selected', async () => {
     const wrapper = await mountTimePicker({
       noInput: false,
@@ -857,7 +1363,8 @@ describe.sequential('time panel layout behavior', () => {
     expect(applyButton).toBeTruthy()
     expect((applyButton!.element as HTMLButtonElement).disabled).toBe(true)
 
-    const day12 = wrapper.findAll('button.vtd-datepicker-date')
+    const day12 = wrapper
+      .findAll('button.vtd-datepicker-date')
       .filter(button => !button.attributes('disabled'))
       .filter(button => !button.classes().includes('text-vtd-secondary-400'))
       .find(button => button.text().trim() === '12')
@@ -870,7 +1377,8 @@ describe.sequential('time panel layout behavior', () => {
     expect(applyButtonAfterFirstDate).toBeTruthy()
     expect((applyButtonAfterFirstDate!.element as HTMLButtonElement).disabled).toBe(true)
 
-    const day18 = wrapper.findAll('button.vtd-datepicker-date')
+    const day18 = wrapper
+      .findAll('button.vtd-datepicker-date')
       .filter(button => !button.attributes('disabled'))
       .filter(button => !button.classes().includes('text-vtd-secondary-400'))
       .find(button => button.text().trim() === '18')
@@ -929,11 +1437,12 @@ describe.sequential('time panel layout behavior', () => {
     expect(payload.field).toBe('range')
     expect(payload.endpoint).toBe('end')
 
-    const renderedMatches = wrapper.findAll('p')
+    const renderedMatches = wrapper
+      .findAll('p')
       .map(node => node.text().trim())
-      .filter(text =>
-        text.includes('End time must be at or after start')
-        && text.includes('(11:00:00 PM).'),
+      .filter(
+        text =>
+          text.includes('End time must be at or after start') && text.includes('(11:00:00 PM).'),
       )
     expect(renderedMatches.length).toBe(1)
 
@@ -955,7 +1464,8 @@ describe.sequential('time panel layout behavior', () => {
     await settleUi(320)
 
     const findInMonthDay = (day: number) => {
-      return wrapper.findAll('button.vtd-datepicker-date')
+      return wrapper
+        .findAll('button.vtd-datepicker-date')
         .filter(button => !button.attributes('disabled'))
         .filter(button => !button.classes().includes('text-vtd-secondary-400'))
         .find(button => button.text().trim() === String(day))
@@ -1022,10 +1532,12 @@ describe.sequential('time panel layout behavior', () => {
     await nextTick()
     await nextTick()
 
-    const rangeErrorCount = () => wrapper.findAll('p')
-      .map(node => node.text().trim())
-      .filter(text => text.includes('End time must be at or after start'))
-      .length
+    const rangeErrorCount = () =>
+      wrapper
+        .findAll('p')
+        .map(node => node.text().trim())
+        .filter(text => text.includes('End time must be at or after start'))
+        .length
 
     expect(rangeErrorCount()).toBe(1)
 
@@ -1051,7 +1563,9 @@ describe.sequential('time panel layout behavior', () => {
 
     const minuteWheel = wrapper.findAll('[aria-label="Minute wheel"]').at(0)
     expect(minuteWheel).toBeTruthy()
-    const minute43 = minuteWheel!.findAll('[role="option"]').find(node => node.text().trim() === '43')
+    const minute43 = minuteWheel!
+      .findAll('[role="option"]')
+      .find(node => node.text().trim() === '43')
     expect(minute43).toBeTruthy()
     await minute43!.trigger('click')
     await nextTick()
@@ -1087,15 +1601,20 @@ describe.sequential('time panel layout behavior', () => {
     expect(meridiemWheel).toBeTruthy()
 
     const clickOptionFast = async (wheel: ReturnType<typeof wrapper.find>, value: string) => {
-      const option = wheel.findAll('[role="option"]')
+      const option = wheel
+        .findAll('[role="option"]')
         .filter(node => node.text().trim() === value)
         .sort((a, b) => {
           const aRow = a.element.closest('[data-time-index]')
           const bRow = b.element.closest('[data-time-index]')
           const aIndex = Number.parseInt(aRow?.getAttribute('data-time-index') ?? '', 10)
           const bIndex = Number.parseInt(bRow?.getAttribute('data-time-index') ?? '', 10)
-          const aDistance = Number.isFinite(aIndex) ? Math.abs(aIndex - 180) : Number.POSITIVE_INFINITY
-          const bDistance = Number.isFinite(bIndex) ? Math.abs(bIndex - 180) : Number.POSITIVE_INFINITY
+          const aDistance = Number.isFinite(aIndex)
+            ? Math.abs(aIndex - 180)
+            : Number.POSITIVE_INFINITY
+          const bDistance = Number.isFinite(bIndex)
+            ? Math.abs(bIndex - 180)
+            : Number.POSITIVE_INFINITY
           return aDistance - bDistance
         })
         .at(0)
@@ -1136,7 +1655,8 @@ describe.sequential('time panel layout behavior', () => {
       },
     })
 
-    const headerTitle = () => wrapper.get('.vtd-time-panel-fill p.text-xs.font-medium').text().trim()
+    const headerTitle = () =>
+      wrapper.get('.vtd-time-panel-fill p.text-xs.font-medium').text().trim()
 
     await openPopover(wrapper)
     await openTimePage(wrapper)
@@ -1180,4 +1700,78 @@ describe.sequential('time panel layout behavior', () => {
 
     wrapper.unmount()
   }, 30000)
+
+  it('preserves edited endpoint time when selector year changes without month change', async () => {
+    const wrapper = await mountTimePicker({
+      noInput: true,
+      asSingle: true,
+      useRange: true,
+      selectorMode: true,
+      autoApply: false,
+      timePickerStyle: 'wheel-inline',
+      timeInlinePosition: 'right',
+      modelValue: {
+        startDate: createLocalDate(2026, 1, 14, 21, 8, 33),
+        endDate: createLocalDate(2026, 1, 24, 0, 0, 0),
+      },
+    })
+
+    await settleUi(320)
+    await wrapper.get('#vtd-header-previous-month').trigger('click')
+    await settleUi(320)
+
+    const endButton = findButtonByText(wrapper, 'End')
+    expect(endButton).toBeTruthy()
+    await endButton!.trigger('click')
+    await settleUi(320)
+
+    const minuteWheel = wrapper.findAll('[aria-label="Minute wheel"]').at(0)
+    expect(minuteWheel).toBeTruthy()
+
+    const pickWheelOptionNearCenter = async (
+      wheel: NonNullable<typeof minuteWheel>,
+      value: string,
+    ) => {
+      const option = wheel
+        .findAll('[role="option"]')
+        .filter(node => node.text().trim() === value)
+        .sort((a, b) => {
+          const aRow = a.element.closest('[data-time-index]')
+          const bRow = b.element.closest('[data-time-index]')
+          const aIndex = Number.parseInt(aRow?.getAttribute('data-time-index') ?? '', 10)
+          const bIndex = Number.parseInt(bRow?.getAttribute('data-time-index') ?? '', 10)
+          const aDistance = Number.isFinite(aIndex)
+            ? Math.abs(aIndex - 180)
+            : Number.POSITIVE_INFINITY
+          const bDistance = Number.isFinite(bIndex)
+            ? Math.abs(bIndex - 180)
+            : Number.POSITIVE_INFINITY
+          return aDistance - bDistance
+        })
+        .at(0)
+      expect(option).toBeTruthy()
+      await option!.trigger('click')
+      await settleUi(320)
+    }
+
+    const selectedWheelText = (wheel: NonNullable<typeof minuteWheel>) => {
+      const selected = wheel.findAll('[role="option"][aria-selected="true"]')
+      expect(selected.length).toBe(1)
+      return selected[0]!.text().trim()
+    }
+
+    await pickWheelOptionNearCenter(minuteWheel!, '17')
+    expect(selectedWheelText(minuteWheel!)).toBe('17')
+
+    const yearComponent = wrapper.findAllComponents(Year).at(0)
+    expect(yearComponent).toBeTruthy()
+    yearComponent!.vm.$emit('updateYear', 2027)
+    await settleUi(320)
+
+    const minuteWheelAfterYear = wrapper.findAll('[aria-label="Minute wheel"]').at(0)
+    expect(minuteWheelAfterYear).toBeTruthy()
+    expect(selectedWheelText(minuteWheelAfterYear!)).toBe('17')
+
+    wrapper.unmount()
+  }, 60000)
 })

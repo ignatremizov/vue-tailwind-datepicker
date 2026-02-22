@@ -47,6 +47,7 @@ Public and internal behavior contract for native-like month/year selector mode.
 ## Toggle Behavior Contract
 
 1. Enter selector mode
+
 - Trigger: click month or year label in header while calendar view is active.
 - Result:
   - view switches to selector mode.
@@ -55,12 +56,14 @@ Public and internal behavior contract for native-like month/year selector mode.
   - side month navigation arrows remain available as quick actions with reduced visual prominence.
 
 2. Exit selector mode
+
 - Trigger: header toggle action from selector view.
 - Result:
   - view switches back to calendar mode.
   - selected month/year remains applied.
 
 3. Month/year selection
+
 - Trigger: selecting month or year item in selector mode.
 - Result:
   - updates calendar month/year for current `SelectionContext`.
@@ -68,6 +71,7 @@ Public and internal behavior contract for native-like month/year selector mode.
   - clicked item is centered in its wheel/list, with smooth centering where applicable.
 
 4. Header quick month navigation (selector mode)
+
 - Trigger: clicking left/right header arrows while selector view is active.
 - Result:
   - action routes through month-wheel stepping semantics.
@@ -75,6 +79,7 @@ Public and internal behavior contract for native-like month/year selector mode.
   - selector view remains open.
 
 5. Wheel step controls
+
 - Trigger: clicking up/down step controls on month or year wheel.
 - Result:
   - target wheel advances by one logical step.

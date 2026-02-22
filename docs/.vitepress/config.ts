@@ -7,21 +7,22 @@ export default defineConfig({
   description: 'Components, composables and configurations for Vue 3',
   themeConfig: {
     search: {
-      provider: 'local'
+      provider: 'local',
     },
     /* logo: 'https://github.com/elreco/vue-tailwind-datepicker/blob/main/docs/logo.png?raw=true', */
     socialLinks: [{ icon: 'github', link: 'https://github.com/elreco/vue-tailwind-datepicker' }],
     footer: {
       message: 'Released under the MIT License.',
-      copyright: `Copyright © ${new Date().getFullYear()} Alexandre Le Corre`
+      copyright: `Copyright © ${new Date().getFullYear()} Alexandre Le Corre`,
     },
     sidebar: [
       {
         text: 'Get Started',
         items: [
           { text: 'Installation', link: '/installation' },
-          { text: 'Demo', link: '/demo' }
-        ]
+          { text: 'Demo', link: '/demo' },
+          { text: 'Screenshot Gallery', link: '/screenshot-gallery' },
+        ],
       },
       {
         text: 'Customization',
@@ -30,7 +31,7 @@ export default defineConfig({
           { text: 'Props', link: '/props' },
           { text: 'Events', link: '/events' },
           { text: 'Advanced Features', link: '/advanced-features' },
-        ]
+        ],
       },
     ],
     nav: [
@@ -42,16 +43,16 @@ export default defineConfig({
         items: [
           {
             text: 'Changelog',
-            link: 'https://github.com/elreco/vue-tailwind-datepicker/releases'
+            link: 'https://github.com/elreco/vue-tailwind-datepicker/releases',
           },
-        ]
-      }
-    ]
+        ],
+      },
+    ],
   },
   vite: {
     optimizeDeps: {
       include: ['@headlessui/vue', 'dayjs'],
-      exclude: []
+      exclude: [],
     },
-  }
-});
+  },
+})

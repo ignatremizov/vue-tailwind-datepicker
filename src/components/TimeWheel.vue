@@ -22,20 +22,24 @@ interface TimeWheelStepPayload {
   delta: number
 }
 
-const props = withDefaults(defineProps<{
-  items: TimeWheelItem[]
-  modelValue: number | string | null
-  ariaLabel: string
-  disabled?: boolean
-  scrollMode?: 'boundary' | 'fractional'
-  fractionalOffset?: number
-  syncDirection?: -1 | 0 | 1
-}>(), {
-  disabled: false,
-  scrollMode: 'boundary',
-  fractionalOffset: 0,
-  syncDirection: 0,
-})
+const props = withDefaults(
+  defineProps<{
+    items: TimeWheelItem[]
+    modelValue: number | string | null
+    ariaLabel?: string
+    disabled?: boolean
+    scrollMode?: 'boundary' | 'fractional'
+    fractionalOffset?: number
+    syncDirection?: -1 | 0 | 1
+  }>(),
+  {
+    ariaLabel: 'Time wheel',
+    disabled: false,
+    scrollMode: 'boundary',
+    fractionalOffset: 0,
+    syncDirection: 0,
+  },
+)
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: number | string): void
@@ -65,6 +69,11 @@ const isProgrammaticScrollSync = ref(false)
 
 const itemsSignature = computed(() => {
   return props.items.map(item => String(item.value)).join('|')
+})
+
+const normalizedAriaLabel = computed(() => {
+  const label = props.ariaLabel.trim()
+  return label.length > 0 ? label : 'Time wheel'
 })
 
 const centeredIndexFloat = computed(() => {
@@ -208,13 +217,16 @@ function getCenteredItem() {
 function resolveSmoothSyncDuration(targetIndex: number) {
   const distanceInRows = Math.abs(targetIndex - centeredIndexFloat.value)
   return clamp(
-    Math.round(SMOOTH_SCROLL_SYNC_MS + (distanceInRows * 5)),
+    Math.round(SMOOTH_SCROLL_SYNC_MS + distanceInRows * 5),
     SMOOTH_SCROLL_SYNC_MS,
     SMOOTH_SCROLL_SYNC_MAX_MS,
   )
 }
 
-function markProgrammaticScrollSync(durationMs = PROGRAMMATIC_SCROLL_SYNC_MS, emitAfterSync = true) {
+function markProgrammaticScrollSync(
+  durationMs = PROGRAMMATIC_SCROLL_SYNC_MS,
+  emitAfterSync = true,
+) {
   isProgrammaticScrollSync.value = true
   if (programmaticSyncTimeoutId !== null)
     clearTimeout(programmaticSyncTimeoutId)
@@ -229,7 +241,9 @@ function markProgrammaticScrollSync(durationMs = PROGRAMMATIC_SCROLL_SYNC_MS, em
     // leave the selected row slightly off-center. Realign to the active value
     // once animation settles without emitting extra carry events.
     if (!isUserScrolling.value && activeAbsoluteIndex.value !== null) {
-      const activeItem = wheelItems.value.find(item => item.absoluteIndex === activeAbsoluteIndex.value)
+      const activeItem = wheelItems.value.find(
+        item => item.absoluteIndex === activeAbsoluteIndex.value,
+      )
       if (activeItem) {
         const expectedIndex = activeItem.index + normalizeFractionalOffset()
         if (Math.abs(centeredIndexFloat.value - expectedIndex) > 0.12) {
@@ -238,8 +252,7 @@ function markProgrammaticScrollSync(durationMs = PROGRAMMATIC_SCROLL_SYNC_MS, em
         }
       }
       needsIdleRealign = false
-    }
-    else if (activeAbsoluteIndex.value !== null) {
+    } else if (activeAbsoluteIndex.value !== null) {
       // A carry update may finish while momentum scrolling is still active.
       // Defer center correction until the wheel goes idle.
       needsIdleRealign = true
@@ -438,9 +451,10 @@ function emitSelectionFromItem(item: VirtualTimeWheelItem | null) {
   activeAbsoluteIndex.value = item.absoluteIndex
 
   const value = item.item.value
-  const previousValue = previousAbsoluteIndex === null
-    ? null
-    : resolveValueAtAbsoluteIndex(previousAbsoluteIndex) ?? null
+  const previousValue
+    = previousAbsoluteIndex === null
+      ? null
+      : (resolveValueAtAbsoluteIndex(previousAbsoluteIndex) ?? null)
   emit('step', {
     value,
     previousValue,
@@ -493,7 +507,9 @@ function onSelectorScroll() {
   scrollIdleTimeoutId = setTimeout(() => {
     isUserScrolling.value = false
     if (needsIdleRealign && activeAbsoluteIndex.value !== null) {
-      const activeItem = wheelItems.value.find(item => item.absoluteIndex === activeAbsoluteIndex.value)
+      const activeItem = wheelItems.value.find(
+        item => item.absoluteIndex === activeAbsoluteIndex.value,
+      )
       if (activeItem) {
         const expectedIndex = activeItem.index + normalizeFractionalOffset()
         if (Math.abs(centeredIndexFloat.value - expectedIndex) > 0.12) {
@@ -574,9 +590,10 @@ function applyKeyboardDelta(delta: number) {
 
   emit('step', {
     value: targetValue,
-    previousValue: previousAbsoluteIndex === null
-      ? null
-      : resolveValueAtAbsoluteIndex(previousAbsoluteIndex) ?? null,
+    previousValue:
+      previousAbsoluteIndex === null
+        ? null
+        : (resolveValueAtAbsoluteIndex(previousAbsoluteIndex) ?? null),
     absoluteIndex: targetAbsoluteIndex,
     previousAbsoluteIndex,
     delta: previousAbsoluteIndex === null ? 0 : targetAbsoluteIndex - previousAbsoluteIndex,
@@ -590,7 +607,7 @@ function applyKeyboardDelta(delta: number) {
   const targetItem = wheelItems.value.find(item => item.absoluteIndex === targetAbsoluteIndex)
   if (targetItem) {
     markProgrammaticScrollSync(SMOOTH_SCROLL_SYNC_MS, false)
-    scrollToIndex(targetItem.index, 'smooth')
+    scrollToIndex(targetItem.index + normalizeFractionalOffset(), 'smooth')
     return
   }
 
@@ -600,6 +617,21 @@ function applyKeyboardDelta(delta: number) {
     updateWheelMetrics()
     scrollToIndex(WHEEL_CENTER_INDEX + normalizeFractionalOffset(), 'smooth')
   })
+}
+
+function applyKeyboardBoundaryJump(toStart: boolean) {
+  if (props.disabled || props.items.length === 0)
+    return
+
+  const count = props.items.length
+  const baseAbsoluteIndex = getKeyboardBaseAbsoluteIndex()
+  const currentIndex = positiveModulo(baseAbsoluteIndex, count)
+
+  const delta = toStart
+    ? (currentIndex === 0 ? -count : -currentIndex)
+    : (currentIndex === count - 1 ? count : (count - 1 - currentIndex))
+
+  applyKeyboardDelta(delta)
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -646,6 +678,18 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key === 'PageUp') {
     event.preventDefault()
     applyKeyboardDelta(-5)
+    return
+  }
+
+  if (event.key === 'Home') {
+    event.preventDefault()
+    applyKeyboardBoundaryJump(true)
+    return
+  }
+
+  if (event.key === 'End') {
+    event.preventDefault()
+    applyKeyboardBoundaryJump(false)
   }
 }
 
@@ -735,9 +779,10 @@ onMounted(() => {
   resizeObserver = new ResizeObserver(() => {
     const viewportHeight = container.clientHeight
     const becameVisible = lastObservedViewportHeight <= 0 && viewportHeight > 0
-    const resizedWhileVisible = lastObservedViewportHeight > 0
-      && viewportHeight > 0
-      && Math.abs(viewportHeight - lastObservedViewportHeight) > 1
+    const resizedWhileVisible
+      = lastObservedViewportHeight > 0
+        && viewportHeight > 0
+        && Math.abs(viewportHeight - lastObservedViewportHeight) > 1
     lastObservedViewportHeight = viewportHeight
 
     if (!becameVisible && !resizedWhileVisible)
@@ -765,7 +810,7 @@ onMounted(() => {
     <VtdSelectorWheelStepButton
       z-class="z-30"
       direction="up"
-      :label="`Select previous ${props.ariaLabel.toLowerCase()}`"
+      :label="`Select previous ${normalizedAriaLabel.toLowerCase()}`"
       :disabled="props.disabled"
       @click="onStepButtonClick(-1)"
     />
@@ -773,7 +818,7 @@ onMounted(() => {
       ref="containerRef"
       class="vtd-time-wheel h-full min-h-0 flex-1 overflow-y-auto rounded-md px-0.5 py-1 focus:outline-none focus-visible:outline-none"
       role="listbox"
-      :aria-label="props.ariaLabel"
+      :aria-label="normalizedAriaLabel"
       :aria-disabled="props.disabled ? 'true' : 'false'"
       :tabindex="props.disabled ? -1 : 0"
       @scroll.passive="onSelectorScroll"
@@ -792,8 +837,8 @@ onMounted(() => {
           class="w-full rounded-[8px] border px-2 py-1 text-sm font-medium tabular-nums transition-colors focus:outline-none focus-visible:outline-none"
           :class="[
             item.absoluteIndex === activeAbsoluteIndex
-              ? 'border-vtd-primary-400 bg-vtd-primary-100 text-vtd-primary-700 dark:border-vtd-primary-500 dark:bg-vtd-primary-500/20 dark:text-vtd-primary-300'
-              : 'border-transparent text-vtd-secondary-600 hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-100',
+              ? 'vtd-time-wheel-option-selected border-vtd-primary-400 bg-vtd-primary-100 dark:border-vtd-primary-500 dark:bg-vtd-primary-500/20'
+              : 'vtd-time-wheel-option-default border-transparent hover:bg-vtd-secondary-100 dark:hover:bg-vtd-secondary-700',
             props.disabled ? 'opacity-50 cursor-not-allowed' : '',
           ]"
           :disabled="props.disabled"
@@ -806,9 +851,22 @@ onMounted(() => {
     <VtdSelectorWheelStepButton
       z-class="z-30"
       direction="down"
-      :label="`Select next ${props.ariaLabel.toLowerCase()}`"
+      :label="`Select next ${normalizedAriaLabel.toLowerCase()}`"
       :disabled="props.disabled"
       @click="onStepButtonClick(1)"
     />
   </div>
 </template>
+
+<style scoped>
+.vtd-time-wheel-option-selected {
+  color: var(
+    --vtd-time-wheel-selected-text,
+    var(--vtd-wheel-selected-text, rgb(56 189 248 / 100%))
+  );
+}
+
+.vtd-time-wheel-option-default {
+  color: var(--vtd-time-wheel-text, var(--vtd-wheel-text, rgb(163 163 163 / 100%)));
+}
+</style>

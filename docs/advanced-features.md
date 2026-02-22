@@ -18,7 +18,7 @@
         atClick: () => {
           const date = new Date();
           return [
-            new Date(date.setDate(date.getDate() - 14)), 
+            new Date(date.setDate(date.getDate() - 14)),
             new Date()
           ];
         }
@@ -57,6 +57,26 @@
 
 You can also access to advanced features like if you need different `model` values, apply a different language or customizing your shortcuts.
 
+## Keyboard map
+
+| Context | Keys | Result |
+| --- | --- | --- |
+| Text input (popover open) | `Tab` | Moves focus into the picker focus cycle (calendar first). |
+| Text input (popover open) | `Escape` | Closes popover and keeps focus on text input. |
+| Calendar day | `ArrowLeft` / `ArrowRight` | Moves focus to previous/next focusable day. |
+| Calendar day | `ArrowUp` / `ArrowDown` | Moves focus by week; at top/bottom edge moves to header month control. |
+| Calendar day | `Home` / `End` | Jumps to first/last focusable day in the current week row. |
+| Calendar day | `Enter` / `Space` | Selects focused date. |
+| Shortcuts list | `ArrowUp` / `ArrowDown` / `ArrowLeft` / `ArrowRight` / `Home` / `End` | Moves focus across shortcut buttons. |
+| Header (legacy page mode) | `ArrowLeft` / `ArrowRight` | Month/year stepping (month on month header, year on year header). |
+| Header (selector wheels open) | `ArrowLeft` / `ArrowRight` | Steps month while keeping focus on header toggle. |
+| Header (selector wheels open) | `ArrowUp` / `ArrowDown` | Moves focus into selector wheel column. |
+| Header (selector wheels open) | `Enter` / `Space` / `Escape` | Closes wheels and returns to calendar view. |
+| Time wheel (`HH/mm/ss`, meridiem) | `ArrowUp` / `ArrowDown` | Moves one option backward/forward in the active wheel. |
+| Time wheel (`HH/mm/ss`, meridiem) | `Home` / `End` | Jumps to cycle boundaries (with rollover behavior at edges). |
+| Time wheel (`HH/mm/ss`, meridiem) | `Tab` / `Shift+Tab` / `ArrowLeft` / `ArrowRight` | Moves focus across visible time-wheel columns. |
+| Time wheel (`HH/mm/ss`, meridiem) | `PageUp` / `PageDown` | Applies wheel-specific coarse steps (for faster traversal). |
+
 ## Use Array
 
 <DemoLayout>
@@ -67,9 +87,9 @@ You can also access to advanced features like if you need different `model` valu
 
 ```vue
 <script setup>
-import { ref } from "vue";
+import { ref } from 'vue'
 // use Array as model
-const dateValue = ref([]);
+const dateValue = ref([])
 </script>
 
 <template>
@@ -87,12 +107,12 @@ const dateValue = ref([]);
 
 ```vue
 <script setup>
-import { ref } from "vue";
+import { ref } from 'vue'
 // use Object as model
 const dateValue = ref({
-  startDate: "",
-  endDate: "",
-});
+  startDate: '',
+  endDate: '',
+})
 </script>
 
 <template>
@@ -110,9 +130,9 @@ const dateValue = ref({
 
 ```vue
 <script setup>
-import { ref } from "vue";
+import { ref } from 'vue'
 // use String as model
-const dateValue = ref("");
+const dateValue = ref('')
 </script>
 
 <template>
@@ -133,30 +153,31 @@ Create your custom shortcuts.
 
 ```vue
 <script setup>
-import { ref } from "vue";
-const dateValue = ref([]);
-const customShortcuts = () => {
+import { ref } from 'vue'
+
+const dateValue = ref([])
+function customShortcuts() {
   return [
     {
-      label: "Last 15 Days",
+      label: 'Last 15 Days',
       atClick: () => {
-        const date = new Date();
-        return [new Date(date.setDate(date.getDate() + 1)), date];
+        const date = new Date()
+        return [new Date(date.setDate(date.getDate() + 1)), date]
       },
     },
     {
-      label: "Last Years",
+      label: 'Last Years',
       atClick: () => {
-        const date = new Date();
-        return [new Date(date.setFullYear(date.getFullYear() - 1)), new Date()];
+        const date = new Date()
+        return [new Date(date.setFullYear(date.getFullYear() - 1)), new Date()]
       },
     },
-  ];
-};
+  ]
+}
 </script>
 
 <template>
-  <vue-tailwind-datepicker :shortcuts="customShortcuts" v-model="dateValue" />
+  <vue-tailwind-datepicker v-model="dateValue" :shortcuts="customShortcuts" />
 </template>
 ```
 
@@ -168,11 +189,11 @@ Typed shortcuts support resolver context and deterministic shortcut ids.
 
 ```vue
 <script setup lang="ts">
-const dateValue = ref("")
+const dateValue = ref('')
 const typedShortcuts = [
   {
-    id: "next-billing-cycle",
-    label: "Next billing cycle",
+    id: 'next-billing-cycle',
+    label: 'Next billing cycle',
     disabled: false,
     resolver: ({ now }) => {
       const date = new Date(now)
@@ -200,7 +221,13 @@ Use the `shortcut-item` slot to customize each shortcut while preserving library
 <template>
   <vue-tailwind-datepicker v-model="dateValue" :shortcuts="typedShortcuts">
     <template #shortcut-item="{ id, label, isDisabled, disabledReason, meta, activate }">
-      <button type="button" class="my-shortcut-button" :data-shortcut-id="id" :disabled="isDisabled" @click="activate">
+      <button
+        type="button"
+        class="my-shortcut-button"
+        :data-shortcut-id="id"
+        :disabled="isDisabled"
+        @click="activate"
+      >
         {{ label }}{{ meta?.hint ? ` (${meta.hint})` : '' }}
       </button>
       <small v-if="disabledReason === 'blocked-date'">blocked by disableDate</small>
@@ -210,11 +237,13 @@ Use the `shortcut-item` slot to customize each shortcut while preserving library
 ```
 
 `isDisabled` is `true` when:
+
 - a custom shortcut declares `disabled: true` (or `disabled(context)` returns `true`)
 - a built-in shortcut resolves to a blocked date under current `disableDate` constraints
 - a typed custom shortcut resolver output is blocked by current `disableDate` constraints
 
 `disabledReason` exposes why it is disabled:
+
 - `explicit`: shortcut-level disabled flag/predicate
 - `blocked-date`: resolver output is blocked by current `disableDate` constraints
 
@@ -260,32 +289,33 @@ Vue Tailwind Datepicker extend to day.js<br>
 
 ```vue
 <script setup>
-import { ref } from "vue";
-const dateValue = ref([]);
+import { ref } from 'vue'
+
+const dateValue = ref([])
 const options = ref({
   shortcuts: {
-    today: "Hari ini",
-    yesterday: "Kemarin",
-    past: (period) => period + " hari terakhir",
-    currentMonth: "Bulan ini",
-    pastMonth: "Bulan lalu",
-    businessDays: (period) => `${period} hari kerja`,
-    nextWeek: "Minggu depan",
-    nextMonth: "Bulan depan",
+    today: 'Hari ini',
+    yesterday: 'Kemarin',
+    past: period => `${period} hari terakhir`,
+    currentMonth: 'Bulan ini',
+    pastMonth: 'Bulan lalu',
+    businessDays: period => `${period} hari kerja`,
+    nextWeek: 'Minggu depan',
+    nextMonth: 'Bulan depan',
   },
   footer: {
-    apply: "Terapkan",
-    cancel: "Batal",
+    apply: 'Terapkan',
+    cancel: 'Batal',
   },
-});
+})
 </script>
 
 <template>
   <vue-tailwind-datepicker
+    v-model="dateValue"
     i18n="id"
     :auto-apply="false"
     :options="options"
-    v-model="dateValue"
   />
 </template>
 ```

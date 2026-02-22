@@ -128,7 +128,7 @@ The datepicker can be fully disabled as well.
 <DemoLayout>
   <VueTailwindDatePicker
     v-model="dateValue1"
-		:disabled="true"
+    :disabled="true"
   ></VueTailwindDatePicker>
 </DemoLayout>
 
@@ -266,10 +266,10 @@ const dateValue = ref([])
 Change formatter, default `formatter`:
 
 ```js
-  {
-    date: 'YYYY-MM-DD HH:mm:ss',
-    month: 'MMM'
-  }
+const formatter = {
+  date: 'YYYY-MM-DD HH:mm:ss',
+  month: 'MMM',
+}
 ```
 
 <DemoLayout>
@@ -394,7 +394,6 @@ If you want to show week number in the calendar
     v-model="dateValue16"
   />
 </DemoLayout>
-
 
 ## Shortcuts
 
@@ -602,7 +601,6 @@ const dateValue = ref([])
   </VueTailwindDatePicker>
 ```
 
-
 ## Options
 
 Change default options
@@ -664,6 +662,53 @@ Enable native-like month/year wheel selectors. Default is `false`.
     v-model="dateValue"
     as-single
     :selector-mode="true"
+  />
+</template>
+```
+
+## Direct Year Input
+
+Enable direct year typing inside selector mode. Default is `false`.
+
+- Scope: available in selector mode entered from the header toggle.
+- When enabled, valid typed year tokens update selector/calendar state immediately.
+- Typeahead behavior is intentionally timeline-friendly (historical/scientific/fantasy ranges), not modern-century-only:
+  - Prefix `1` uses `1950` anchor for 1-digit starts.
+  - Prefix `2` uses current year suffix for 1-digit starts.
+  - 2-digit tokens complete as `xx50`.
+  - 3-digit non-zero prefixes complete as `xxx5`.
+  - Up to 5 digits are accepted before reset.
+  - `+` / `-` set explicit sign, `Backspace` edits the token, `Escape` clears the token.
+  - Token state resets after ~900 ms of idle time.
+- When disabled, selector year behavior stays scroll-only.
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    :selector-mode="true"
+    :direct-year-input="true"
+  />
+</template>
+```
+
+## Year Numbering Mode
+
+Controls typed-year validation semantics. Default is `historical`.
+
+- `historical`: year `0` is invalid.
+- `astronomical`: year `0` is valid.
+- This prop affects direct year text parsing/validation only; it does not change year-wheel scrolling behavior.
+
+```vue
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    :selector-mode="true"
+    :direct-year-input="true"
+    year-numbering-mode="astronomical"
   />
 </template>
 ```

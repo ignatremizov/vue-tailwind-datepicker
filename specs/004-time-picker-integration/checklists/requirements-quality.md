@@ -1,8 +1,8 @@
 # Requirements Quality Checklist: Integrated Time Selection for Date Picker
 
-**Purpose**: Validate requirement quality (completeness, clarity, consistency, and measurability) for integrated time mode.  
-**Created**: 2026-02-13  
-**Updated**: 2026-02-18  
+**Purpose**: Validate requirement quality (completeness, clarity, consistency, and measurability) for integrated time mode.
+**Created**: 2026-02-13
+**Updated**: 2026-02-18
 **Feature**: `specs/004-time-picker-integration/spec.md`
 
 ## Completeness and Scope

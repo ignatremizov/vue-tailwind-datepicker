@@ -1,6 +1,6 @@
 # Tasks: Weekend Day Styling Hooks for Date Cells
 
-**Input**: Design documents from `specs/002-weekend-day-styling/`  
+**Input**: Design documents from `specs/002-weekend-day-styling/`
 **Prerequisites**: `plan.md`, `spec.md`, `research.md`, `data-model.md`, `contracts/weekend-day-styling-contract.md`, `quickstart.md`
 
 ## Format: `- [ ] T### [P?] [US#?] Description with file path`

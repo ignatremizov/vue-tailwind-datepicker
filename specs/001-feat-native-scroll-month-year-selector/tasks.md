@@ -1,6 +1,6 @@
 # Tasks: Native-Like Month/Year Scrolling Selector
 
-**Input**: Design documents from `specs/001-feat-native-scroll-month-year-selector/`  
+**Input**: Design documents from `specs/001-feat-native-scroll-month-year-selector/`
 **Prerequisites**: `plan.md`, `spec.md`, `research.md`, `data-model.md`, `contracts/selector-mode-contract.md`, `quickstart.md`
 
 ## Format: `[ID] [P?] [Story] Description`

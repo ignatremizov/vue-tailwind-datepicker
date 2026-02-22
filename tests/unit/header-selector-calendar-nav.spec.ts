@@ -12,6 +12,8 @@ function createCalendarStub() {
     onNext: vi.fn(),
     onPreviousYear: vi.fn(),
     onNextYear: vi.fn(),
+    stepPreviousYear: vi.fn(),
+    stepNextYear: vi.fn(),
     openMonth: vi.fn(),
     setMonth: vi.fn(),
     openYear: vi.fn(),
@@ -19,7 +21,7 @@ function createCalendarStub() {
   }
 }
 
-describe('Header calendar quick navigation in selector mode', () => {
+describe('header calendar quick navigation in selector mode', () => {
   it('keeps month prev/next arrows available in calendar view', async () => {
     const calendar = createCalendarStub()
     const wrapper = mount(Header, {
@@ -75,6 +77,51 @@ describe('Header calendar quick navigation in selector mode', () => {
     expect(wrapper.emitted('step-month')).toEqual([
       [{ panel: 'previous', delta: -1 }],
       [{ panel: 'previous', delta: 1 }],
+    ])
+    expect(calendar.onPrevious).not.toHaveBeenCalled()
+    expect(calendar.onNext).not.toHaveBeenCalled()
+    expect(calendar.onPreviousYear).not.toHaveBeenCalled()
+    expect(calendar.onNextYear).not.toHaveBeenCalled()
+  })
+
+  it('uses header keyboard shortcuts while selector wheels are open', async () => {
+    const calendar = createCalendarStub()
+    const wrapper = mount(Header, {
+      props: {
+        panel: {
+          calendar: true,
+          month: false,
+          year: false,
+        },
+        calendar,
+        selectorMode: true,
+        pickerViewMode: 'selector',
+        selectorFocus: 'month',
+        panelName: 'previous',
+      },
+    })
+
+    const headerButton = wrapper.get('#vtd-header-previous-month')
+    await headerButton.trigger('keydown', { key: 'ArrowRight' })
+    await headerButton.trigger('keydown', { key: 'ArrowLeft' })
+    await headerButton.trigger('keydown', { key: 'ArrowDown' })
+    await headerButton.trigger('keydown', { key: 'ArrowUp' })
+    await headerButton.trigger('keydown', { key: 'Escape' })
+    await headerButton.trigger('keydown', { key: 'Enter' })
+    await headerButton.trigger('keydown', { key: ' ' })
+
+    expect(wrapper.emitted('step-month')).toEqual([
+      [{ panel: 'previous', delta: 1 }],
+      [{ panel: 'previous', delta: -1 }],
+    ])
+    expect(wrapper.emitted('focus-selector-column')).toEqual([
+      [{ panel: 'previous', focus: 'month' }],
+      [{ panel: 'previous', focus: 'month' }],
+    ])
+    expect(wrapper.emitted('toggle-picker-view')).toEqual([
+      [{ panel: 'previous', focus: 'month' }],
+      [{ panel: 'previous', focus: 'month' }],
+      [{ panel: 'previous', focus: 'month' }],
     ])
     expect(calendar.onPrevious).not.toHaveBeenCalled()
     expect(calendar.onNext).not.toHaveBeenCalled()

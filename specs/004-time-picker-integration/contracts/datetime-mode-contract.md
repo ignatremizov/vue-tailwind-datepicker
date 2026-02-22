@@ -93,7 +93,10 @@ Defines public and internal behavior contract for integrated in-panel date+time 
 ```ts
 {
   type: 'configuration' | 'validation'
-  code: 'config-missing-time-token' | 'invalid-time-input' | 'dst-nonexistent-time' | 'range-end-before-start'
+  code: 'config-missing-time-token'
+    | 'invalid-time-input'
+    | 'dst-nonexistent-time'
+    | 'range-end-before-start'
   message: string
   field: 'formatter' | 'time' | 'range'
   endpoint: 'start' | 'end' | null
