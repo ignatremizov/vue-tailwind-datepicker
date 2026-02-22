@@ -341,15 +341,49 @@ function onSelectorKeydown(event: KeyboardEvent) {
     return
   }
 
-  if (event.key === 'ArrowDown' || event.key === 'PageDown') {
+  if (event.key === 'Enter' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+    event.preventDefault()
+    emit('requestFocusYear')
+    return
+  }
+
+  if (event.key === 'ArrowDown') {
     event.preventDefault()
     applyKeyboardMonthDelta(1)
     return
   }
 
-  if (event.key === 'ArrowUp' || event.key === 'PageUp') {
+  if (event.key === 'ArrowUp') {
     event.preventDefault()
     applyKeyboardMonthDelta(-1)
+    return
+  }
+
+  if (event.key === 'PageDown') {
+    event.preventDefault()
+    applyKeyboardMonthDelta(12)
+    return
+  }
+
+  if (event.key === 'PageUp') {
+    event.preventDefault()
+    applyKeyboardMonthDelta(-12)
+    return
+  }
+
+  if (event.key === 'Home') {
+    event.preventDefault()
+    const current = getKeyboardBaseSelection()
+    const delta = current.month === 0 ? -12 : -current.month
+    applyKeyboardMonthDelta(delta)
+    return
+  }
+
+  if (event.key === 'End') {
+    event.preventDefault()
+    const current = getKeyboardBaseSelection()
+    const delta = current.month === 11 ? 12 : 11 - current.month
+    applyKeyboardMonthDelta(delta)
   }
 }
 
@@ -475,7 +509,6 @@ function stepBy(delta: number) {
 
   clearMonthTypeaheadState()
   applyKeyboardMonthDelta(delta)
-  selectorContainerRef.value?.focus({ preventScroll: true })
 }
 
 function onSelectorFocus() {
@@ -510,6 +543,9 @@ watch(
     if (!monthChanged && !yearChanged)
       return
 
+    if (isScrollDrivenUpdate)
+      return
+
     // When only year changes (from year wheel), keep current scroll position
     // but shift the month window's tuple year so subsequent month scroll emits
     // the updated year rather than stale pre-change values.
@@ -531,9 +567,6 @@ watch(
     }
 
     if (monthChanged) {
-      if (isScrollDrivenUpdate)
-        return
-
       const previousMonth = previous?.selectedMonth
       const previousYear = previous?.selectedYear
       if (typeof previousMonth === 'number' && typeof previousYear === 'number') {
@@ -550,9 +583,6 @@ watch(
         }
       }
     }
-
-    if (isScrollDrivenUpdate)
-      return
 
     // Month changes initiated outside the wheel (for example header prev/next)
     // should animate the wheel position update.

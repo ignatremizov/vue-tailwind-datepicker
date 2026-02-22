@@ -129,6 +129,9 @@ export function parseModelDateWithDirectYear(
   value: unknown,
   dateFormat: string,
 ) {
+  if (dayjs.isDayjs(value))
+    return value.isValid() ? value : null
+
   if (value instanceof Date) {
     const parsedDate = dayjs(value)
     return parsedDate.isValid() ? parsedDate : null

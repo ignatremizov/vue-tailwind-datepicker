@@ -21,6 +21,8 @@ const props = withDefaults(
       onNext: () => void
       onPreviousYear: () => void
       onNextYear: () => void
+      stepPreviousYear: () => void
+      stepNextYear: () => void
       openMonth: () => void
       setMonth: ($event: number) => void
       openYear: () => void
@@ -42,6 +44,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'enter-selector-mode', payload: { panel: SelectionPanel, focus: SelectorFocus }): void
   (e: 'toggle-picker-view', payload: { panel: SelectionPanel, focus: SelectorFocus }): void
+  (e: 'focus-selector-column', payload: { panel: SelectionPanel, focus: SelectorFocus }): void
   (e: 'step-month', payload: { panel: SelectionPanel, delta: -1 | 1 }): void
 }>()
 
@@ -123,6 +126,117 @@ function onSelectorHeaderClickWithHeuristic(event: MouseEvent) {
   onSelectorHeaderClick(resolveSelectorFocusFromClick(event))
 }
 
+function resolveArrowMonthDelta(key: string): -1 | 1 | null {
+  if (key === 'ArrowRight')
+    return 1
+  if (key === 'ArrowLeft')
+    return -1
+  return null
+}
+
+function focusCalendarDateFromHeader(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement))
+    return false
+
+  const panelRoot = target.closest<HTMLElement>('[data-vtd-selector-panel]')
+  if (!panelRoot)
+    return false
+
+  const calendarTarget
+    = panelRoot.querySelector<HTMLElement>('.vtd-calendar-focus-target')
+      ?? panelRoot.querySelector<HTMLElement>('.vtd-datepicker-date:not(:disabled)')
+  if (!(calendarTarget instanceof HTMLElement))
+    return false
+
+  calendarTarget.focus()
+  return true
+}
+
+function shouldHandleHeaderArrowMonthStep() {
+  if (!props.selectorMode)
+    return true
+  return props.pickerViewMode === 'calendar'
+}
+
+function onMonthHeaderKeydown(event: KeyboardEvent) {
+  if (props.selectorMode && props.pickerViewMode === 'selector') {
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      event.preventDefault()
+      event.stopPropagation()
+      emit('focus-selector-column', {
+        panel: props.panelName,
+        focus: props.selectorFocus,
+      })
+      return
+    }
+
+    const delta = resolveArrowMonthDelta(event.key)
+    if (delta) {
+      event.preventDefault()
+      event.stopPropagation()
+      emit('step-month', { panel: props.panelName, delta })
+      return
+    }
+
+    if (
+      event.key === 'Enter'
+      || event.key === 'Escape'
+      || event.key === ' '
+      || event.key === 'Spacebar'
+    ) {
+      event.preventDefault()
+      event.stopPropagation()
+      emit('toggle-picker-view', {
+        panel: props.panelName,
+        focus: props.selectorFocus,
+      })
+    }
+    return
+  }
+
+  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+    if (focusCalendarDateFromHeader(event.currentTarget)) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    return
+  }
+
+  const delta = resolveArrowMonthDelta(event.key)
+  if (!delta || !shouldHandleHeaderArrowMonthStep())
+    return
+
+  event.preventDefault()
+  event.stopPropagation()
+
+  if (props.selectorMode) {
+    emit('step-month', { panel: props.panelName, delta })
+    return
+  }
+
+  if (delta > 0) {
+    props.calendar.onNext()
+    return
+  }
+
+  props.calendar.onPrevious()
+}
+
+function onYearHeaderKeydown(event: KeyboardEvent) {
+  if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    event.stopPropagation()
+    props.calendar.stepNextYear()
+    return
+  }
+
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    event.stopPropagation()
+    props.calendar.stepPreviousYear()
+  }
+}
+
 function onSidePreviousClick() {
   if (isSelectorWheelView.value) {
     emit('step-month', { panel: props.panelName, delta: -1 })
@@ -195,6 +309,7 @@ function onSideNextClick() {
             aria-label="Toggle month and year selector"
             class="group relative px-3 pl-8 pr-8 py-1.5 inline-flex items-center justify-center w-full leading-relaxed rounded-md text-xs 2xl:text-sm tracking-wide text-vtd-secondary-700 font-semibold sm:font-medium transition-colors border border-vtd-primary-300/65 bg-vtd-primary-50/45 hover:bg-vtd-primary-100/70 hover:text-vtd-secondary-900 focus:bg-vtd-primary-100/80 focus:text-vtd-secondary-900 focus:border-vtd-primary-400 focus:ring-3 focus:ring-vtd-primary-500/15 focus:outline-hidden uppercase truncate dark:bg-vtd-secondary-700/45 dark:text-vtd-secondary-100 dark:border-vtd-primary-500/35 dark:hover:bg-vtd-secondary-700/70 dark:focus:bg-vtd-secondary-700/75 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/25"
             @click="onSelectorHeaderClickWithHeuristic"
+            @keydown="onMonthHeaderKeydown"
           >
             <span class="inline-flex items-center gap-1.5 text-center">
               <span ref="selectorMonthTextRef" @click.stop="onSelectorHeaderClick('month')">
@@ -229,6 +344,7 @@ function onSideNextClick() {
             type="button"
             class="px-3 py-1.5 block w-full leading-relaxed rounded-md bg-white text-xs 2xl:text-sm tracking-wide text-vtd-secondary-600 font-semibold sm:font-medium transition-colors border border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring-3 focus:ring-vtd-primary-500/10 focus:outline-hidden uppercase truncate dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600/50 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/25"
             @click="onHeaderValueClick('month')"
+            @keydown="onMonthHeaderKeydown"
             v-text="calendar.month"
           />
         </span>
@@ -238,6 +354,7 @@ function onSideNextClick() {
             type="button"
             class="px-3 py-1.5 block w-full leading-relaxed rounded-md bg-white text-xs 2xl:text-sm tracking-wide text-vtd-secondary-600 font-semibold sm:font-medium transition-colors border border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring-3 focus:ring-vtd-primary-500/10 focus:outline-hidden uppercase truncate dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600/50 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/25"
             @click="onHeaderValueClick('year')"
+            @keydown="onYearHeaderKeydown"
             v-text="calendar.year"
           />
         </span>

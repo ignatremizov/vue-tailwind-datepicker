@@ -40,6 +40,7 @@ const emit = defineEmits<{
   (e: 'scrollYear', value: number): void
   (e: 'focusYear'): void
   (e: 'requestFocusMonth'): void
+  (e: 'requestCloseSelector'): void
 }>()
 
 const selectorContainerRef = ref<HTMLDivElement | null>(null)
@@ -986,6 +987,12 @@ function onSelectorKeydown(event: KeyboardEvent) {
   if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
     event.preventDefault()
     emit('requestFocusMonth')
+    return
+  }
+
+  if (event.key === 'Enter' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+    event.preventDefault()
+    emit('requestCloseSelector')
     return
   }
 

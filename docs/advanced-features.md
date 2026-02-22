@@ -57,6 +57,22 @@
 
 You can also access to advanced features like if you need different `model` values, apply a different language or customizing your shortcuts.
 
+## Keyboard map
+
+| Context | Keys | Result |
+| --- | --- | --- |
+| Text input (popover open) | `Tab` | Moves focus into the picker focus cycle (calendar first). |
+| Text input (popover open) | `Escape` | Closes popover and keeps focus on text input. |
+| Calendar day | `ArrowLeft` / `ArrowRight` | Moves focus to previous/next focusable day. |
+| Calendar day | `ArrowUp` / `ArrowDown` | Moves focus by week; at top/bottom edge moves to header month control. |
+| Calendar day | `Home` / `End` | Jumps to first/last focusable day in the current week row. |
+| Calendar day | `Enter` / `Space` | Selects focused date. |
+| Shortcuts list | `ArrowUp` / `ArrowDown` / `ArrowLeft` / `ArrowRight` / `Home` / `End` | Moves focus across shortcut buttons. |
+| Header (legacy page mode) | `ArrowLeft` / `ArrowRight` | Month/year stepping (month on month header, year on year header). |
+| Header (selector wheels open) | `ArrowLeft` / `ArrowRight` | Steps month while keeping focus on header toggle. |
+| Header (selector wheels open) | `ArrowUp` / `ArrowDown` | Moves focus into selector wheel column. |
+| Header (selector wheels open) | `Enter` / `Space` / `Escape` | Closes wheels and returns to calendar view. |
+
 ## Use Array
 
 <DemoLayout>

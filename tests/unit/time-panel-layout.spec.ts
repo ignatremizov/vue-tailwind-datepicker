@@ -548,6 +548,104 @@ describe.sequential('time panel layout behavior', () => {
     wrapper.unmount()
   })
 
+  it('supports Home/End boundary jumps with rollover in time wheels', async () => {
+    const wheelItems = Array.from({ length: 12 }, (_, index) => ({
+      label: String(index).padStart(2, '0'),
+      value: index,
+    }))
+
+    const Harness = defineComponent({
+      components: {
+        TimeWheel,
+      },
+      setup() {
+        const value = ref<number | string>(5)
+        const deltas = ref<number[]>([])
+        function onStep(payload: { delta: number }) {
+          deltas.value.push(payload.delta)
+        }
+        return {
+          wheelItems,
+          value,
+          deltas,
+          onStep,
+        }
+      },
+      template: `
+        <div class="vtd-time-wheel-grid grid grid-cols-1 gap-2">
+          <TimeWheel v-model="value" aria-label="Hour wheel" :items="wheelItems" @step="onStep" />
+        </div>
+      `,
+    })
+
+    const wrapper = mount(Harness, { attachTo: document.body })
+    await settleUi(320)
+
+    const wheel = wrapper.get('.vtd-time-wheel').element as HTMLElement
+    wheel.focus()
+    dispatchKey(wheel, { key: 'Home' })
+    await settleUi()
+    dispatchKey(wheel, { key: 'Home' })
+    await settleUi()
+    dispatchKey(wheel, { key: 'End' })
+    await settleUi()
+    dispatchKey(wheel, { key: 'End' })
+    await settleUi()
+
+    const vm = wrapper.vm as unknown as { value: number | string, deltas: number[] }
+    expect(vm.value).toBe(11)
+    expect(vm.deltas).toEqual([-5, -12, 11, 12])
+
+    wrapper.unmount()
+  })
+
+  it('keeps PageUp/PageDown wheel step size at five items', async () => {
+    const wheelItems = Array.from({ length: 60 }, (_, index) => ({
+      label: String(index).padStart(2, '0'),
+      value: index,
+    }))
+
+    const Harness = defineComponent({
+      components: {
+        TimeWheel,
+      },
+      setup() {
+        const value = ref<number | string>(10)
+        const deltas = ref<number[]>([])
+        function onStep(payload: { delta: number }) {
+          deltas.value.push(payload.delta)
+        }
+        return {
+          wheelItems,
+          value,
+          deltas,
+          onStep,
+        }
+      },
+      template: `
+        <div class="vtd-time-wheel-grid grid grid-cols-1 gap-2">
+          <TimeWheel v-model="value" aria-label="Minute wheel" :items="wheelItems" @step="onStep" />
+        </div>
+      `,
+    })
+
+    const wrapper = mount(Harness, { attachTo: document.body })
+    await settleUi(320)
+
+    const wheel = wrapper.get('.vtd-time-wheel').element as HTMLElement
+    wheel.focus()
+    dispatchKey(wheel, { key: 'PageDown' })
+    await settleUi()
+    dispatchKey(wheel, { key: 'PageUp' })
+    await settleUi()
+
+    const vm = wrapper.vm as unknown as { value: number | string, deltas: number[] }
+    expect(vm.value).toBe(10)
+    expect(vm.deltas).toEqual([5, -5])
+
+    wrapper.unmount()
+  })
+
   it('keeps ArrowUp/ArrowDown wheel scrolling aligned to fractional offset', async () => {
     const scrollSpy = vi.spyOn(HTMLElement.prototype, 'scrollTo').mockImplementation(function (
       this: HTMLElement,
@@ -930,6 +1028,77 @@ describe.sequential('time panel layout behavior', () => {
     expect(selectedText(minuteWheel!)).toBe('59')
     expect(selectedText(secondWheel!)).toBe('59')
     expect(selectedText(meridiemWheel!)).toBe('PM')
+
+    wrapper.unmount()
+  }, 30000)
+
+  it('toggles meridiem on hour Home/End boundary rollovers in 12-hour mode', async () => {
+    const wrapper = await mountTimePicker({
+      asSingle: true,
+      useRange: true,
+      timePickerStyle: 'wheel-inline',
+      timeInlinePosition: 'right',
+      timeWheelScrollMode: 'fractional',
+      modelValue: {
+        startDate: createLocalDate(2026, 1, 22, 1, 4, 45),
+        endDate: createLocalDate(2026, 1, 28, 23, 59, 59),
+      },
+    })
+
+    await openPopover(wrapper)
+
+    const hourWheel = wrapper.findAll('[aria-label="Hour wheel"]').at(0)
+    const meridiemWheel = wrapper.findAll('[aria-label="Meridiem wheel"]').at(0)
+    expect(hourWheel).toBeTruthy()
+    expect(meridiemWheel).toBeTruthy()
+
+    const clickOption = async (wheel: ReturnType<typeof wrapper.find>, value: string) => {
+      const option = wheel
+        .findAll('[role="option"]')
+        .filter(node => node.text().trim() === value)
+        .sort((a, b) => {
+          const aRow = a.element.closest('[data-time-index]')
+          const bRow = b.element.closest('[data-time-index]')
+          const aIndex = Number.parseInt(aRow?.getAttribute('data-time-index') ?? '', 10)
+          const bIndex = Number.parseInt(bRow?.getAttribute('data-time-index') ?? '', 10)
+          const aDistance = Number.isFinite(aIndex)
+            ? Math.abs(aIndex - 180)
+            : Number.POSITIVE_INFINITY
+          const bDistance = Number.isFinite(bIndex)
+            ? Math.abs(bIndex - 180)
+            : Number.POSITIVE_INFINITY
+          return aDistance - bDistance
+        })
+        .at(0)
+      expect(option).toBeTruthy()
+      await option!.trigger('click')
+      await settleUi(320)
+    }
+
+    const selectedText = (wheel: ReturnType<typeof wrapper.find>) => {
+      const selected = wheel.findAll('[role="option"][aria-selected="true"]')
+      expect(selected.length).toBe(1)
+      return selected[0]!.text().trim()
+    }
+
+    expect(selectedText(hourWheel!)).toBe('01')
+    expect(selectedText(meridiemWheel!)).toBe('AM')
+
+    const hourWheelElement = hourWheel!.element as HTMLElement
+    hourWheelElement.focus()
+    dispatchKey(hourWheelElement, { key: 'Home' })
+    await settleUi(520)
+    expect(selectedText(hourWheel!)).toBe('01')
+    expect(selectedText(meridiemWheel!)).toBe('PM')
+
+    await clickOption(hourWheel!, '12')
+    expect(selectedText(hourWheel!)).toBe('12')
+    expect(selectedText(meridiemWheel!)).toBe('PM')
+
+    dispatchKey(hourWheelElement, { key: 'End' })
+    await settleUi(520)
+    expect(selectedText(hourWheel!)).toBe('12')
+    expect(selectedText(meridiemWheel!)).toBe('AM')
 
     wrapper.unmount()
   }, 30000)

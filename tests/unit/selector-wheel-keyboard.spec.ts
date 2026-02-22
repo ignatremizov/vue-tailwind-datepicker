@@ -100,12 +100,85 @@ describe('selector wheel keyboard behavior', () => {
     await selector.trigger('keydown', { key: 'ArrowUp' })
     await selector.trigger('keydown', { key: 'Tab' })
     await selector.trigger('keydown', { key: 'ArrowRight' })
+    await selector.trigger('keydown', { key: 'Enter' })
 
     expect(wrapper.emitted('scrollMonth')).toEqual([
       [{ month: 0, year: 2025 }],
       [{ month: 10, year: 2024 }],
     ])
-    expect(wrapper.emitted('requestFocusYear')).toHaveLength(2)
+    expect(wrapper.emitted('requestFocusYear')).toHaveLength(3)
+  })
+
+  it('supports Home/End month boundary jumps for month wheel', async () => {
+    const wrapper = mount(Month, {
+      props: {
+        months: MONTHS,
+        selectorMode: true,
+        selectedMonth: 5,
+        selectedYear: 2025,
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Month selector"]')
+
+    await selector.trigger('keydown', { key: 'Home' })
+    await selector.trigger('keydown', { key: 'End' })
+
+    expect(wrapper.emitted('scrollMonth')).toEqual([
+      [{ month: 0, year: 2025 }],
+      [{ month: 11, year: 2025 }],
+    ])
+  })
+
+  it('rolls Home/End to adjacent year when already at Jan/Dec', async () => {
+    const janWrapper = mount(Month, {
+      props: {
+        months: MONTHS,
+        selectorMode: true,
+        selectedMonth: 0,
+        selectedYear: 2025,
+      },
+    })
+    const janSelector = janWrapper.get('[aria-label="Month selector"]')
+    await janSelector.trigger('keydown', { key: 'Home' })
+    expect(janWrapper.emitted('scrollMonth')).toEqual([
+      [{ month: 0, year: 2024 }],
+    ])
+
+    const decWrapper = mount(Month, {
+      props: {
+        months: MONTHS,
+        selectorMode: true,
+        selectedMonth: 11,
+        selectedYear: 2025,
+      },
+    })
+    const decSelector = decWrapper.get('[aria-label="Month selector"]')
+    await decSelector.trigger('keydown', { key: 'End' })
+    expect(decWrapper.emitted('scrollMonth')).toEqual([
+      [{ month: 11, year: 2026 }],
+    ])
+  })
+
+  it('supports PageUp/PageDown year jumps for month wheel', async () => {
+    const wrapper = mount(Month, {
+      props: {
+        months: MONTHS,
+        selectorMode: true,
+        selectedMonth: 0,
+        selectedYear: 2025,
+      },
+    })
+
+    const selector = wrapper.get('[aria-label="Month selector"]')
+
+    await selector.trigger('keydown', { key: 'PageDown' })
+    await selector.trigger('keydown', { key: 'PageUp' })
+
+    expect(wrapper.emitted('scrollMonth')).toEqual([
+      [{ month: 0, year: 2026 }],
+      [{ month: 0, year: 2024 }],
+    ])
   })
 
   it('navigates year wheel and requests month focus with keyboard keys', async () => {
@@ -670,6 +743,33 @@ describe('selector wheel keyboard behavior', () => {
 
     dispatchKey(header, { key: 'Tab', shiftKey: true })
     expect(document.activeElement).toBe(yearSelector)
+
+    wrapper.unmount()
+  })
+
+  it('closes selector view when Enter is pressed on the year wheel', async () => {
+    const wrapper = await mountSelectorPicker()
+
+    await wrapper.get('#vtd-header-previous-month').trigger('click')
+    await nextTick()
+
+    const monthSelectorWrapper = wrapper.get('[aria-label="Month selector"]')
+    const monthSelector = monthSelectorWrapper.element as HTMLElement
+    const yearSelectorWrapper = wrapper.get('[aria-label="Year selector"]')
+    monthSelector.focus()
+    await monthSelectorWrapper.trigger('keydown', { key: 'Enter' })
+    await nextTick()
+    vi.advanceTimersByTime(64)
+    await nextTick()
+
+    await yearSelectorWrapper.trigger('keydown', { key: 'Enter' })
+    vi.advanceTimersByTime(32)
+    await nextTick()
+    await nextTick()
+
+    expect(wrapper.find('[aria-label="Month selector"]').exists()).toBe(false)
+    expect(wrapper.find('[aria-label="Year selector"]').exists()).toBe(false)
+    expect(wrapper.find('.vtd-calendar-focus-target').exists()).toBe(true)
 
     wrapper.unmount()
   })

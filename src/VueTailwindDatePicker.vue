@@ -256,11 +256,32 @@ dayjs.extend(isBetween)
 dayjs.extend(duration)
 dayjs.extend(weekOfYear)
 
+const resolvedLocale = ref(props.i18n)
+
+function dayjsWithResolvedLocale(value?: string | number | Date | Dayjs) {
+  return dayjs(value).locale(resolvedLocale.value)
+}
+
+function resolveWeekdayLabels() {
+  const localeData = dayjsWithResolvedLocale().localeData()
+  return props.weekdaysSize === 'min'
+    ? localeData.weekdaysMin()
+    : localeData.weekdaysShort()
+}
+
+function resolveMonthLabels() {
+  const localeData = dayjsWithResolvedLocale().localeData()
+  return props.formatter.month === 'MMM'
+    ? localeData.monthsShort()
+    : localeData.months()
+}
+
 const VtdRef = ref<HTMLElement | null>(null)
 const VtdStaticRef = ref<HTMLElement | null>(null)
 const VtdPanelContentRef = ref<HTMLElement | null>(null)
 const VtdInputRef = ref<HTMLInputElement | null>(null)
 const VtdPopoverButtonRef = ref<unknown>(null)
+let preserveInputFocusOnNextPopoverClose = false
 let panelMeasureJobToken = 0
 const placement = ref<boolean | null>(null)
 const givenPlaceholder = ref('')
@@ -270,6 +291,8 @@ const hoverValue = ref<Dayjs[]>([])
 const applyValue = ref<Dayjs[]>([])
 const previous = ref<Dayjs | null>(null)
 const next = ref<Dayjs | null>(null)
+const liveAnnouncement = ref('')
+let lastSyncedTextInputSignature: string | null = null
 
 interface ResolvedModelDateValue {
   value: Dayjs | null
@@ -279,6 +302,37 @@ interface ResolvedModelDateValue {
 interface TimeWheelOption {
   label: string
   value: number | string
+}
+
+function announcePolite(message: string) {
+  if (!message)
+    return
+  liveAnnouncement.value = ''
+  nextTick(() => {
+    liveAnnouncement.value = message
+  })
+}
+
+function formatAnnouncementDate(dateValue: Dayjs) {
+  return dateValue.locale(resolvedLocale.value).format(props.formatter.date)
+}
+
+function announceMonthChanged(dateValue: Dayjs) {
+  announcePolite(`Month changed to ${dateValue.locale(resolvedLocale.value).format('MMMM YYYY')}.`)
+}
+
+function announceSingleDateSelection(dateValue: Dayjs, committed = false) {
+  const action = committed ? 'Date applied' : 'Date selected'
+  announcePolite(`${action}: ${formatAnnouncementDate(dateValue)}.`)
+}
+
+function announceRangeSelection(start: Dayjs, end: Dayjs, committed = false) {
+  const action = committed ? 'Range applied' : 'Range selected'
+  announcePolite(`${action}: ${formatAnnouncementDate(start)} to ${formatAnnouncementDate(end)}.`)
+}
+
+function announceRangeStartSelection(dateValue: Dayjs) {
+  announcePolite(`Range start selected: ${formatAnnouncementDate(dateValue)}.`)
 }
 
 interface TimeWheelStepPayload {
@@ -1557,6 +1611,20 @@ function onDateTimeHourWheelStep(
   }
   markActiveDateTimeEndpoint(endpoint)
   setHourWheelStepDirection(endpoint, payload.delta)
+
+  if (!formatterTimeTokens.value.uses12Hour || payload.previousValue === null)
+    return
+
+  const currentHourValue = parseNumberValue(payload.value, getHourWheelValue(endpoint))
+  const previousHourValue = parseNumberValue(payload.previousValue, currentHourValue)
+  if (currentHourValue !== previousHourValue)
+    return
+
+  const hourDelta = resolveTimeWheelStepDelta(payload)
+  if (hourDelta === 0 || Math.abs(hourDelta) % 12 !== 0)
+    return
+
+  applyDateTimeHourCarry(endpoint, hourDelta)
 }
 
 function onDateTimeMinuteWheelUpdate(
@@ -1841,17 +1909,17 @@ const datepicker = ref({
     previous: dayjs().year(),
     next: dayjs().year(),
   },
-  weeks:
-    props.weekdaysSize === 'min'
-      ? dayjs.weekdaysMin()
-      : dayjs.weekdaysShort(),
-  months:
-    props.formatter.month === 'MMM'
-      ? dayjs.monthsShort()
-      : dayjs.months(),
+  weeks: resolveWeekdayLabels(),
+  months: resolveMonthLabels(),
 })
 const weeks = computed(() => datepicker.value.weeks)
 const months = computed(() => datepicker.value.months)
+
+function refreshLocalizedCalendarLabels() {
+  const days = resolveWeekdayLabels()
+  datepicker.value.weeks = isFirstMonday() ? shuffleWeekdays(days) : days
+  datepicker.value.months = resolveMonthLabels()
+}
 
 function classifyWeekend(date: Dayjs) {
   const saturday = date.day() === 6
@@ -1947,7 +2015,7 @@ const calendar = computed(() => {
             return v as DatePickerDay
           })
       },
-      month: previous && previous.format(props.formatter.month),
+      month: previous && previous.locale(resolvedLocale.value).format(props.formatter.month),
       year: previous && previous.year(),
       years: () => {
         return Array.from(
@@ -1959,6 +2027,7 @@ const calendar = computed(() => {
       },
       onPrevious: () => {
         datepicker.value.previous = previous.subtract(1, 'month')
+        announceMonthChanged(datepicker.value.previous)
         emit('clickPrev', datepicker.value.previous)
       },
       onNext: () => {
@@ -1966,6 +2035,7 @@ const calendar = computed(() => {
         if (previous.diff(next, 'month') === -1)
           datepicker.value.next = next.add(1, 'month')
 
+        announceMonthChanged(datepicker.value.previous)
         emit('clickNext', datepicker.value.previous)
       },
       onPreviousYear: () => {
@@ -1973,6 +2043,36 @@ const calendar = computed(() => {
       },
       onNextYear: () => {
         datepicker.value.year.previous = datepicker.value.year.previous + 12
+      },
+      stepPreviousYear: () => {
+        datepicker.value.previous = previous.subtract(1, 'year')
+        emit('selectYear', datepicker.value.previous)
+        nextTick(() => {
+          if (
+            datepicker.value.next.isSame(datepicker.value.previous, 'month')
+            || datepicker.value.next.isBefore(datepicker.value.previous)
+          ) {
+            datepicker.value.next = datepicker.value.previous.add(1, 'month')
+          }
+
+          datepicker.value.year.previous = datepicker.value.previous.year()
+          datepicker.value.year.next = datepicker.value.next.year()
+        })
+      },
+      stepNextYear: () => {
+        datepicker.value.previous = previous.add(1, 'year')
+        emit('selectYear', datepicker.value.previous)
+        nextTick(() => {
+          if (
+            datepicker.value.next.isSame(datepicker.value.previous, 'month')
+            || datepicker.value.next.isBefore(datepicker.value.previous)
+          ) {
+            datepicker.value.next = datepicker.value.previous.add(1, 'month')
+          }
+
+          datepicker.value.year.previous = datepicker.value.previous.year()
+          datepicker.value.year.next = datepicker.value.next.year()
+        })
       },
       openMonth: () => {
         panel.previous.month = !panel.previous.month
@@ -1985,6 +2085,7 @@ const calendar = computed(() => {
         panel.previous.year = false
         panel.previous.calendar = !panel.previous.month
         emit('selectMonth', datepicker.value.previous)
+        announceMonthChanged(datepicker.value.previous)
         nextTick(() => {
           if (
             datepicker.value.next.isSame(datepicker.value.previous, 'month')
@@ -2006,6 +2107,7 @@ const calendar = computed(() => {
         panel.previous.year = !panel.previous.year
         panel.previous.calendar = !panel.previous.year
         emit('selectYear', datepicker.value.previous)
+        announceMonthChanged(datepicker.value.previous)
         nextTick(() => {
           if (
             datepicker.value.next.isSame(datepicker.value.previous, 'month')
@@ -2066,7 +2168,7 @@ const calendar = computed(() => {
             return v as DatePickerDay
           })
       },
-      month: next && next.format(props.formatter.month),
+      month: next && next.locale(resolvedLocale.value).format(props.formatter.month),
       year: next && next.year(),
       years: () => {
         return Array.from(
@@ -2081,10 +2183,12 @@ const calendar = computed(() => {
         if (next.diff(previous, 'month') === 1)
           datepicker.value.previous = previous.subtract(1, 'month')
 
+        announceMonthChanged(datepicker.value.next)
         emit('clickRightPrev', datepicker.value.next)
       },
       onNext: () => {
         datepicker.value.next = next.add(1, 'month')
+        announceMonthChanged(datepicker.value.next)
         emit('clickRightNext', datepicker.value.next)
       },
       onPreviousYear: () => {
@@ -2092,6 +2196,36 @@ const calendar = computed(() => {
       },
       onNextYear: () => {
         datepicker.value.year.next = datepicker.value.year.next + 12
+      },
+      stepPreviousYear: () => {
+        datepicker.value.next = next.subtract(1, 'year')
+        emit('selectRightYear', datepicker.value.next)
+        nextTick(() => {
+          if (
+            datepicker.value.previous.isSame(datepicker.value.next, 'month')
+            || datepicker.value.previous.isAfter(datepicker.value.next)
+          ) {
+            datepicker.value.previous = datepicker.value.next.subtract(1, 'month')
+          }
+
+          datepicker.value.year.previous = datepicker.value.previous.year()
+          datepicker.value.year.next = datepicker.value.next.year()
+        })
+      },
+      stepNextYear: () => {
+        datepicker.value.next = next.add(1, 'year')
+        emit('selectRightYear', datepicker.value.next)
+        nextTick(() => {
+          if (
+            datepicker.value.previous.isSame(datepicker.value.next, 'month')
+            || datepicker.value.previous.isAfter(datepicker.value.next)
+          ) {
+            datepicker.value.previous = datepicker.value.next.subtract(1, 'month')
+          }
+
+          datepicker.value.year.previous = datepicker.value.previous.year()
+          datepicker.value.year.next = datepicker.value.next.year()
+        })
       },
       openMonth: () => {
         panel.next.month = !panel.next.month
@@ -2104,6 +2238,7 @@ const calendar = computed(() => {
         panel.next.year = false
         panel.next.calendar = !panel.next.month
         emit('selectRightMonth', datepicker.value.next)
+        announceMonthChanged(datepicker.value.next)
         nextTick(() => {
           if (
             datepicker.value.previous.isSame(datepicker.value.next, 'month')
@@ -2129,6 +2264,7 @@ const calendar = computed(() => {
         panel.next.month = false
         panel.next.calendar = !panel.next.year
         emit('selectRightYear', datepicker.value.next)
+        announceMonthChanged(datepicker.value.next)
         nextTick(() => {
           if (
             datepicker.value.previous.isSame(datepicker.value.next, 'month')
@@ -2856,8 +2992,11 @@ function requestSelectorColumnFocus(panelName: SelectionPanel, focus: SelectorFo
   selectionContext.value = context
   selectorFocus.value = focus
   clearSelectorColumnFocusSuppression()
+  if (focusSelectorModeTarget(context, focus))
+    return
   nextTick(() => {
-    focusSelectorModeTargetDeferred(context, focus)
+    if (!focusSelectorModeTarget(context, focus))
+      focusSelectorModeTargetDeferred(context, focus)
   })
 }
 
@@ -2945,6 +3084,22 @@ function togglePickerViewMode(
   })
 }
 
+function closeSelectorWheelsToCalendar(panelName: SelectionPanel) {
+  if (!props.selectorMode || pickerViewMode.value !== 'selector')
+    return
+
+  selectionContext.value = resolveSelectionContext(panelName)
+  clearSelectorColumnFocusSuppression()
+  pickerViewMode.value = 'calendar'
+  selectorPanels.previous = false
+  selectorPanels.next = false
+  closeLegacyPanels()
+
+  nextTick(() => {
+    focusCalendarModeTargetDeferred()
+  })
+}
+
 function onSelectorMonthUpdate(panelName: SelectionPanel, payload: SelectorMonthPayload) {
   if (!props.selectorMode)
     return
@@ -3000,18 +3155,20 @@ function onSelectorYearUpdate(panelName: SelectionPanel, year: number) {
 }
 
 function onHeaderMonthStep(payload: HeaderMonthStepPayload) {
-  if (!props.selectorMode || pickerViewMode.value !== 'selector')
+  if (!props.selectorMode)
     return
 
-  const wheel
-    = payload.panel === 'next'
-      ? nextSelectorMonthWheelRef.value
-      : previousSelectorMonthWheelRef.value
-  if (wheel) {
-    selectionContext.value = resolveSelectionContext(payload.panel)
-    wheel.stepBy(payload.delta)
-    closeLegacyPanels()
-    return
+  if (pickerViewMode.value === 'selector') {
+    const wheel
+      = payload.panel === 'next'
+        ? nextSelectorMonthWheelRef.value
+        : previousSelectorMonthWheelRef.value
+    if (wheel) {
+      selectionContext.value = resolveSelectionContext(payload.panel)
+      wheel.stepBy(payload.delta)
+      closeLegacyPanels()
+      return
+    }
   }
 
   const context = resolveSelectionContext(payload.panel)
@@ -3188,6 +3345,17 @@ function appendFooterActionFocusTargets(
   pushTarget(footerActions.applyButton)
 }
 
+function resolveShortcutFocusTarget(queryRoot: HTMLElement) {
+  const shortcutButtons = Array.from(queryRoot.querySelectorAll<HTMLElement>('.vtd-shortcuts'))
+  const firstVisibleEnabledShortcut = shortcutButtons.find((button) => {
+    return isVisibleElement(button) && !isDisabledFocusTarget(button)
+  })
+  if (firstVisibleEnabledShortcut)
+    return firstVisibleEnabledShortcut
+
+  return shortcutButtons.find(button => isVisibleElement(button)) ?? null
+}
+
 function getSelectorFocusCycleTargets() {
   const queryRoot = getPickerQueryRoot()
   if (!queryRoot)
@@ -3211,7 +3379,7 @@ function getSelectorFocusCycleTargets() {
     appendPanelTargets('next')
 
   // Shortcuts are treated as a single focus stop in selector tab order.
-  pushTarget(queryRoot.querySelector<HTMLElement>('.vtd-shortcuts'))
+  pushTarget(resolveShortcutFocusTarget(queryRoot))
   const footerActions = resolveFooterActionFocusTargets(queryRoot)
   appendFooterActionFocusTargets(footerActions, pushTarget)
   return targets
@@ -3225,20 +3393,23 @@ function getCalendarFocusCycleTargets() {
   const { targets, pushTarget } = createFocusTargetCollector()
 
   const isDoublePanel = asRange() && !props.asSingle
-  const previousHeader = queryRoot.querySelector<HTMLElement>('#vtd-header-previous-month')
-  const nextHeader = queryRoot.querySelector<HTMLElement>('#vtd-header-next-month')
-  const shortcutContainer = queryRoot.querySelector<HTMLElement>('.vtd-shortcuts')
+  const shortcutButton = resolveShortcutFocusTarget(queryRoot)
+  const appendPanelHeaderTargets = (panel: SelectionPanel) => {
+    pushTarget(queryRoot.querySelector<HTMLElement>(`#vtd-header-${panel}-month`))
+    if (!props.selectorMode)
+      pushTarget(queryRoot.querySelector<HTMLElement>(`#vtd-header-${panel}-year`))
+  }
 
   // Calendar mode tab order:
-  // previous calendar -> (next header -> next calendar) -> shortcuts -> previous header
-  // -> cancel -> time/calendar switch -> apply -> repeat
+  // previous calendar -> shortcuts -> previous header
+  // -> (next calendar -> next header) -> footer actions -> repeat
   appendCalendarPanelFocusTarget(queryRoot, 'previous', pushTarget)
+  pushTarget(shortcutButton)
+  appendPanelHeaderTargets('previous')
   if (isDoublePanel) {
-    pushTarget(nextHeader)
     appendCalendarPanelFocusTarget(queryRoot, 'next', pushTarget)
+    appendPanelHeaderTargets('next')
   }
-  pushTarget(shortcutContainer)
-  pushTarget(previousHeader)
   const footerActions = resolveFooterActionFocusTargets(queryRoot)
   appendFooterActionFocusTargets(footerActions, pushTarget)
   return targets
@@ -3257,12 +3428,16 @@ function getTimeModeFocusCycleTargets() {
     appendCalendarPanelFocusTarget(queryRoot, 'next', pushTarget)
 
   // Keep shortcuts as a single focus stop in time mode.
-  pushTarget(queryRoot.querySelector<HTMLElement>('.vtd-shortcuts'))
+  pushTarget(resolveShortcutFocusTarget(queryRoot))
 
   // Keep header navigation available between shortcuts and time controls.
   pushTarget(queryRoot.querySelector<HTMLElement>('#vtd-header-previous-month'))
+  if (!props.selectorMode)
+    pushTarget(queryRoot.querySelector<HTMLElement>('#vtd-header-previous-year'))
   if (asRange() && !props.asSingle)
     pushTarget(queryRoot.querySelector<HTMLElement>('#vtd-header-next-month'))
+  if (!props.selectorMode && asRange() && !props.asSingle)
+    pushTarget(queryRoot.querySelector<HTMLElement>('#vtd-header-next-year'))
 
   const endpointToggleButtons = Array.from(queryRoot.querySelectorAll<HTMLButtonElement>('button'))
     .filter((button) => {
@@ -3435,8 +3610,134 @@ function focusFirstTarget(targets: HTMLElement[]) {
   return true
 }
 
+function resolveSelectionPanelFromElement(element: HTMLElement): SelectionPanel | null {
+  const panelElement = element.closest<HTMLElement>('[data-vtd-selector-panel]')
+  const panelName = panelElement?.getAttribute('data-vtd-selector-panel')
+  if (panelName === 'previous' || panelName === 'next')
+    return panelName
+  return null
+}
+
+function isLegacyMonthHeaderButton(element: HTMLElement) {
+  return /^vtd-header-(?:previous|next)-month$/.test(element.id)
+}
+
+function handleLegacyMonthHeaderTab(event: KeyboardEvent) {
+  if (event.key !== 'Tab' || event.shiftKey || props.selectorMode)
+    return false
+
+  const target = event.target
+  if (!(target instanceof HTMLElement) || !isLegacyMonthHeaderButton(target))
+    return false
+
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return false
+
+  const yearId = target.id.replace(/-month$/, '-year')
+  const yearButton = queryRoot.querySelector<HTMLElement>(`#${yearId}`)
+  if (!yearButton || !isVisibleElement(yearButton) || isDisabledFocusTarget(yearButton))
+    return false
+
+  event.preventDefault()
+  event.stopPropagation()
+  yearButton.focus()
+  return true
+}
+
+function handleSelectorCalendarTabToHeader(event: KeyboardEvent) {
+  if (
+    event.key !== 'Tab'
+    || event.shiftKey
+    || !props.selectorMode
+    || pickerViewMode.value !== 'calendar'
+  ) {
+    return false
+  }
+
+  const target = event.target
+  if (!(target instanceof HTMLElement))
+    return false
+
+  const queryRoot = getPickerQueryRoot()
+  if (!queryRoot)
+    return false
+
+  // When shortcuts are visible, keep the shared cycle order:
+  // calendar -> shortcuts -> header. Only fast-path to header when
+  // there is no shortcut focus stop available.
+  if (resolveShortcutFocusTarget(queryRoot))
+    return false
+
+  const isCalendarDateTarget
+    = target.classList.contains('vtd-datepicker-date') || !!target.closest('.vtd-datepicker-date')
+  if (!isCalendarDateTarget)
+    return false
+
+  const panel
+    = resolveSelectionPanelFromElement(target)
+      ?? resolveContextPanel(selectionContext.value)
+
+  event.preventDefault()
+  event.stopPropagation()
+  focusHeaderValue(panel, 'month')
+  return true
+}
+
+function handleSelectorEnterShortcut(event: KeyboardEvent) {
+  if (
+    event.key !== 'Enter'
+    || event.altKey
+    || event.ctrlKey
+    || event.metaKey
+    || !props.selectorMode
+    || pickerViewMode.value !== 'selector'
+  ) {
+    return false
+  }
+
+  const target = event.target
+  if (!(target instanceof HTMLElement))
+    return false
+
+  const panel = resolveSelectionPanelFromElement(target)
+  if (!panel)
+    return false
+
+  if (target.closest('[aria-label="Month selector"]')) {
+    event.preventDefault()
+    event.stopPropagation()
+    requestSelectorColumnFocus(panel, 'year')
+    return true
+  }
+
+  if (target.closest('[aria-label="Year selector"]')) {
+    event.preventDefault()
+    event.stopPropagation()
+    closeSelectorWheelsToCalendar(panel)
+    return true
+  }
+
+  return false
+}
+
 function onPickerPanelKeydown(event: KeyboardEvent, close?: PopoverCloseFn) {
   if (event.key === 'Escape') {
+    if (props.selectorMode && pickerViewMode.value === 'selector') {
+      const target = event.target
+      const panel
+        = target instanceof HTMLElement
+          ? (resolveSelectionPanelFromElement(target) ?? resolveContextPanel(selectionContext.value))
+          : resolveContextPanel(selectionContext.value)
+      event.preventDefault()
+      event.stopPropagation()
+      togglePickerViewMode({
+        panel,
+        focus: selectorFocus.value,
+      })
+      return
+    }
+
     event.preventDefault()
     event.stopPropagation()
     closePopoverFromPanel(close)
@@ -3447,6 +3748,15 @@ function onPickerPanelKeydown(event: KeyboardEvent, close?: PopoverCloseFn) {
     return
 
   if (handleTimeEndpointToggleArrowNavigation(event))
+    return
+
+  if (handleLegacyMonthHeaderTab(event))
+    return
+
+  if (handleSelectorCalendarTabToHeader(event))
+    return
+
+  if (handleSelectorEnterShortcut(event))
     return
 
   if (event.key !== 'Tab')
@@ -3526,6 +3836,21 @@ function onInputKeydown(event: KeyboardEvent) {
   if (!isTextInputLikeTarget(event.target))
     return
 
+  if (
+    event.key === 'Escape'
+    && !event.altKey
+    && !event.ctrlKey
+    && !event.metaKey
+    && isPopoverOpen()
+  ) {
+    event.preventDefault()
+    event.stopPropagation()
+    preserveInputFocusOnNextPopoverClose = true
+    resetPickerViewMode()
+    triggerPopoverButtonClick()
+    return
+  }
+
   if (event.key === 'Tab' && !event.shiftKey) {
     if (!isPopoverOpen())
       return
@@ -3578,6 +3903,14 @@ function onPopoverAfterEnter() {
 
 function onPopoverAfterLeave() {
   pushDebugEvent('after-leave', { activeElement: describeActiveElement() })
+  if (preserveInputFocusOnNextPopoverClose) {
+    preserveInputFocusOnNextPopoverClose = false
+    nextTick(() => {
+      VtdInputRef.value?.focus()
+    })
+    return
+  }
+
   if (!props.noInput && !props.popoverRestoreFocus && document.activeElement === VtdInputRef.value)
     VtdInputRef.value?.blur()
 }
@@ -3669,7 +4002,7 @@ setTimeout(() => {
 }, 250)
 
 function isFirstMonday() {
-  return dayjs().localeData().firstDayOfWeek()
+  return dayjsWithResolvedLocale().localeData().firstDayOfWeek()
 }
 
 function shuffleWeekdays(days: dayjs.WeekdayNames): dayjs.WeekdayNames {
@@ -3927,10 +4260,7 @@ function isApplyButtonDisabled() {
  * keyUp event
  * @since v1.0.5
  */
-function keyUp() {
-  if (datetimeModeConfig.value.datetime)
-    return
-
+function syncTextInputValue() {
   if (asRange()) {
     const [s, e] = pickerValue.value.split(props.separator)
     const [sd, ed] = [
@@ -3938,6 +4268,10 @@ function keyUp() {
       dayjs(e, props.formatter.date, true),
     ]
     if (sd.isValid() && ed.isValid()) {
+      const signature = `range:${sd.valueOf()}:${ed.valueOf()}`
+      if (signature === lastSyncedTextInputSignature)
+        return
+
       setDate(sd)
       setDate(ed)
       emitRangeModelValueFromFormatted(
@@ -3951,14 +4285,28 @@ function keyUp() {
           props,
         ),
       )
+      lastSyncedTextInputSignature = signature
+    } else {
+      lastSyncedTextInputSignature = null
     }
   } else {
     const d = dayjs(pickerValue.value, props.formatter.date, true)
     if (d.isValid()) {
+      const signature = `single:${d.valueOf()}`
+      if (signature === lastSyncedTextInputSignature)
+        return
+
       setDate(d)
       emitSingleModelValueFromFormatted(pickerValue.value)
+      lastSyncedTextInputSignature = signature
+    } else {
+      lastSyncedTextInputSignature = null
     }
   }
+}
+
+function keyUp() {
+  syncTextInputValue()
 }
 
 type DateSelectionSource = 'keyboard' | 'pointer'
@@ -4040,6 +4388,7 @@ function setDate(payload: Dayjs | DateSelectionPayload, close?: (ref?: Ref | HTM
             props,
           ),
         )
+        announceRangeSelection(startDate, endDate, true)
         const shouldClosePopover = props.closeOnRangeSelection && typeof close === 'function'
         // In `no-input` static mode there is no popover close callback, so
         // this option intentionally becomes a no-op.
@@ -4072,6 +4421,7 @@ function setDate(payload: Dayjs | DateSelectionPayload, close?: (ref?: Ref | HTM
           datepicker.value.previous = s
           datepicker.value.next = e
         }
+        announceRangeSelection(s, e)
         assignDateTimeDraft('start', s, false)
         assignDateTimeDraft('end', e, false)
         openTimePanelAfterDateSelection()
@@ -4084,6 +4434,7 @@ function setDate(payload: Dayjs | DateSelectionPayload, close?: (ref?: Ref | HTM
       selection.value = date
       hoverValue.value.push(date)
       applyValue.value.push(mergeDateWithDraftTime(date, 'start'))
+      announceRangeStartSelection(applyValue.value[0] ?? date)
       datepicker.value.previous = date
       if (datepicker.value.next.isSame(date, 'month')) {
         datepicker.value.previous = datepicker.value.next
@@ -4095,6 +4446,7 @@ function setDate(payload: Dayjs | DateSelectionPayload, close?: (ref?: Ref | HTM
     if (autoApplyEnabled.value) {
       pickerValue.value = useToValueFromString(date, props)
       emitSingleModelValueFromFormatted(pickerValue.value)
+      announceSingleDateSelection(date, true)
       if (close)
         closePopover(close)
 
@@ -4103,6 +4455,7 @@ function setDate(payload: Dayjs | DateSelectionPayload, close?: (ref?: Ref | HTM
     } else {
       const dateWithDraftTime = mergeDateWithDraftTime(date, 'start')
       applyValue.value = [dateWithDraftTime]
+      announceSingleDateSelection(dateWithDraftTime)
       assignDateTimeDraft('start', dateWithDraftTime, false)
       openTimePanelAfterDateSelection()
       force()
@@ -4170,9 +4523,11 @@ function applyDate(close?: (ref?: Ref | HTMLElement) => void) {
       ),
     )
     pickerValue.value = date as string
+    announceRangeSelection(startDate, endDate, true)
   } else {
     pickerValue.value = (date as Dayjs).format(props.formatter.date)
     emitSingleModelValueFromFormatted(pickerValue.value)
+    announceSingleDateSelection(date as Dayjs, true)
   }
   if (close)
     closePopover(close)
@@ -4212,7 +4567,8 @@ function datepickerClasses(date: DatePickerDay) {
   let s: Dayjs | null = null
   let e: Dayjs | null = null
   if (asRange()) {
-    const range = selection.value
+    const useHoverRange = !!selection.value && hoverValue.value.length > 1
+    const range = useHoverRange
       ? resolveSelectionRange('hover')
       : resolveSelectionRange('interactive')
     s = range.start
@@ -4383,7 +4739,7 @@ function getBuiltInShortcut(
         id: 'today',
         label: props.options.shortcuts.today,
         atClick: () => {
-          const date = dayjs().toDate()
+          const date = dayjsWithResolvedLocale().toDate()
           return [date, date]
         },
       }
@@ -4392,7 +4748,7 @@ function getBuiltInShortcut(
         id: 'yesterday',
         label: props.options.shortcuts.yesterday,
         atClick: () => {
-          const date = dayjs().subtract(1, 'day').toDate()
+          const date = dayjsWithResolvedLocale().subtract(1, 'day').toDate()
           return [date, date]
         },
       }
@@ -4401,7 +4757,7 @@ function getBuiltInShortcut(
         id: 'past-7-days',
         label: props.options.shortcuts.past(7),
         atClick: () => {
-          const now = dayjs()
+          const now = dayjsWithResolvedLocale()
           return [
             now.subtract(6, 'day').toDate(),
             now.toDate(),
@@ -4413,7 +4769,7 @@ function getBuiltInShortcut(
         id: 'past-30-days',
         label: props.options.shortcuts.past(30),
         atClick: () => {
-          const now = dayjs()
+          const now = dayjsWithResolvedLocale()
           return [
             now.subtract(29, 'day').toDate(),
             now.toDate(),
@@ -4425,7 +4781,7 @@ function getBuiltInShortcut(
         id: 'this-month',
         label: props.options.shortcuts.currentMonth,
         atClick: () => {
-          const now = dayjs()
+          const now = dayjsWithResolvedLocale()
           return [
             now.date(1).toDate(),
             now.date(now.daysInMonth()).toDate(),
@@ -4437,7 +4793,7 @@ function getBuiltInShortcut(
         id: 'last-month',
         label: props.options.shortcuts.pastMonth,
         atClick: () => {
-          const now = dayjs()
+          const now = dayjsWithResolvedLocale()
           return [
             now.date(1).subtract(1, 'month').toDate(),
             now.date(0).toDate(),
@@ -4466,6 +4822,14 @@ function getBuiltInShortcut(
 }
 
 function emitInvalidShortcut(payload: InvalidShortcutEventPayload) {
+  const reasonLabels: Record<InvalidShortcutEventPayload['reason'], string> = {
+    'disabled': 'shortcut is disabled',
+    'blocked-date': 'shortcut result is blocked by date constraints',
+    'mode-mismatch': 'shortcut is not available for the current mode',
+    'resolver-error': 'shortcut resolver failed',
+    'invalid-result': 'shortcut returned an invalid value',
+  }
+  announcePolite(`Shortcut unavailable: ${reasonLabels[payload.reason]}.`)
   emit('invalid-shortcut', payload)
 }
 
@@ -4637,7 +5001,9 @@ function activateShortcut(
   applyShortcutResolvedValue(activation.value)
 
   const shouldCloseAfterShortcutSelection
-    = typeof close === 'function' && (!asRange() || props.closeOnRangeSelection)
+    = typeof close === 'function'
+      && autoApplyEnabled.value
+      && (!asRange() || props.closeOnRangeSelection)
 
   if (shouldCloseAfterShortcutSelection)
     closePopover(close)
@@ -4682,22 +5048,33 @@ watchEffect(() => {
   }
 })
 
-dayjs.locale(props.i18n)
+let localeLoadToken = 0
 watch(
   () => props.i18n,
-  () => dayjs.locale(props.i18n),
+  (locale) => {
+    const token = ++localeLoadToken
+    const nextLocale = locale || 'en'
+    nextTick(async () => {
+      if (locale in localesMap) {
+        try {
+          const localeData = await localesMap[locale]()
+          dayjs.locale(localeData, undefined, true)
+        } catch {
+          // Keep the previous locale registration if a dynamic locale chunk fails to load.
+        }
+      }
+      if (token !== localeLoadToken)
+        return
+      resolvedLocale.value = nextLocale
+      refreshLocalizedCalendarLabels()
+    })
+  },
+  { immediate: true },
 )
 
 watchEffect(() => {
-  const locale = props.i18n
   const modelValueCloned = props.modelValue
   nextTick(async () => {
-    if (locale in localesMap) {
-      const localeData = await localesMap[locale]()
-      dayjs.locale(localeData, undefined, true)
-      dayjs.locale(locale)
-    }
-
     let s: Dayjs | null = null
     let e: Dayjs | null = null
     let startHydrated = false
@@ -4841,15 +5218,7 @@ watchEffect(() => {
         assignDateTimeDraft('end', null)
       }
     }
-    const days
-      = props.weekdaysSize === 'min'
-        ? dayjs.weekdaysMin()
-        : dayjs.weekdaysShort()
-    datepicker.value.weeks = isFirstMonday() ? shuffleWeekdays(days) : days
-    datepicker.value.months
-      = props.formatter.month === 'MMM'
-        ? dayjs.monthsShort()
-        : dayjs.months()
+    refreshLocalizedCalendarLabels()
   })
 })
 
@@ -4929,6 +5298,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
           :placeholder="givenPlaceholder"
           @mousedown="onInputMouseDown(open, $event)"
           @click="onInputClick(open, $event)"
+          @input.stop="syncTextInputValue"
           @keyup.stop="keyUp"
           @keydown.stop="onInputKeydown"
         >
@@ -5068,6 +5438,9 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                           payload => togglePickerViewMode(payload, { restoreFocus: true })
                         "
                         @step-month="onHeaderMonthStep"
+                        @focus-selector-column="
+                          payload => requestSelectorColumnFocus(payload.panel, payload.focus)
+                        "
                       />
                       <div
                         class="px-0.5 sm:px-2"
@@ -5092,6 +5465,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                                 :selector-focus="selectorFocus"
                                 @focus-month="onSelectorColumnFocus('previous', 'month')"
                                 @request-focus-year="requestSelectorColumnFocus('previous', 'year')"
+                                @keydown.enter.prevent="requestSelectorColumnFocus('previous', 'year')"
                                 @update-month="month => onSelectorMonthUpdate('previous', month)"
                                 @scroll-month="month => onSelectorMonthUpdate('previous', month)"
                               />
@@ -5118,6 +5492,10 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                                 @request-focus-month="
                                   requestSelectorColumnFocus('previous', 'month')
                                 "
+                                @request-close-selector="
+                                  closeSelectorWheelsToCalendar('previous')
+                                "
+                                @keydown.enter.prevent="closeSelectorWheelsToCalendar('previous')"
                                 @update-year="year => onSelectorYearUpdate('previous', year)"
                                 @scroll-year="year => onSelectorYearUpdate('previous', year)"
                               />
@@ -5175,6 +5553,9 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                           payload => togglePickerViewMode(payload, { restoreFocus: true })
                         "
                         @step-month="onHeaderMonthStep"
+                        @focus-selector-column="
+                          payload => requestSelectorColumnFocus(payload.panel, payload.focus)
+                        "
                       />
                       <div
                         class="px-0.5 sm:px-2"
@@ -5199,6 +5580,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                                 :selector-focus="selectorFocus"
                                 @focus-month="onSelectorColumnFocus('next', 'month')"
                                 @request-focus-year="requestSelectorColumnFocus('next', 'year')"
+                                @keydown.enter.prevent="requestSelectorColumnFocus('next', 'year')"
                                 @update-month="month => onSelectorMonthUpdate('next', month)"
                                 @scroll-month="month => onSelectorMonthUpdate('next', month)"
                               />
@@ -5224,6 +5606,8 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                                 :page-shift-jump="props.selectorYearPageShiftJump"
                                 @focus-year="onSelectorColumnFocus('next', 'year')"
                                 @request-focus-month="requestSelectorColumnFocus('next', 'month')"
+                                @request-close-selector="closeSelectorWheelsToCalendar('next')"
+                                @keydown.enter.prevent="closeSelectorWheelsToCalendar('next')"
                                 @update-year="year => onSelectorYearUpdate('next', year)"
                                 @scroll-year="year => onSelectorYearUpdate('next', year)"
                               />
@@ -5802,6 +6186,9 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                   payload => togglePickerViewMode(payload, { restoreFocus: true })
                 "
                 @step-month="onHeaderMonthStep"
+                @focus-selector-column="
+                  payload => requestSelectorColumnFocus(payload.panel, payload.focus)
+                "
               />
               <div
                 class="px-0.5 sm:px-2"
@@ -5826,6 +6213,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                         :selector-focus="selectorFocus"
                         @focus-month="onSelectorColumnFocus('previous', 'month')"
                         @request-focus-year="requestSelectorColumnFocus('previous', 'year')"
+                        @keydown.enter.prevent="requestSelectorColumnFocus('previous', 'year')"
                         @update-month="month => onSelectorMonthUpdate('previous', month)"
                         @scroll-month="month => onSelectorMonthUpdate('previous', month)"
                       />
@@ -5850,6 +6238,8 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                         :page-shift-jump="props.selectorYearPageShiftJump"
                         @focus-year="onSelectorColumnFocus('previous', 'year')"
                         @request-focus-month="requestSelectorColumnFocus('previous', 'month')"
+                        @request-close-selector="closeSelectorWheelsToCalendar('previous')"
+                        @keydown.enter.prevent="closeSelectorWheelsToCalendar('previous')"
                         @update-year="year => onSelectorYearUpdate('previous', year)"
                         @scroll-year="year => onSelectorYearUpdate('previous', year)"
                       />
@@ -5906,6 +6296,9 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                   payload => togglePickerViewMode(payload, { restoreFocus: true })
                 "
                 @step-month="onHeaderMonthStep"
+                @focus-selector-column="
+                  payload => requestSelectorColumnFocus(payload.panel, payload.focus)
+                "
               />
               <div
                 class="px-0.5 sm:px-2"
@@ -5930,6 +6323,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                         :selector-focus="selectorFocus"
                         @focus-month="onSelectorColumnFocus('next', 'month')"
                         @request-focus-year="requestSelectorColumnFocus('next', 'year')"
+                        @keydown.enter.prevent="requestSelectorColumnFocus('next', 'year')"
                         @update-month="month => onSelectorMonthUpdate('next', month)"
                         @scroll-month="month => onSelectorMonthUpdate('next', month)"
                       />
@@ -5955,6 +6349,8 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                         :page-shift-jump="props.selectorYearPageShiftJump"
                         @focus-year="onSelectorColumnFocus('next', 'year')"
                         @request-focus-month="requestSelectorColumnFocus('next', 'month')"
+                        @request-close-selector="closeSelectorWheelsToCalendar('next')"
+                        @keydown.enter.prevent="closeSelectorWheelsToCalendar('next')"
                         @update-year="year => onSelectorYearUpdate('next', year)"
                         @scroll-year="year => onSelectorYearUpdate('next', year)"
                       />
@@ -6421,6 +6817,9 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
       </div>
     </div>
   </div>
+  <p aria-live="polite" aria-atomic="true" class="sr-only">
+    {{ liveAnnouncement }}
+  </p>
 </template>
 
 <style>

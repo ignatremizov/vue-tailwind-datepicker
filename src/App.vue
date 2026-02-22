@@ -59,10 +59,12 @@ const wheelInlineValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
 const wheelInlineBoundaryValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
 const wheelToggleValue = ref(dayjs().format('YYYY-MM-DD hh:mm A'))
 const wheelToggleSecondsValue = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
-const allFeaturesValue = ref({
+const allFeaturesValueMode = ref<'range' | 'single'>('range')
+const allFeaturesRangeValue = ref({
   startDate: dayjs().subtract(4, 'day').format('YYYY-MM-DD hh:mm:ss A'),
   endDate: dayjs().add(6, 'day').format('YYYY-MM-DD hh:mm:ss A'),
 })
+const allFeaturesSingleValue = ref(dayjs().format('YYYY-MM-DD hh:mm:ss A'))
 const allFeaturesWeekendTintEnabled = ref(true)
 const allFeaturesSinglePanelRange = ref(true)
 const allFeaturesSelectorStyle = ref<'wheel' | 'page'>('wheel')
@@ -86,6 +88,7 @@ const allFeaturesUsesWheelPicker = computed(() => {
   )
 })
 const allFeaturesWheelControlsDisabled = computed(() => !allFeaturesUsesWheelPicker.value)
+const allFeaturesUseRange = computed(() => allFeaturesValueMode.value === 'range')
 const allFeaturesSelectClass = 'w-full rounded border border-blue-300 bg-white px-2 py-1.5 text-xs text-blue-900'
 const allFeaturesSelectClassWithDisabled = `${allFeaturesSelectClass} disabled:opacity-50 disabled:cursor-not-allowed`
 // TODO(time-wheel-settings): add playground controls for
@@ -121,12 +124,40 @@ function parseAllFeaturesDate(value: unknown) {
   return parsed.isValid() ? parsed : dayjs()
 }
 
+const allFeaturesValue = computed({
+  get: () => {
+    return allFeaturesUseRange.value ? allFeaturesRangeValue.value : allFeaturesSingleValue.value
+  },
+  set: (value: unknown) => {
+    if (allFeaturesUseRange.value) {
+      if (value && typeof value === 'object' && 'startDate' in value && 'endDate' in value) {
+        const nextValue = value as { startDate: unknown, endDate: unknown }
+        allFeaturesRangeValue.value = {
+          startDate: parseAllFeaturesDate(nextValue.startDate).format(allFeaturesFormatterDate.value),
+          endDate: parseAllFeaturesDate(nextValue.endDate).format(allFeaturesFormatterDate.value),
+        }
+        return
+      }
+      const formatted = parseAllFeaturesDate(value).format(allFeaturesFormatterDate.value)
+      allFeaturesRangeValue.value = {
+        startDate: formatted,
+        endDate: formatted,
+      }
+      return
+    }
+
+    allFeaturesSingleValue.value = parseAllFeaturesDate(value).format(allFeaturesFormatterDate.value)
+  },
+})
+
 watch(
   allFeaturesTimeWheelFormat,
   () => {
-    const startDate = parseAllFeaturesDate(allFeaturesValue.value.startDate)
-    const endDate = parseAllFeaturesDate(allFeaturesValue.value.endDate)
-    allFeaturesValue.value = {
+    allFeaturesSingleValue.value = parseAllFeaturesDate(allFeaturesSingleValue.value)
+      .format(allFeaturesFormatterDate.value)
+    const startDate = parseAllFeaturesDate(allFeaturesRangeValue.value.startDate)
+    const endDate = parseAllFeaturesDate(allFeaturesRangeValue.value.endDate)
+    allFeaturesRangeValue.value = {
       startDate: startDate.format(allFeaturesFormatterDate.value),
       endDate: endDate.format(allFeaturesFormatterDate.value),
     }
@@ -645,6 +676,54 @@ onUnmounted(() => {
               </select>
             </label>
 
+            <div class="mb-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <span class="mb-1 block text-xs font-medium text-blue-900">Selection mode</span>
+                <label class="mb-1 flex items-center gap-2 text-xs text-blue-900">
+                  <input
+                    v-model="allFeaturesValueMode"
+                    value="range"
+                    type="radio"
+                    name="all-features-selection-mode"
+                  >
+                  range
+                </label>
+                <label class="flex items-center gap-2 text-xs text-blue-900">
+                  <input
+                    v-model="allFeaturesValueMode"
+                    value="single"
+                    type="radio"
+                    name="all-features-selection-mode"
+                  >
+                  single date
+                </label>
+              </div>
+
+              <div :class="!allFeaturesUseRange ? 'opacity-50' : ''">
+                <span class="mb-1 block text-xs font-medium text-blue-900">Range layout</span>
+                <label class="mb-1 flex items-center gap-2 text-xs text-blue-900">
+                  <input
+                    v-model="allFeaturesSinglePanelRange"
+                    :value="true"
+                    type="radio"
+                    name="all-features-range-layout"
+                    :disabled="!allFeaturesUseRange"
+                  >
+                  Single page (`asSingle`)
+                </label>
+                <label class="flex items-center gap-2 text-xs text-blue-900">
+                  <input
+                    v-model="allFeaturesSinglePanelRange"
+                    :value="false"
+                    type="radio"
+                    name="all-features-range-layout"
+                    :disabled="!allFeaturesUseRange"
+                  >
+                  Double page (`asSingle=false`)
+                </label>
+              </div>
+            </div>
+
             <label class="mb-3 block">
               <span class="mb-1 block text-xs font-medium text-blue-900">Month/year selector style</span>
               <select v-model="allFeaturesSelectorStyle" :class="allFeaturesSelectClass">
@@ -773,28 +852,6 @@ onUnmounted(() => {
               </select>
             </label>
 
-            <div class="mb-3">
-              <span class="mb-1 block text-xs font-medium text-blue-900">Range layout</span>
-              <label class="mb-1 flex items-center gap-2 text-xs text-blue-900">
-                <input
-                  v-model="allFeaturesSinglePanelRange"
-                  :value="true"
-                  type="radio"
-                  name="all-features-range-layout"
-                >
-                Single page (`asSingle`)
-              </label>
-              <label class="flex items-center gap-2 text-xs text-blue-900">
-                <input
-                  v-model="allFeaturesSinglePanelRange"
-                  :value="false"
-                  type="radio"
-                  name="all-features-range-layout"
-                >
-                Double page (`asSingle=false`)
-              </label>
-            </div>
-
             <div class="flex flex-wrap items-center gap-3">
               <label class="flex items-center gap-2 text-xs text-blue-900">
                 <input v-model="allFeaturesWeekendTintEnabled" type="checkbox">
@@ -813,8 +870,15 @@ onUnmounted(() => {
               </label>
             </div>
 
-            <label class="mt-2 flex items-center gap-2 text-xs text-blue-900">
-              <input v-model="allFeaturesCloseOnRangeSelection" type="checkbox">
+            <label
+              class="mt-2 flex items-center gap-2 text-xs text-blue-900"
+              :class="!allFeaturesUseRange ? 'opacity-50' : ''"
+            >
+              <input
+                v-model="allFeaturesCloseOnRangeSelection"
+                type="checkbox"
+                :disabled="!allFeaturesUseRange"
+              >
               Auto-close after selecting range end
             </label>
             <label class="mt-2 flex items-center gap-2 text-xs text-blue-900">
@@ -858,8 +922,8 @@ onUnmounted(() => {
           >
             <VueTailwindDatePicker
               v-model="allFeaturesValue"
-              use-range
-              :as-single="allFeaturesSinglePanelRange"
+              :use-range="allFeaturesUseRange"
+              :as-single="allFeaturesUseRange ? allFeaturesSinglePanelRange : true"
               :selector-mode="allFeaturesSelectorStyle === 'wheel'"
               :selector-focus-tint="false"
               :selector-year-scroll-mode="allFeaturesTimeWheelScrollMode"

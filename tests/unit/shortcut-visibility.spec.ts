@@ -59,13 +59,13 @@ describe.sequential('shortcut visibility matrix', () => {
     })
   })
 
-  it('hides shortcuts for useRange=false and asSingle=true', async () => {
+  it('shows shortcuts for useRange=false and asSingle=true', async () => {
     await withFixedNow(SHORTCUT_EDGE_FIXTURES.monthBoundary.now, async () => {
       const wrapper = await mountPicker({
         useRange: false,
         asSingle: true,
       })
-      expect(hasShortcutButtons(wrapper)).toBe(false)
+      expect(hasShortcutButtons(wrapper)).toBe(true)
       wrapper.unmount()
     })
   })

@@ -113,4 +113,92 @@ describe.sequential('shortcut popover close behavior', () => {
       wrapper.unmount()
     })
   })
+
+  it('keeps popover open after single shortcut when autoApply=false until Apply is clicked', async () => {
+    await withFixedNow(createLocalDate(2026, 1, 14, 9, 0, 0), async () => {
+      const wrapper = await mountPopoverPicker({
+        useRange: false,
+        asSingle: true,
+        autoApply: false,
+        closeOnRangeSelection: false,
+        modelValue: dayjs(createLocalDate(2026, 1, 12, 12, 0, 0)).format(DATE_FORMAT),
+      })
+
+      await openPopover(wrapper)
+      expect(isPopoverOpen(wrapper)).toBe(true)
+
+      const shortcut = getShortcutButton(wrapper, 'Highlight next week range')
+      expect(shortcut).toBeTruthy()
+      await shortcut!.trigger('click')
+      await nextTick()
+
+      expect(isPopoverOpen(wrapper)).toBe(true)
+      expect(wrapper.emitted('update:modelValue')).toBeFalsy()
+
+      await wrapper.get('button.away-apply-picker').trigger('click')
+      await nextTick()
+      await nextTick()
+
+      expect(isPopoverOpen(wrapper)).toBe(false)
+
+      const updates = wrapper.emitted('update:modelValue')
+      expect(updates).toBeTruthy()
+      const lastPayload = updates!.at(-1)?.[0] as string
+      expect(lastPayload).toBe(
+        dayjs(createLocalDate(2026, 1, 14, 9, 0, 0))
+          .add(1, 'week')
+          .startOf('week')
+          .format(DATE_FORMAT),
+      )
+
+      wrapper.unmount()
+    })
+  })
+
+  it('keeps popover open after range shortcut when autoApply=false even if closeOnRangeSelection=true', async () => {
+    await withFixedNow(createLocalDate(2026, 1, 14, 9, 0, 0), async () => {
+      const wrapper = await mountPopoverPicker({
+        useRange: true,
+        asSingle: true,
+        autoApply: false,
+        closeOnRangeSelection: true,
+      })
+
+      await openPopover(wrapper)
+      expect(isPopoverOpen(wrapper)).toBe(true)
+
+      const shortcut = getShortcutButton(wrapper, 'Highlight next week range')
+      expect(shortcut).toBeTruthy()
+      await shortcut!.trigger('click')
+      await nextTick()
+
+      expect(isPopoverOpen(wrapper)).toBe(true)
+      expect(wrapper.emitted('update:modelValue')).toBeFalsy()
+
+      await wrapper.get('button.away-apply-picker').trigger('click')
+      await nextTick()
+      await nextTick()
+
+      expect(isPopoverOpen(wrapper)).toBe(false)
+
+      const updates = wrapper.emitted('update:modelValue')
+      expect(updates).toBeTruthy()
+      const lastPayload = updates!.at(-1)?.[0] as Record<string, string>
+      expect(lastPayload.startDate).toBe(
+        dayjs(createLocalDate(2026, 1, 14, 9, 0, 0))
+          .add(1, 'week')
+          .startOf('week')
+          .format(DATE_FORMAT),
+      )
+      expect(lastPayload.endDate).toBe(
+        dayjs(createLocalDate(2026, 1, 14, 9, 0, 0))
+          .add(1, 'week')
+          .startOf('week')
+          .endOf('week')
+          .format(DATE_FORMAT),
+      )
+
+      wrapper.unmount()
+    })
+  })
 })

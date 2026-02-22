@@ -614,6 +614,21 @@ function applyKeyboardDelta(delta: number) {
   })
 }
 
+function applyKeyboardBoundaryJump(toStart: boolean) {
+  if (props.disabled || props.items.length === 0)
+    return
+
+  const count = props.items.length
+  const baseAbsoluteIndex = getKeyboardBaseAbsoluteIndex()
+  const currentIndex = positiveModulo(baseAbsoluteIndex, count)
+
+  const delta = toStart
+    ? (currentIndex === 0 ? -count : -currentIndex)
+    : (currentIndex === count - 1 ? count : (count - 1 - currentIndex))
+
+  applyKeyboardDelta(delta)
+}
+
 function onKeydown(event: KeyboardEvent) {
   if (props.disabled)
     return
@@ -658,6 +673,18 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key === 'PageUp') {
     event.preventDefault()
     applyKeyboardDelta(-5)
+    return
+  }
+
+  if (event.key === 'Home') {
+    event.preventDefault()
+    applyKeyboardBoundaryJump(true)
+    return
+  }
+
+  if (event.key === 'End') {
+    event.preventDefault()
+    applyKeyboardBoundaryJump(false)
   }
 }
 

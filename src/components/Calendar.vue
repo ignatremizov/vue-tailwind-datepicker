@@ -132,6 +132,47 @@ function findFocusableIndexFrom(startIndex: number, step: number) {
   return -1
 }
 
+function findFocusableIndexInWeek(currentIndex: number, fromStart: boolean) {
+  const dates = calendarDates.value
+  const rowStart = Math.floor(currentIndex / 7) * 7
+  const rowEnd = Math.min(rowStart + 6, dates.length - 1)
+
+  if (fromStart) {
+    for (let index = rowStart; index <= rowEnd; index += 1) {
+      if (isDateFocusable(dates[index]))
+        return index
+    }
+  } else {
+    for (let index = rowEnd; index >= rowStart; index -= 1) {
+      if (isDateFocusable(dates[index]))
+        return index
+    }
+  }
+
+  return -1
+}
+
+function focusHeaderFromCalendar(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement))
+    return false
+
+  const panelRoot = target.closest<HTMLElement>('[data-vtd-selector-panel]')
+  if (!panelRoot)
+    return false
+
+  const panelName = panelRoot.getAttribute('data-vtd-selector-panel')
+  const headerSelector
+    = panelName === 'previous' || panelName === 'next'
+      ? `#vtd-header-${panelName}-month`
+      : '[id^="vtd-header-"][id$="-month"]'
+  const headerButton = panelRoot.querySelector<HTMLElement>(headerSelector)
+  if (!(headerButton instanceof HTMLElement))
+    return false
+
+  headerButton.focus()
+  return true
+}
+
 function onDateFocus(date: any) {
   if (!isDateFocusable(date))
     return
@@ -200,12 +241,32 @@ function onDateKeydown(event: KeyboardEvent, date: any) {
     const nextIndex = findFocusableIndexFrom(currentIndex, 7)
     if (nextIndex >= 0)
       focusDateByIndex(nextIndex)
+    else
+      focusHeaderFromCalendar(event.currentTarget)
     return
   }
 
   if (event.key === 'ArrowUp') {
     event.preventDefault()
     const nextIndex = findFocusableIndexFrom(currentIndex, -7)
+    if (nextIndex >= 0)
+      focusDateByIndex(nextIndex)
+    else
+      focusHeaderFromCalendar(event.currentTarget)
+    return
+  }
+
+  if (event.key === 'Home') {
+    event.preventDefault()
+    const nextIndex = findFocusableIndexInWeek(currentIndex, true)
+    if (nextIndex >= 0)
+      focusDateByIndex(nextIndex)
+    return
+  }
+
+  if (event.key === 'End') {
+    event.preventDefault()
+    const nextIndex = findFocusableIndexInWeek(currentIndex, false)
     if (nextIndex >= 0)
       focusDateByIndex(nextIndex)
     return
