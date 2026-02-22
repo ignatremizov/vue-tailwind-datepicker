@@ -185,6 +185,13 @@ const rangeDate = ref({
   Recommended with `selector-mode` when you want a fully native-like keep-open flow.
   In `no-input` static mode this option is a no-op because there is no popover to close.
 
+**Popover behavior options**
+
+- `open-focus-target="input" | "calendar"`: controls where focus lands after popover open.
+- `:popover-transition="true|false"`: toggles enter/leave transition classes.
+- `:popover-restore-focus="false"` (default): prevents automatic refocus of the input/trigger when the popover closes.
+  Set `:popover-restore-focus="true"` to restore legacy trigger-refocus behavior.
+
 ```vue
 <vue-tailwind-datepicker
   v-model="rangeDate"
@@ -197,6 +204,9 @@ const rangeDate = ref({
   :selector-year-page-shift-jump="100"
   :selector-focus-tint="true"
   :close-on-range-selection="false"
+  open-focus-target="input"
+  :popover-transition="true"
+  :popover-restore-focus="false"
 />
 ```
 
