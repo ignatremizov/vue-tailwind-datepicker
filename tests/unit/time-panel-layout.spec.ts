@@ -1,24 +1,25 @@
-import { defineComponent, nextTick, ref } from 'vue'
 import { mount } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import dayjs from 'dayjs'
-import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent, nextTick, ref } from 'vue'
 import TimeWheel from '../../src/components/TimeWheel.vue'
 import Year from '../../src/components/Year.vue'
+import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
 import { createLocalDate } from './shortcut-test-utils'
 
-function dispatchKey(target: HTMLElement, options: { key: string; shiftKey?: boolean }) {
-  target.dispatchEvent(new KeyboardEvent('keydown', {
-    key: options.key,
-    bubbles: true,
-    cancelable: true,
-    shiftKey: !!options.shiftKey,
-  }))
+function dispatchKey(target: HTMLElement, options: { key: string, shiftKey?: boolean }) {
+  target.dispatchEvent(
+    new KeyboardEvent('keydown', {
+      key: options.key,
+      bubbles: true,
+      cancelable: true,
+      shiftKey: !!options.shiftKey,
+    }),
+  )
 }
 
 function findButtonByText(wrapper: ReturnType<typeof mount>, label: string) {
-  return wrapper.findAll('button')
-    .find(button => button.text().trim() === label)
+  return wrapper.findAll('button').find(button => button.text().trim() === label)
 }
 
 async function settleUi(delayMs = 0) {
@@ -109,7 +110,8 @@ describe.sequential('time panel layout behavior', () => {
     await openPopover(wrapper)
     await openTimePage(wrapper)
 
-    const headerTitle = () => wrapper.get('.vtd-time-panel-fill p.text-xs.font-medium').text().trim()
+    const headerTitle = () =>
+      wrapper.get('.vtd-time-panel-fill p.text-xs.font-medium').text().trim()
     const startButton = wrapper.findAll('button').find(button => button.text().trim() === 'Start')
     expect(startButton).toBeTruthy()
     if (headerTitle() !== 'Start time') {
@@ -142,7 +144,8 @@ describe.sequential('time panel layout behavior', () => {
     await openPopover(wrapper)
     await openTimePage(wrapper)
 
-    const headerTitle = () => wrapper.get('.vtd-time-panel-fill p.text-xs.font-medium').text().trim()
+    const headerTitle = () =>
+      wrapper.get('.vtd-time-panel-fill p.text-xs.font-medium').text().trim()
     const startButton = findButtonByText(wrapper, 'Start')
     const endButton = findButtonByText(wrapper, 'End')
     expect(startButton).toBeTruthy()
@@ -232,7 +235,6 @@ describe.sequential('time panel layout behavior', () => {
     const endButton = findButtonByText(wrapper, 'End')
     expect(startButton).toBeTruthy()
     expect(endButton).toBeTruthy()
-
     ;(startButton!.element as HTMLElement).focus()
     dispatchKey(startButton!.element as HTMLElement, { key: 'ArrowRight' })
     await settleUi()
@@ -356,7 +358,8 @@ describe.sequential('time panel layout behavior', () => {
     expect(footerApply.exists()).toBe(true)
     expect(footerCancel.exists()).toBe(true)
 
-    const hasTimeFooterButton = pickerShell.findAll('button')
+    const hasTimeFooterButton = pickerShell
+      .findAll('button')
       .some(button => button.text().trim() === 'Time')
     expect(hasTimeFooterButton).toBe(false)
 
@@ -546,15 +549,18 @@ describe.sequential('time panel layout behavior', () => {
   })
 
   it('keeps ArrowUp/ArrowDown wheel scrolling aligned to fractional offset', async () => {
-    const scrollSpy = vi.spyOn(HTMLElement.prototype, 'scrollTo')
-      .mockImplementation(function (this: HTMLElement, options?: ScrollToOptions | number) {
-        if (typeof options === 'number') {
-          this.scrollTop = arguments[1] as number
-          return
-        }
-        if (options && typeof options.top === 'number')
-          this.scrollTop = options.top
-      })
+    const scrollSpy = vi.spyOn(HTMLElement.prototype, 'scrollTo').mockImplementation(function (
+      this: HTMLElement,
+      options?: ScrollToOptions | number,
+      y?: number,
+    ) {
+      if (typeof options === 'number') {
+        this.scrollTop = y as number
+        return
+      }
+      if (options && typeof options.top === 'number')
+        this.scrollTop = options.top
+    })
 
     const wheelItems = Array.from({ length: 60 }, (_, index) => ({
       label: String(index).padStart(2, '0'),
@@ -602,7 +608,12 @@ describe.sequential('time panel layout behavior', () => {
     let smoothTop: number | null = null
     for (const call of [...scrollSpy.mock.calls].reverse()) {
       const arg = call[0] as ScrollToOptions | undefined
-      if (arg && typeof arg === 'object' && arg.behavior === 'smooth' && typeof arg.top === 'number') {
+      if (
+        arg
+        && typeof arg === 'object'
+        && arg.behavior === 'smooth'
+        && typeof arg.top === 'number'
+      ) {
         smoothTop = arg.top
         break
       }
@@ -651,8 +662,7 @@ describe.sequential('time panel layout behavior', () => {
 
     const stepButtons = wrapper.findAll('.vtd-time-wheel-shell > button')
     expect(stepButtons.length).toBe(2)
-    for (const button of stepButtons)
-      expect(button.attributes('disabled')).toBeDefined()
+    for (const button of stepButtons) expect(button.attributes('disabled')).toBeDefined()
 
     wrapper.unmount()
   })
@@ -750,7 +760,8 @@ describe.sequential('time panel layout behavior', () => {
     expect(applyButton).toBeTruthy()
 
     const shortcutButton = wrapper.get('.vtd-shortcuts').element as HTMLElement
-    const firstWheel = wrapper.get('.vtd-time-panel-fill .vtd-time-wheel-grid .vtd-time-wheel').element as HTMLElement
+    const firstWheel = wrapper.get('.vtd-time-panel-fill .vtd-time-wheel-grid .vtd-time-wheel')
+      .element as HTMLElement
     const wheelNodes = wrapper.findAll('.vtd-time-panel-fill .vtd-time-wheel-grid .vtd-time-wheel')
     const lastWheel = wheelNodes[wheelNodes.length - 1]!.element as HTMLElement
     const activeToggleButton = startButton!.classes().includes('bg-vtd-primary-600')
@@ -805,11 +816,11 @@ describe.sequential('time panel layout behavior', () => {
 
     const endButton = findButtonByText(wrapper, 'End')
     const cancelButton = findButtonByText(wrapper, 'Cancel')
-    const firstWheel = wrapper.get('.vtd-time-panel-fill .vtd-time-wheel-grid .vtd-time-wheel').element as HTMLElement
+    const firstWheel = wrapper.get('.vtd-time-panel-fill .vtd-time-wheel-grid .vtd-time-wheel')
+      .element as HTMLElement
     expect(endButton).toBeTruthy()
     expect(cancelButton).toBeTruthy()
     expect(firstWheel.getAttribute('aria-disabled')).toBe('true')
-
     ;(endButton!.element as HTMLElement).focus()
     dispatchKey(endButton!.element as HTMLElement, { key: 'Tab' })
     expect(document.activeElement).toBe(cancelButton!.element)
@@ -879,15 +890,20 @@ describe.sequential('time panel layout behavior', () => {
     expect(meridiemWheel).toBeTruthy()
 
     const clickOption = async (wheel: ReturnType<typeof wrapper.find>, value: string) => {
-      const option = wheel.findAll('[role="option"]')
+      const option = wheel
+        .findAll('[role="option"]')
         .filter(node => node.text().trim() === value)
         .sort((a, b) => {
           const aRow = a.element.closest('[data-time-index]')
           const bRow = b.element.closest('[data-time-index]')
           const aIndex = Number.parseInt(aRow?.getAttribute('data-time-index') ?? '', 10)
           const bIndex = Number.parseInt(bRow?.getAttribute('data-time-index') ?? '', 10)
-          const aDistance = Number.isFinite(aIndex) ? Math.abs(aIndex - 180) : Number.POSITIVE_INFINITY
-          const bDistance = Number.isFinite(bIndex) ? Math.abs(bIndex - 180) : Number.POSITIVE_INFINITY
+          const aDistance = Number.isFinite(aIndex)
+            ? Math.abs(aIndex - 180)
+            : Number.POSITIVE_INFINITY
+          const bDistance = Number.isFinite(bIndex)
+            ? Math.abs(bIndex - 180)
+            : Number.POSITIVE_INFINITY
           return aDistance - bDistance
         })
         .at(0)
@@ -942,15 +958,20 @@ describe.sequential('time panel layout behavior', () => {
 
     const secondWheel = wrapper.findAll('[aria-label="Second wheel"]').at(0)
     expect(secondWheel).toBeTruthy()
-    const zeroSecondOption = secondWheel!.findAll('[role="option"]')
+    const zeroSecondOption = secondWheel!
+      .findAll('[role="option"]')
       .filter(node => node.text().trim() === '00')
       .sort((a, b) => {
         const aRow = a.element.closest('[data-time-index]')
         const bRow = b.element.closest('[data-time-index]')
         const aIndex = Number.parseInt(aRow?.getAttribute('data-time-index') ?? '', 10)
         const bIndex = Number.parseInt(bRow?.getAttribute('data-time-index') ?? '', 10)
-        const aDistance = Number.isFinite(aIndex) ? Math.abs(aIndex - 180) : Number.POSITIVE_INFINITY
-        const bDistance = Number.isFinite(bIndex) ? Math.abs(bIndex - 180) : Number.POSITIVE_INFINITY
+        const aDistance = Number.isFinite(aIndex)
+          ? Math.abs(aIndex - 180)
+          : Number.POSITIVE_INFINITY
+        const bDistance = Number.isFinite(bIndex)
+          ? Math.abs(bIndex - 180)
+          : Number.POSITIVE_INFINITY
         return aDistance - bDistance
       })
       .at(0)
@@ -999,7 +1020,8 @@ describe.sequential('time panel layout behavior', () => {
       await nextTick()
     }
 
-    const minuteWheel = wrapper.findAllComponents(TimeWheel)
+    const minuteWheel = wrapper
+      .findAllComponents(TimeWheel)
       .find(component => component.props('ariaLabel') === 'Minute wheel')
     expect(minuteWheel).toBeTruthy()
 
@@ -1052,7 +1074,8 @@ describe.sequential('time panel layout behavior', () => {
       await nextTick()
     }
 
-    const secondWheel = wrapper.findAllComponents(TimeWheel)
+    const secondWheel = wrapper
+      .findAllComponents(TimeWheel)
       .find(component => component.props('ariaLabel') === 'Second wheel')
     expect(secondWheel).toBeTruthy()
 
@@ -1108,7 +1131,8 @@ describe.sequential('time panel layout behavior', () => {
       await nextTick()
     }
 
-    const secondWheel = wrapper.findAllComponents(TimeWheel)
+    const secondWheel = wrapper
+      .findAllComponents(TimeWheel)
       .find(component => component.props('ariaLabel') === 'Second wheel')
     expect(secondWheel).toBeTruthy()
 
@@ -1170,7 +1194,8 @@ describe.sequential('time panel layout behavior', () => {
     expect(applyButton).toBeTruthy()
     expect((applyButton!.element as HTMLButtonElement).disabled).toBe(true)
 
-    const day12 = wrapper.findAll('button.vtd-datepicker-date')
+    const day12 = wrapper
+      .findAll('button.vtd-datepicker-date')
       .filter(button => !button.attributes('disabled'))
       .filter(button => !button.classes().includes('text-vtd-secondary-400'))
       .find(button => button.text().trim() === '12')
@@ -1183,7 +1208,8 @@ describe.sequential('time panel layout behavior', () => {
     expect(applyButtonAfterFirstDate).toBeTruthy()
     expect((applyButtonAfterFirstDate!.element as HTMLButtonElement).disabled).toBe(true)
 
-    const day18 = wrapper.findAll('button.vtd-datepicker-date')
+    const day18 = wrapper
+      .findAll('button.vtd-datepicker-date')
       .filter(button => !button.attributes('disabled'))
       .filter(button => !button.classes().includes('text-vtd-secondary-400'))
       .find(button => button.text().trim() === '18')
@@ -1242,11 +1268,12 @@ describe.sequential('time panel layout behavior', () => {
     expect(payload.field).toBe('range')
     expect(payload.endpoint).toBe('end')
 
-    const renderedMatches = wrapper.findAll('p')
+    const renderedMatches = wrapper
+      .findAll('p')
       .map(node => node.text().trim())
-      .filter(text =>
-        text.includes('End time must be at or after start')
-        && text.includes('(11:00:00 PM).'),
+      .filter(
+        text =>
+          text.includes('End time must be at or after start') && text.includes('(11:00:00 PM).'),
       )
     expect(renderedMatches.length).toBe(1)
 
@@ -1268,7 +1295,8 @@ describe.sequential('time panel layout behavior', () => {
     await settleUi(320)
 
     const findInMonthDay = (day: number) => {
-      return wrapper.findAll('button.vtd-datepicker-date')
+      return wrapper
+        .findAll('button.vtd-datepicker-date')
         .filter(button => !button.attributes('disabled'))
         .filter(button => !button.classes().includes('text-vtd-secondary-400'))
         .find(button => button.text().trim() === String(day))
@@ -1335,10 +1363,12 @@ describe.sequential('time panel layout behavior', () => {
     await nextTick()
     await nextTick()
 
-    const rangeErrorCount = () => wrapper.findAll('p')
-      .map(node => node.text().trim())
-      .filter(text => text.includes('End time must be at or after start'))
-      .length
+    const rangeErrorCount = () =>
+      wrapper
+        .findAll('p')
+        .map(node => node.text().trim())
+        .filter(text => text.includes('End time must be at or after start'))
+        .length
 
     expect(rangeErrorCount()).toBe(1)
 
@@ -1364,7 +1394,9 @@ describe.sequential('time panel layout behavior', () => {
 
     const minuteWheel = wrapper.findAll('[aria-label="Minute wheel"]').at(0)
     expect(minuteWheel).toBeTruthy()
-    const minute43 = minuteWheel!.findAll('[role="option"]').find(node => node.text().trim() === '43')
+    const minute43 = minuteWheel!
+      .findAll('[role="option"]')
+      .find(node => node.text().trim() === '43')
     expect(minute43).toBeTruthy()
     await minute43!.trigger('click')
     await nextTick()
@@ -1400,15 +1432,20 @@ describe.sequential('time panel layout behavior', () => {
     expect(meridiemWheel).toBeTruthy()
 
     const clickOptionFast = async (wheel: ReturnType<typeof wrapper.find>, value: string) => {
-      const option = wheel.findAll('[role="option"]')
+      const option = wheel
+        .findAll('[role="option"]')
         .filter(node => node.text().trim() === value)
         .sort((a, b) => {
           const aRow = a.element.closest('[data-time-index]')
           const bRow = b.element.closest('[data-time-index]')
           const aIndex = Number.parseInt(aRow?.getAttribute('data-time-index') ?? '', 10)
           const bIndex = Number.parseInt(bRow?.getAttribute('data-time-index') ?? '', 10)
-          const aDistance = Number.isFinite(aIndex) ? Math.abs(aIndex - 180) : Number.POSITIVE_INFINITY
-          const bDistance = Number.isFinite(bIndex) ? Math.abs(bIndex - 180) : Number.POSITIVE_INFINITY
+          const aDistance = Number.isFinite(aIndex)
+            ? Math.abs(aIndex - 180)
+            : Number.POSITIVE_INFINITY
+          const bDistance = Number.isFinite(bIndex)
+            ? Math.abs(bIndex - 180)
+            : Number.POSITIVE_INFINITY
           return aDistance - bDistance
         })
         .at(0)
@@ -1449,7 +1486,8 @@ describe.sequential('time panel layout behavior', () => {
       },
     })
 
-    const headerTitle = () => wrapper.get('.vtd-time-panel-fill p.text-xs.font-medium').text().trim()
+    const headerTitle = () =>
+      wrapper.get('.vtd-time-panel-fill p.text-xs.font-medium').text().trim()
 
     await openPopover(wrapper)
     await openTimePage(wrapper)
@@ -1521,16 +1559,24 @@ describe.sequential('time panel layout behavior', () => {
     const minuteWheel = wrapper.findAll('[aria-label="Minute wheel"]').at(0)
     expect(minuteWheel).toBeTruthy()
 
-    const pickWheelOptionNearCenter = async (wheel: NonNullable<typeof minuteWheel>, value: string) => {
-      const option = wheel.findAll('[role="option"]')
+    const pickWheelOptionNearCenter = async (
+      wheel: NonNullable<typeof minuteWheel>,
+      value: string,
+    ) => {
+      const option = wheel
+        .findAll('[role="option"]')
         .filter(node => node.text().trim() === value)
         .sort((a, b) => {
           const aRow = a.element.closest('[data-time-index]')
           const bRow = b.element.closest('[data-time-index]')
           const aIndex = Number.parseInt(aRow?.getAttribute('data-time-index') ?? '', 10)
           const bIndex = Number.parseInt(bRow?.getAttribute('data-time-index') ?? '', 10)
-          const aDistance = Number.isFinite(aIndex) ? Math.abs(aIndex - 180) : Number.POSITIVE_INFINITY
-          const bDistance = Number.isFinite(bIndex) ? Math.abs(bIndex - 180) : Number.POSITIVE_INFINITY
+          const aDistance = Number.isFinite(aIndex)
+            ? Math.abs(aIndex - 180)
+            : Number.POSITIVE_INFINITY
+          const bDistance = Number.isFinite(bIndex)
+            ? Math.abs(bIndex - 180)
+            : Number.POSITIVE_INFINITY
           return aDistance - bDistance
         })
         .at(0)

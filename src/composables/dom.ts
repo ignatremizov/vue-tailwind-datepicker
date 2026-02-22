@@ -4,8 +4,7 @@ export default function useDom() {
       const { right } = el.getBoundingClientRect()
       const vWidth = window.innerWidth || document.documentElement.clientWidth
       return right > vWidth
-    }
-    else {
+    } else {
       return null
     }
   }

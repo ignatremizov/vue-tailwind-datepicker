@@ -1,13 +1,13 @@
-import dayjs from 'dayjs'
-import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
+import dayjs from 'dayjs'
 import { describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
 import {
-  SHORTCUT_EDGE_FIXTURES,
   addBusinessDays,
   addCalendarDays,
   clampToNextMonth,
+  SHORTCUT_EDGE_FIXTURES,
   withFixedNow,
 } from './shortcut-test-utils'
 
@@ -125,7 +125,9 @@ describe.sequential('shortcutPreset=modern', () => {
     const now = SHORTCUT_EDGE_FIXTURES.weekendSaturday.now
     await withFixedNow(now, async () => {
       const wrapper = await mountModernPresetPicker()
-      const nextWeekButton = getShortcutButtons(wrapper).find(item => item.text().trim() === 'Next week')
+      const nextWeekButton = getShortcutButtons(wrapper).find(
+        item => item.text().trim() === 'Next week',
+      )
       expect(nextWeekButton).toBeTruthy()
       await nextWeekButton!.trigger('keydown', { key: 'Enter' })
       await nextTick()
@@ -133,7 +135,9 @@ describe.sequential('shortcutPreset=modern', () => {
         expectedSingleRange(addCalendarDays(now, 7)),
       )
 
-      const nextMonthButton = getShortcutButtons(wrapper).find(item => item.text().trim() === 'Next month')
+      const nextMonthButton = getShortcutButtons(wrapper).find(
+        item => item.text().trim() === 'Next month',
+      )
       expect(nextMonthButton).toBeTruthy()
       await nextMonthButton!.trigger('keyup.space')
       await nextTick()
@@ -150,7 +154,6 @@ describe.sequential('shortcutPreset=modern', () => {
       const wrapper = await mountModernPresetPicker()
       const buttons = getShortcutButtons(wrapper)
       expect(buttons.length).toBeGreaterThan(1)
-
       ;(buttons[0]!.element as HTMLElement).focus()
       expect(document.activeElement).toBe(buttons[0]!.element)
 

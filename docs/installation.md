@@ -23,15 +23,15 @@ Setup the component globally
 
 ```js
 // main.js
-import { createApp } from "vue";
-import App from "@/App.vue";
-import VueTailwindDatepicker from "vue-tailwind-datepicker";
+import { createApp } from 'vue'
+import VueTailwindDatepicker from 'vue-tailwind-datepicker'
+import App from '@/App.vue'
 // ...
 
-const app = createApp(App);
+const app = createApp(App)
 
-app.use(VueTailwindDatepicker);
-app.mount("#app");
+app.use(VueTailwindDatepicker)
+app.mount('#app')
 ```
 
 Setup as a single component
@@ -39,14 +39,14 @@ Setup as a single component
 ```vue
 <!-- SFC file -->
 <script setup>
-import { ref } from "vue";
-import VueTailwindDatepicker from "vue-tailwind-datepicker";
+import { ref } from 'vue'
+import VueTailwindDatepicker from 'vue-tailwind-datepicker'
 
-const dateValue = ref([]);
+const dateValue = ref([])
 </script>
 
 <template>
-  <vue-tailwind-datepicker v-model="dateValue" />
+  <VueTailwindDatepicker v-model="dateValue" />
 </template>
 ```
 
@@ -54,24 +54,24 @@ const dateValue = ref([]);
 
 ```js
 // tailwind.config.js
-const colors = require("tailwindcss/colors");
+const colors = require('tailwindcss/colors')
 
 module.exports = {
   content: [
-    "./index.html",
-    "./src/**/*.{vue,js,ts,jsx,tsx}",
-    "./node_modules/vue-tailwind-datepicker/**/*.js",
+    './index.html',
+    './src/**/*.{vue,js,ts,jsx,tsx}',
+    './node_modules/vue-tailwind-datepicker/**/*.js',
   ],
   theme: {
     extend: {
       colors: {
-        "vtd-primary": colors.sky, // Light mode Datepicker color
-        "vtd-secondary": colors.gray, // Dark mode Datepicker color
+        'vtd-primary': colors.sky, // Light mode Datepicker color
+        'vtd-secondary': colors.gray, // Dark mode Datepicker color
       },
     },
   },
-  plugins: [require("@tailwindcss/forms")],
-};
+  plugins: [require('@tailwindcss/forms')],
+}
 ```
 
 ## Setup in Nuxt3
@@ -93,9 +93,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 
 ```js
 export default {
-  plugins: [
-    '~/plugins/vue-tailwind-datepicker.js'
-  ],
+  plugins: ['~/plugins/vue-tailwind-datepicker.js'],
 }
 ```
 

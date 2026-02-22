@@ -1,10 +1,14 @@
-import dayjs from 'dayjs'
-import { h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
+import dayjs from 'dayjs'
 import { describe, expect, it, vi } from 'vitest'
-import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
+import { h, nextTick } from 'vue'
 import useShortcut from '../../src/composables/shortcut'
-import { SHORTCUT_EDGE_FIXTURES, createLocalDate, withFixedNow } from './shortcut-test-utils'
+import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
+import {
+  createLocalDate,
+  SHORTCUT_EDGE_FIXTURES,
+  withFixedNow,
+} from './shortcut-test-utils'
 
 const DATE_FORMAT = 'YYYY-MM-DD HH:mm:ss'
 
@@ -267,16 +271,17 @@ describe.sequential('invalid-shortcut event contract', () => {
           ],
         },
         slots: {
-          'shortcut-item': ({ id, label, activate }: any) => h(
-            'button',
-            {
-              type: 'button',
-              class: 'slot-shortcut-item',
-              'data-shortcut-id': id,
-              onClick: activate,
-            },
-            label,
-          ),
+          'shortcut-item': ({ id, label, activate }: any) =>
+            h(
+              'button',
+              {
+                'type': 'button',
+                'class': 'slot-shortcut-item',
+                'data-shortcut-id': id,
+                'onClick': activate,
+              },
+              label,
+            ),
         },
       })
       await vi.advanceTimersByTimeAsync(320)
@@ -315,16 +320,17 @@ describe.sequential('invalid-shortcut event contract', () => {
           ],
         },
         slots: {
-          'shortcut-item': ({ id, label, activate }: any) => h(
-            'button',
-            {
-              type: 'button',
-              class: 'slot-shortcut-item',
-              'data-shortcut-id': id,
-              onClick: activate,
-            },
-            label,
-          ),
+          'shortcut-item': ({ id, label, activate }: any) =>
+            h(
+              'button',
+              {
+                'type': 'button',
+                'class': 'slot-shortcut-item',
+                'data-shortcut-id': id,
+                'onClick': activate,
+              },
+              label,
+            ),
         },
       })
       await vi.advanceTimersByTimeAsync(320)
@@ -439,16 +445,17 @@ describe.sequential('invalid-shortcut event contract', () => {
           ],
         },
         slots: {
-          'shortcut-item': ({ id, label, activate }: any) => h(
-            'button',
-            {
-              type: 'button',
-              class: 'slot-shortcut-item',
-              'data-shortcut-id': id,
-              onClick: activate,
-            },
-            label,
-          ),
+          'shortcut-item': ({ id, label, activate }: any) =>
+            h(
+              'button',
+              {
+                'type': 'button',
+                'class': 'slot-shortcut-item',
+                'data-shortcut-id': id,
+                'onClick': activate,
+              },
+              label,
+            ),
         },
       })
       await vi.advanceTimersByTimeAsync(320)

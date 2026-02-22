@@ -22,20 +22,24 @@ interface TimeWheelStepPayload {
   delta: number
 }
 
-const props = withDefaults(defineProps<{
-  items: TimeWheelItem[]
-  modelValue: number | string | null
-  ariaLabel: string
-  disabled?: boolean
-  scrollMode?: 'boundary' | 'fractional'
-  fractionalOffset?: number
-  syncDirection?: -1 | 0 | 1
-}>(), {
-  disabled: false,
-  scrollMode: 'boundary',
-  fractionalOffset: 0,
-  syncDirection: 0,
-})
+const props = withDefaults(
+  defineProps<{
+    items: TimeWheelItem[]
+    modelValue: number | string | null
+    ariaLabel?: string
+    disabled?: boolean
+    scrollMode?: 'boundary' | 'fractional'
+    fractionalOffset?: number
+    syncDirection?: -1 | 0 | 1
+  }>(),
+  {
+    ariaLabel: '',
+    disabled: false,
+    scrollMode: 'boundary',
+    fractionalOffset: 0,
+    syncDirection: 0,
+  },
+)
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: number | string): void
@@ -208,13 +212,16 @@ function getCenteredItem() {
 function resolveSmoothSyncDuration(targetIndex: number) {
   const distanceInRows = Math.abs(targetIndex - centeredIndexFloat.value)
   return clamp(
-    Math.round(SMOOTH_SCROLL_SYNC_MS + (distanceInRows * 5)),
+    Math.round(SMOOTH_SCROLL_SYNC_MS + distanceInRows * 5),
     SMOOTH_SCROLL_SYNC_MS,
     SMOOTH_SCROLL_SYNC_MAX_MS,
   )
 }
 
-function markProgrammaticScrollSync(durationMs = PROGRAMMATIC_SCROLL_SYNC_MS, emitAfterSync = true) {
+function markProgrammaticScrollSync(
+  durationMs = PROGRAMMATIC_SCROLL_SYNC_MS,
+  emitAfterSync = true,
+) {
   isProgrammaticScrollSync.value = true
   if (programmaticSyncTimeoutId !== null)
     clearTimeout(programmaticSyncTimeoutId)
@@ -229,7 +236,9 @@ function markProgrammaticScrollSync(durationMs = PROGRAMMATIC_SCROLL_SYNC_MS, em
     // leave the selected row slightly off-center. Realign to the active value
     // once animation settles without emitting extra carry events.
     if (!isUserScrolling.value && activeAbsoluteIndex.value !== null) {
-      const activeItem = wheelItems.value.find(item => item.absoluteIndex === activeAbsoluteIndex.value)
+      const activeItem = wheelItems.value.find(
+        item => item.absoluteIndex === activeAbsoluteIndex.value,
+      )
       if (activeItem) {
         const expectedIndex = activeItem.index + normalizeFractionalOffset()
         if (Math.abs(centeredIndexFloat.value - expectedIndex) > 0.12) {
@@ -238,8 +247,7 @@ function markProgrammaticScrollSync(durationMs = PROGRAMMATIC_SCROLL_SYNC_MS, em
         }
       }
       needsIdleRealign = false
-    }
-    else if (activeAbsoluteIndex.value !== null) {
+    } else if (activeAbsoluteIndex.value !== null) {
       // A carry update may finish while momentum scrolling is still active.
       // Defer center correction until the wheel goes idle.
       needsIdleRealign = true
@@ -438,9 +446,10 @@ function emitSelectionFromItem(item: VirtualTimeWheelItem | null) {
   activeAbsoluteIndex.value = item.absoluteIndex
 
   const value = item.item.value
-  const previousValue = previousAbsoluteIndex === null
-    ? null
-    : resolveValueAtAbsoluteIndex(previousAbsoluteIndex) ?? null
+  const previousValue
+    = previousAbsoluteIndex === null
+      ? null
+      : (resolveValueAtAbsoluteIndex(previousAbsoluteIndex) ?? null)
   emit('step', {
     value,
     previousValue,
@@ -493,7 +502,9 @@ function onSelectorScroll() {
   scrollIdleTimeoutId = setTimeout(() => {
     isUserScrolling.value = false
     if (needsIdleRealign && activeAbsoluteIndex.value !== null) {
-      const activeItem = wheelItems.value.find(item => item.absoluteIndex === activeAbsoluteIndex.value)
+      const activeItem = wheelItems.value.find(
+        item => item.absoluteIndex === activeAbsoluteIndex.value,
+      )
       if (activeItem) {
         const expectedIndex = activeItem.index + normalizeFractionalOffset()
         if (Math.abs(centeredIndexFloat.value - expectedIndex) > 0.12) {
@@ -574,9 +585,10 @@ function applyKeyboardDelta(delta: number) {
 
   emit('step', {
     value: targetValue,
-    previousValue: previousAbsoluteIndex === null
-      ? null
-      : resolveValueAtAbsoluteIndex(previousAbsoluteIndex) ?? null,
+    previousValue:
+      previousAbsoluteIndex === null
+        ? null
+        : (resolveValueAtAbsoluteIndex(previousAbsoluteIndex) ?? null),
     absoluteIndex: targetAbsoluteIndex,
     previousAbsoluteIndex,
     delta: previousAbsoluteIndex === null ? 0 : targetAbsoluteIndex - previousAbsoluteIndex,
@@ -735,9 +747,10 @@ onMounted(() => {
   resizeObserver = new ResizeObserver(() => {
     const viewportHeight = container.clientHeight
     const becameVisible = lastObservedViewportHeight <= 0 && viewportHeight > 0
-    const resizedWhileVisible = lastObservedViewportHeight > 0
-      && viewportHeight > 0
-      && Math.abs(viewportHeight - lastObservedViewportHeight) > 1
+    const resizedWhileVisible
+      = lastObservedViewportHeight > 0
+        && viewportHeight > 0
+        && Math.abs(viewportHeight - lastObservedViewportHeight) > 1
     lastObservedViewportHeight = viewportHeight
 
     if (!becameVisible && !resizedWhileVisible)
@@ -815,7 +828,10 @@ onMounted(() => {
 
 <style scoped>
 .vtd-time-wheel-option-selected {
-  color: var(--vtd-time-wheel-selected-text, var(--vtd-wheel-selected-text, rgb(56 189 248 / 100%)));
+  color: var(
+    --vtd-time-wheel-selected-text,
+    var(--vtd-wheel-selected-text, rgb(56 189 248 / 100%))
+  );
 }
 
 .vtd-time-wheel-option-default {

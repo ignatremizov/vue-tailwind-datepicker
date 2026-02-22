@@ -1,6 +1,6 @@
-import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
 import { createLocalDate, withFixedNow } from './shortcut-test-utils'
 

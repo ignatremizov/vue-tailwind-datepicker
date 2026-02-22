@@ -1,6 +1,6 @@
-import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import Year from '../../src/components/Year.vue'
 
 const years = Array.from({ length: 241 }, (_, index) => 1900 + index)
@@ -10,7 +10,7 @@ async function flushTicks() {
   await nextTick()
 }
 
-describe('Selector year scroll mode', () => {
+describe('selector year scroll mode', () => {
   it('does not re-center the wheel on month drift in boundary mode', async () => {
     const scrollSpy = vi.spyOn(HTMLElement.prototype, 'scrollTo')
     const wrapper = mount(Year, {
@@ -108,8 +108,7 @@ describe('Selector year scroll mode', () => {
 
   it('keeps smooth motion on repeated year step-button clicks', async () => {
     const scrollSpy = vi.spyOn(HTMLElement.prototype, 'scrollTo')
-    let wrapper: ReturnType<typeof mount>
-    wrapper = mount(Year, {
+    const wrapper: ReturnType<typeof mount> = mount(Year, {
       props: {
         years,
         selectorMode: true,

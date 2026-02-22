@@ -1,20 +1,20 @@
-import type { InjectionKey, Ref } from 'vue'
 import type { Dayjs } from 'dayjs'
+import type { InjectionKey, Ref } from 'vue'
 import type { DatePickerDay, ShortcutDefinition } from './types'
 
-const isBetweenRangeKey: InjectionKey<(date: DatePickerDay) => boolean> =
-  Symbol('isBetweenRange')
+const isBetweenRangeKey: InjectionKey<(date: DatePickerDay) => boolean>
+  = Symbol('isBetweenRange')
 const betweenRangeClassesKey: InjectionKey<(date: Dayjs) => string> = Symbol(
   'betweenRangeClasses',
 )
 const datepickerClassesKey: InjectionKey<
   (date: DatePickerDay) => string | undefined
 > = Symbol('datepickerClasses')
-const atMouseOverKey: InjectionKey<(date: Dayjs) => false | undefined> =
-  Symbol('atMouseOver')
+const atMouseOverKey: InjectionKey<(date: Dayjs) => false | undefined>
+  = Symbol('atMouseOver')
 
 export type BuiltInShortcutId
-  = 'today'
+  = | 'today'
     | 'yesterday'
     | 'past-7-days'
     | 'past-30-days'
@@ -55,11 +55,11 @@ const getShortcutDisabledStateKey: InjectionKey<
 > = Symbol('getShortcutDisabledState')
 
 export {
-  isBetweenRangeKey,
+  activateShortcutKey,
+  atMouseOverKey,
   betweenRangeClassesKey,
   datepickerClassesKey,
-  atMouseOverKey,
-  activateShortcutKey,
-  isShortcutDisabledKey,
   getShortcutDisabledStateKey,
+  isBetweenRangeKey,
+  isShortcutDisabledKey,
 }

@@ -1,7 +1,7 @@
-import dayjs from 'dayjs'
 import { mount, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import dayjs from 'dayjs'
 import { describe, expect, it } from 'vitest'
+import { nextTick } from 'vue'
 import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
 
 function getDateKeyFromButton(button: DOMWrapper<Element>) {
@@ -29,8 +29,7 @@ function assertWeekendHookContract(buttons: DOMWrapper<Element>[]) {
       if (day === 6) {
         expect(classes).toContain('vtd-saturday')
         expect(classes).not.toContain('vtd-sunday')
-      }
-      else {
+      } else {
         expect(classes).toContain('vtd-sunday')
         expect(classes).not.toContain('vtd-saturday')
       }
@@ -48,7 +47,9 @@ function wait(ms: number) {
 }
 
 async function mountSinglePicker(extraProps: Record<string, unknown> = {}) {
-  const { waitMs = 320, ...pickerProps } = extraProps as Record<string, unknown> & { waitMs?: number }
+  const { waitMs = 320, ...pickerProps } = extraProps as Record<string, unknown> & {
+    waitMs?: number
+  }
   const wrapper = mount(VueTailwindDatePicker, {
     props: {
       noInput: true,
@@ -140,7 +141,9 @@ describe('weekend day styling hooks', () => {
     const wrapper = await mountSinglePicker()
     try {
       const vm = wrapper.vm as unknown as { calendar: { previous: { onNext: () => void } } }
-      const initialKeys = wrapper.findAll('button.vtd-datepicker-date').map(button => getDateKeyFromButton(button))
+      const initialKeys = wrapper
+        .findAll('button.vtd-datepicker-date')
+        .map(button => getDateKeyFromButton(button))
 
       vm.calendar.previous.onNext()
       await nextTick()

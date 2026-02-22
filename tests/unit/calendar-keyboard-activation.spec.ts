@@ -58,7 +58,7 @@ function mountCalendarForKeyboard() {
   })
 }
 
-describe('Calendar keyboard activation', () => {
+describe('calendar keyboard activation', () => {
   it('activates the focused date on Enter and Space keys', async () => {
     const wrapper = mountCalendarForKeyboard()
     const button = wrapper.get('[data-date-key="2026-02-15"]')

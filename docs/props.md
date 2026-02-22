@@ -128,7 +128,7 @@ The datepicker can be fully disabled as well.
 <DemoLayout>
   <VueTailwindDatePicker
     v-model="dateValue1"
-		:disabled="true"
+    :disabled="true"
   ></VueTailwindDatePicker>
 </DemoLayout>
 
@@ -266,10 +266,10 @@ const dateValue = ref([])
 Change formatter, default `formatter`:
 
 ```js
-  {
-    date: 'YYYY-MM-DD HH:mm:ss',
-    month: 'MMM'
-  }
+const formatter = {
+  date: 'YYYY-MM-DD HH:mm:ss',
+  month: 'MMM',
+}
 ```
 
 <DemoLayout>
@@ -394,7 +394,6 @@ If you want to show week number in the calendar
     v-model="dateValue16"
   />
 </DemoLayout>
-
 
 ## Shortcuts
 
@@ -601,7 +600,6 @@ const dateValue = ref([])
     </template>
   </VueTailwindDatePicker>
 ```
-
 
 ## Options
 

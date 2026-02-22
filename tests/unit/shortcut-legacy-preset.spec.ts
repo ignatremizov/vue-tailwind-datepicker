@@ -1,7 +1,7 @@
-import dayjs from 'dayjs'
-import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
+import dayjs from 'dayjs'
 import { describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
 import { SHORTCUT_EDGE_FIXTURES, withFixedNow } from './shortcut-test-utils'
 
@@ -72,7 +72,9 @@ describe.sequential('shortcutPreset=legacy', () => {
     const now = SHORTCUT_EDGE_FIXTURES.weekendSaturday.now
     await withFixedNow(now, async () => {
       const wrapper = await mountPicker({ shortcutPreset: 'legacy' })
-      const todayButton = wrapper.findAll('button.vtd-shortcuts').find(item => item.text().trim() === 'Today')
+      const todayButton = wrapper
+        .findAll('button.vtd-shortcuts')
+        .find(item => item.text().trim() === 'Today')
       expect(todayButton).toBeTruthy()
       await todayButton!.trigger('click')
       await nextTick()

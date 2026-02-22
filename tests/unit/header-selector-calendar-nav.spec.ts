@@ -19,7 +19,7 @@ function createCalendarStub() {
   }
 }
 
-describe('Header calendar quick navigation in selector mode', () => {
+describe('header calendar quick navigation in selector mode', () => {
   it('keeps month prev/next arrows available in calendar view', async () => {
     const calendar = createCalendarStub()
     const wrapper = mount(Header, {

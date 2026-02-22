@@ -52,12 +52,13 @@ Changed month event from dropdown for left/single calendar.
 
 ```vue
 <script setup>
-import { ref } from "vue";
-const dateValue = ref([]);
+import { ref } from 'vue'
 
-const onSelectSomething = (newDate) => {
-  console.log(newDate); // newDate instanceof dayjs
-};
+const dateValue = ref([])
+
+function onSelectSomething(newDate) {
+  console.log(newDate) // newDate instanceof dayjs
+}
 </script>
 
 <template>
@@ -83,15 +84,16 @@ Shortcut activation failure event. Triggered when a shortcut is explicitly disab
 
 ```vue
 <script setup>
-import { ref } from "vue";
-const dateValue = ref("");
+import { ref } from 'vue'
 
-const onInvalidShortcut = (payload) => {
-  console.log(payload.id);
-  console.log(payload.reason); // disabled | blocked-date | mode-mismatch | resolver-error | invalid-result
-  console.log(payload.mode); // single | range
-  console.log(payload.resolvedValue); // Date | [Date, Date] | null
-};
+const dateValue = ref('')
+
+function onInvalidShortcut(payload) {
+  console.log(payload.id)
+  console.log(payload.reason) // disabled | blocked-date | mode-mismatch | resolver-error | invalid-result
+  console.log(payload.mode) // single | range
+  console.log(payload.resolvedValue) // Date | [Date, Date] | null
+}
 </script>
 
 <template>
@@ -125,12 +127,13 @@ Changed year event from dropdown for left/single calendar.
 
 ```vue
 <script setup>
-import { ref } from "vue";
-const dateValue = ref([]);
+import { ref } from 'vue'
 
-const onSelectSomething = (newDate) => {
-  console.log(newDate); // newDate instanceof dayjs
-};
+const dateValue = ref([])
+
+function onSelectSomething(newDate) {
+  console.log(newDate) // newDate instanceof dayjs
+}
 </script>
 
 <template>
@@ -163,12 +166,13 @@ Changed month event from dropdown for right calendar.
 
 ```vue
 <script setup>
-import { ref } from "vue";
-const dateValue = ref([]);
+import { ref } from 'vue'
 
-const onClickSomething = (newDate) => {
-  console.log(newDate); // newDate instanceof dayjs
-};
+const dateValue = ref([])
+
+function onClickSomething(newDate) {
+  console.log(newDate) // newDate instanceof dayjs
+}
 </script>
 
 <template>
@@ -196,12 +200,13 @@ Changed year event from dropdown for right calendar.
 
 ```vue
 <script setup>
-import { ref } from "vue";
-const dateValue = ref([]);
+import { ref } from 'vue'
 
-const onSelectSomething = (newDate) => {
-  console.log(newDate); // newDate instanceof dayjs
-};
+const dateValue = ref([])
+
+function onSelectSomething(newDate) {
+  console.log(newDate) // newDate instanceof dayjs
+}
 </script>
 
 <template>
@@ -236,12 +241,13 @@ Click previous button event for left/single calendar.
 
 ```vue
 <script setup>
-import { ref } from "vue";
-const dateValue = ref([]);
+import { ref } from 'vue'
 
-const onClickSomething = (newDate) => {
-  console.log(newDate); // newDate instanceof dayjs
-};
+const dateValue = ref([])
+
+function onClickSomething(newDate) {
+  console.log(newDate) // newDate instanceof dayjs
+}
 </script>
 
 <template>
@@ -281,12 +287,13 @@ Click next button event for left/single calendar.
 
 ```vue
 <script setup>
-import { ref } from "vue";
-const dateValue = ref([]);
+import { ref } from 'vue'
 
-const onClickSomething = (newDate) => {
-  console.log(newDate); // newDate instanceof dayjs
-};
+const dateValue = ref([])
+
+function onClickSomething(newDate) {
+  console.log(newDate) // newDate instanceof dayjs
+}
 </script>
 
 <template>
@@ -319,12 +326,13 @@ Click previous button event for right calendar.
 
 ```vue
 <script setup>
-import { ref } from "vue";
-const dateValue = ref([]);
+import { ref } from 'vue'
 
-const onClickSomething = (newDate) => {
-  console.log(newDate); // newDate instanceof dayjs
-};
+const dateValue = ref([])
+
+function onClickSomething(newDate) {
+  console.log(newDate) // newDate instanceof dayjs
+}
 </script>
 
 <template>
@@ -352,12 +360,13 @@ Click next button event for right calendar.
 
 ```vue
 <script setup>
-import { ref } from "vue";
-const dateValue = ref([]);
+import { ref } from 'vue'
 
-const onClickSomething = (newDate) => {
-  console.log(newDate); // newDate instanceof dayjs
-};
+const dateValue = ref([])
+
+function onClickSomething(newDate) {
+  console.log(newDate) // newDate instanceof dayjs
+}
 </script>
 
 <template>
@@ -407,7 +416,10 @@ Payload shape:
 ```ts
 {
   type: 'configuration' | 'validation'
-  code: 'config-missing-time-token' | 'invalid-time-input' | 'dst-nonexistent-time' | 'range-end-before-start'
+  code: 'config-missing-time-token'
+    | 'invalid-time-input'
+    | 'dst-nonexistent-time'
+    | 'range-end-before-start'
   message: string
   field: 'formatter' | 'time' | 'range'
   endpoint: 'start' | 'end' | null

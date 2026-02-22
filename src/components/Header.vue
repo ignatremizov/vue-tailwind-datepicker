@@ -5,41 +5,44 @@ type PickerViewMode = 'calendar' | 'selector'
 type SelectorFocus = 'month' | 'year'
 type SelectionPanel = 'previous' | 'next'
 
-const props = withDefaults(defineProps<{
-  panel: {
-    calendar: boolean
-    month: boolean
-    year: boolean
-  }
-  calendar: {
-    date: () => any[]
-    month: string
-    year: number
-    years: () => number[]
-    onPrevious: () => void
-    onNext: () => void
-    onPreviousYear: () => void
-    onNextYear: () => void
-    openMonth: () => void
-    setMonth: ($event: number) => void
-    openYear: () => void
-    setYear: ($event: number) => void
-  }
-  selectorMode?: boolean
-  selectorFocus?: SelectorFocus
-  pickerViewMode?: PickerViewMode
-  panelName?: SelectionPanel
-}>(), {
-  selectorMode: false,
-  selectorFocus: 'month',
-  pickerViewMode: 'calendar',
-  panelName: 'previous',
-})
+const props = withDefaults(
+  defineProps<{
+    panel: {
+      calendar: boolean
+      month: boolean
+      year: boolean
+    }
+    calendar: {
+      date: () => any[]
+      month: string
+      year: number
+      years: () => number[]
+      onPrevious: () => void
+      onNext: () => void
+      onPreviousYear: () => void
+      onNextYear: () => void
+      openMonth: () => void
+      setMonth: ($event: number) => void
+      openYear: () => void
+      setYear: ($event: number) => void
+    }
+    selectorMode?: boolean
+    selectorFocus?: SelectorFocus
+    pickerViewMode?: PickerViewMode
+    panelName?: SelectionPanel
+  }>(),
+  {
+    selectorMode: false,
+    selectorFocus: 'month',
+    pickerViewMode: 'calendar',
+    panelName: 'previous',
+  },
+)
 
 const emit = defineEmits<{
-  (e: 'enter-selector-mode', payload: { panel: SelectionPanel; focus: SelectorFocus }): void
-  (e: 'toggle-picker-view', payload: { panel: SelectionPanel; focus: SelectorFocus }): void
-  (e: 'step-month', payload: { panel: SelectionPanel; delta: -1 | 1 }): void
+  (e: 'enter-selector-mode', payload: { panel: SelectionPanel, focus: SelectorFocus }): void
+  (e: 'toggle-picker-view', payload: { panel: SelectionPanel, focus: SelectorFocus }): void
+  (e: 'step-month', payload: { panel: SelectionPanel, delta: -1 | 1 }): void
 }>()
 
 const SIDE_NAV_BUTTON_CLASS
@@ -62,17 +65,14 @@ function sideButtonAriaLabel(direction: 'previous' | 'next') {
 function sideButtonPath(direction: 'previous' | 'next') {
   if (isMonthSideNavigation())
     return direction === 'previous' ? 'M15 19l-7-7 7-7' : 'M9 5l7 7-7 7'
-  return direction === 'previous'
-    ? 'M11 19l-7-7 7-7m8 14l-7-7 7-7'
-    : 'M13 5l7 7-7 7M5 5l7 7-7 7'
+  return direction === 'previous' ? 'M11 19l-7-7 7-7m8 14l-7-7 7-7' : 'M13 5l7 7-7 7M5 5l7 7-7 7'
 }
 
 function onHeaderValueClick(focus: SelectorFocus) {
   const openLegacyPanel = () => {
     if (focus === 'month')
       props.calendar.openMonth()
-    else
-      props.calendar.openYear()
+    else props.calendar.openYear()
   }
 
   if (!props.selectorMode) {
@@ -113,7 +113,7 @@ function resolveSelectorFocusFromClick(event: MouseEvent): SelectorFocus {
     const rect = currentTarget.getBoundingClientRect()
     const clickX = event.clientX - rect.left
     if (clickX >= 0 && clickX <= rect.width)
-      return clickX < (rect.width / 2) ? 'month' : 'year'
+      return clickX < rect.width / 2 ? 'month' : 'year'
   }
 
   return props.selectorFocus
@@ -168,7 +168,13 @@ function onSideNextClick() {
           ]"
           @click="onSidePreviousClick"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -191,8 +197,14 @@ function onSideNextClick() {
             @click="onSelectorHeaderClickWithHeuristic"
           >
             <span class="inline-flex items-center gap-1.5 text-center">
-              <span ref="selectorMonthTextRef" @click.stop="onSelectorHeaderClick('month')">{{ calendar.month }}</span>
-              <span ref="selectorYearTextRef" class="tabular-nums" @click.stop="onSelectorHeaderClick('year')">{{ calendar.year }}</span>
+              <span ref="selectorMonthTextRef" @click.stop="onSelectorHeaderClick('month')">
+                {{ calendar.month }}
+              </span>
+              <span
+                ref="selectorYearTextRef"
+                class="tabular-nums"
+                @click.stop="onSelectorHeaderClick('year')"
+              >{{ calendar.year }}</span>
             </span>
             <svg
               class="pointer-events-none h-3.5 w-3.5 absolute right-3 top-1/2 -translate-y-1/2 transition-transform duration-150"
@@ -201,7 +213,11 @@ function onSideNextClick() {
               fill="currentColor"
               aria-hidden="true"
             >
-              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+              <path
+                fill-rule="evenodd"
+                d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                clip-rule="evenodd"
+              />
             </svg>
           </button>
         </span>
@@ -212,7 +228,8 @@ function onSideNextClick() {
             :id="`vtd-header-${props.panelName}-month`"
             type="button"
             class="px-3 py-1.5 block w-full leading-relaxed rounded-md bg-white text-xs 2xl:text-sm tracking-wide text-vtd-secondary-600 font-semibold sm:font-medium transition-colors border border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring-3 focus:ring-vtd-primary-500/10 focus:outline-hidden uppercase truncate dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600/50 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/25"
-            @click="onHeaderValueClick('month')" v-text="calendar.month"
+            @click="onHeaderValueClick('month')"
+            v-text="calendar.month"
           />
         </span>
         <span class="flex rounded-md w-[4.75rem] shrink-0">
@@ -220,30 +237,31 @@ function onSideNextClick() {
             :id="`vtd-header-${props.panelName}-year`"
             type="button"
             class="px-3 py-1.5 block w-full leading-relaxed rounded-md bg-white text-xs 2xl:text-sm tracking-wide text-vtd-secondary-600 font-semibold sm:font-medium transition-colors border border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring-3 focus:ring-vtd-primary-500/10 focus:outline-hidden uppercase truncate dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600/50 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/25"
-            @click="onHeaderValueClick('year')" v-text="calendar.year"
+            @click="onHeaderValueClick('year')"
+            v-text="calendar.year"
           />
         </span>
       </template>
     </div>
     <div class="shrink-0">
-      <span
-        v-show="panel.calendar || panel.year"
-        class="inline-flex rounded-full"
-      >
+      <span v-show="panel.calendar || panel.year" class="inline-flex rounded-full">
         <button
           type="button"
           :aria-label="sideButtonAriaLabel('next')"
-          :class="[
-            SIDE_NAV_BUTTON_CLASS,
-            isSelectorWheelView
-              ? 'opacity-65 hover:opacity-90'
-              : '',
-          ]"
+          :class="[SIDE_NAV_BUTTON_CLASS, isSelectorWheelView ? 'opacity-65 hover:opacity-90' : '']"
           @click="onSideNextClick"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
             <path
-              stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
               :d="sideButtonPath('next')"
             />
           </svg>

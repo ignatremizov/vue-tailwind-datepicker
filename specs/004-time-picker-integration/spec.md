@@ -1,12 +1,12 @@
 # Feature Specification: Integrated Time Selection for Date Picker
 
-**Feature Branch**: `004-time-picker-integration`  
-**Created**: 2026-02-12  
-**Updated**: 2026-02-18  
-**Status**: Implemented (scope expanded during polish and stabilization)  
+**Feature Branch**: `004-time-picker-integration`
+**Created**: 2026-02-12
+**Updated**: 2026-02-18
+**Status**: Implemented (scope expanded during polish and stabilization)
 **Input**: User description: "Add integrated time selection after date choice within the same picker UI, without opening a second popover."
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Select Date and Time in One Panel (Priority: P1)
 
@@ -70,7 +70,7 @@ As a user, I get stable validation feedback and resilient layout/scroll behavior
 - Range validation visibility when errored endpoint is not currently active.
 - Error text wrapping in constrained layouts with shortcut panel + time controls.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -106,13 +106,13 @@ As a user, I get stable validation feedback and resilient layout/scroll behavior
   - `dst-nonexistent-time`
   - `range-end-before-start`
 
-### Key Entities *(include if feature involves data)*
+### Key Entities _(include if feature involves data)_
 
 - **DateTime Draft State**: endpoint-scoped editable date+time state with validity markers.
 - **Apply Guard State**: deterministic blocked/allowed commit decision with code/field/endpoint metadata.
 - **Panel Lock State**: measured width/height constraints used to stabilize inline/time-page layout transitions.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

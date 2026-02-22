@@ -8,6 +8,7 @@
     "email": "alexandre@heypongo.com",
     "url": "https://github.com/elreco"
   },
+  "contributors": [],
   "homepage": "https://vue-tailwind-datepicker.com",
   "repository": {
     "type": "git",
@@ -38,15 +39,16 @@
   "files": [
     "dist"
   ],
-  "contributors": [],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --port 4173",
     "test:unit": "vitest run",
     "test:shortcut-matrix": "vitest run --passWithNoTests tests/unit/shortcut-*.spec.ts",
-    "lint": "eslint",
-    "lint:fix": "eslint --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "eslint . --fix",
+    "format:check": "eslint .",
     "docs:dev": "npm --prefix docs run dev",
     "docs:build": "npm --prefix docs run build",
     "docs:serve": "npm --prefix docs run serve",
@@ -177,11 +179,10 @@
     "vite-plugin-css-injected-by-js": "^3.3.1"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^0.43.1",
+    "@antfu/eslint-config": "^7.4.3",
     "@commitlint/cli": "^20.4.1",
     "@commitlint/config-conventional": "^20.4.1",
     "@headlessui/vue": "https://github.com/ignatremizov/headlessui/releases/download/v1.7.24-iremizov.1/headlessui-vue-1.7.24-iremizov.1.tgz",
-    "@microsoft/api-extractor": "^7.56.3",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/git": "^10.0.1",
@@ -195,7 +196,8 @@
     "@vue/test-utils": "^2.4.6",
     "dayjs": "^1.11.19",
     "esbuild": "^0.27.3",
-    "eslint": "^8.51.0",
+    "eslint": "^9.39.3",
+    "eslint-plugin-import-newlines": "^1.4.1",
     "fs-extra": "^11.3.3",
     "husky": "^8.0.3",
     "jsdom": "^28.0.0",
@@ -204,9 +206,13 @@
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
-    "vite-plugin-dts": "^4.5.4",
+    "vite-plugin-dts": "^5.0.0-beta.6",
     "vitest": "^4.0.18",
     "vue": "^3.5.28",
     "vue-tsc": "^3.2.4"
+  },
+  "overrides": {
+    "js-beautify": "https://codeload.github.com/ignatremizov/js-beautify/tar.gz/e5bacd263883f5297e4fa2aaeb2186a3f5905299",
+    "minimatch": "10.2.2"
   }
 }

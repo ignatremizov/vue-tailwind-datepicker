@@ -36,7 +36,7 @@ Range example (active panel semantics):
 1. Open selector mode from header and type a valid year token (for example `2034`); confirm calendar context updates immediately.
 2. Type a valid negative year token (for example `-44`); confirm signed-year support.
 3. Type a value outside bounds (for example `100000` or `-100000`); confirm no invalid commit occurs.
-4. Type mixed paste content (for example `  - 20a3b4 `); confirm deterministic normalization and validation behavior.
+4. Type mixed paste content (for example ` - 20a3b4`); confirm deterministic normalization and validation behavior.
 5. Press Enter on valid token; confirm selector remains open while current committed year stays applied.
 6. Press Escape during invalid/partial text; confirm reversion to last valid year.
 7. Blur with invalid/partial text; confirm reversion to last valid year.

@@ -9,7 +9,6 @@
 
 [![Commitizen friendly](https://img.shields.io/badge/commitizen-friendly-brightgreen.svg)](http://commitizen.github.io/cz-cli/)
 
-
 ## Documentation
 
 Go to [full documentation](https://vue-tailwind-datepicker.com)
@@ -37,19 +36,19 @@ How it works,
 
 ```vue
 <script setup>
-import { ref } from "vue";
-import VueTailwindDatepicker from "vue-tailwind-datepicker";
+import { ref } from 'vue'
+import VueTailwindDatepicker from 'vue-tailwind-datepicker'
 
-const dateValue = ref([]);
+const dateValue = ref([])
 const formatter = ref({
-  date: "DD MMM YYYY",
-  month: "MMM",
-});
+  date: 'DD MMM YYYY',
+  month: 'MMM',
+})
 </script>
 
 <template>
   <div>
-    <vue-tailwind-datepicker :formatter="formatter" v-model="dateValue" />
+    <VueTailwindDatepicker v-model="dateValue" :formatter="formatter" />
   </div>
 </template>
 ```
@@ -71,9 +70,9 @@ Use `timePickerStyle` to control whether time is disabled, text input, or wheel 
 
 ```vue
 <script setup>
-import { ref } from "vue";
+import { ref } from 'vue'
 
-const value = ref("");
+const value = ref('')
 </script>
 
 <template>
@@ -91,12 +90,12 @@ const value = ref("");
 
 ```vue
 <script setup>
-import { ref } from "vue";
+import { ref } from 'vue'
 
 const value = ref({
-  startDate: "",
-  endDate: "",
-});
+  startDate: '',
+  endDate: '',
+})
 </script>
 
 <template>
@@ -145,9 +144,9 @@ Enable native-like month/year scrolling with `selectorMode` (use `:selector-mode
 
 ```vue
 <script setup>
-import { ref } from "vue";
+import { ref } from 'vue'
 
-const singleDate = ref("");
+const singleDate = ref('')
 </script>
 
 <template>
@@ -159,12 +158,12 @@ const singleDate = ref("");
 
 ```vue
 <script setup>
-import { ref } from "vue";
+import { ref } from 'vue'
 
 const rangeDate = ref({
-  startDate: "",
-  endDate: "",
-});
+  startDate: '',
+  endDate: '',
+})
 </script>
 
 <template>
@@ -266,7 +265,9 @@ Hooks are stable across locales and also apply when `selector-mode` is enabled:
 
 ```vue
 <vue-tailwind-datepicker v-model="rangeEn" use-range i18n="en" />
+
 <vue-tailwind-datepicker v-model="rangeDe" use-range i18n="de" />
+
 <vue-tailwind-datepicker
   v-model="rangeSelector"
   use-range
@@ -284,12 +285,12 @@ Use `directYearInput` to allow typing a year directly in selector mode. The feat
 
 ```vue
 <script setup>
-import { ref } from "vue";
+import { ref } from 'vue'
 
 const value = ref({
-  startDate: "",
-  endDate: "",
-});
+  startDate: '',
+  endDate: '',
+})
 </script>
 
 <template>
@@ -322,12 +323,30 @@ Behavior summary:
 
 ![Dark Mode](https://github.com/elreco/vue-tailwind-datepicker/blob/main/docs/dark.png?raw=true)
 
+## Local Dev Ports
+
+- `npm run dev` uses Vite dev-server defaults (typically `http://127.0.0.1:5173/` unless overridden).
+- `npm run preview` runs on `http://127.0.0.1:4173/` (configured in `package.json`).
+- `npm run docs:screenshots` accepts a base URL argument, for example:
+  - `npm run docs:screenshots -- http://127.0.0.1:5173/`
+  - `npm run docs:screenshots -- http://127.0.0.1:4180/` (useful when working across multiple worktrees).
+  - Screenshot quality is configurable via env vars:
+    - `DOC_SCREENSHOT_VIEWPORT_WIDTH` (default `1800`)
+    - `DOC_SCREENSHOT_VIEWPORT_HEIGHT` (default `1300`)
+    - `DOC_SCREENSHOT_DEVICE_SCALE` (default `2`)
+    - `DOC_SCREENSHOT_ZOOM` (default `1.0`)
+- `npm run docs:gifs` accepts the same base URL argument:
+  - `npm run docs:gifs -- http://127.0.0.1:5173/`
+  - `npm run docs:gifs -- http://127.0.0.1:4180/`
+- `npm run docs:videos` generates MP4 animation captures (same URL argument pattern):
+  - `npm run docs:videos -- http://127.0.0.1:5173/`
+  - `npm run docs:videos -- http://127.0.0.1:4180/`
+
 ## Changelog
 
 All notable changes to this project will be documented in the [Releases Page](https://github.com/elreco/vue-tailwind-datepicker/releases).
 
 ## Sponsors
-
 
 - [Open Source AI Tools](https://ai.coderocket.app)
 - [www.coderocket.app](https://www.coderocket.app)

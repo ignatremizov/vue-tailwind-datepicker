@@ -1,15 +1,15 @@
 # Feature Specification: Weekend Day Styling Hooks for Date Cells
 
-**Feature Branch**: `002-weekend-day-styling`  
-**Created**: 2026-02-12  
-**Status**: Approved  
+**Feature Branch**: `002-weekend-day-styling`
+**Created**: 2026-02-12
+**Status**: Approved
 **Input**: User description: "Add reliable weekend styling support (Saturday/Sunday) for `vue-tailwind-datepicker` so host apps can render weekend days with custom tinting (e.g., red) without fragile CSS overrides."
 
 ## Reference Assets
 
 - Baseline picker UI reference: `specs/001-feat-native-scroll-month-year-selector/references/native-picker-reference.png`
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Weekend Cells Expose Stable Styling State (Priority: P1)
 
@@ -63,7 +63,7 @@ As a component consumer, I can style weekends while preserving selected/range/di
 - Locale configurations where week starts on Monday or Sunday.
 - Months where today is a weekend and must show both "today" and weekend styles.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -76,12 +76,12 @@ As a component consumer, I can style weekends while preserving selected/range/di
 - **FR-007**: System MUST keep API backward compatible for existing consumers and MUST NOT require new props for weekend styling.
 - **FR-008**: System MUST compute weekend using fixed Saturday/Sunday local date semantics.
 
-### Key Entities *(include if feature involves data)*
+### Key Entities _(include if feature involves data)_
 
 - **Day Cell State**: Render metadata for each date cell (today, selected, in-range, disabled, weekend).
 - **Style Hook Map**: Class-name mapping used by calendar rendering to style date cell states.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

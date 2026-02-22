@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import dayjs from 'dayjs'
-import { computed, onUnmounted, ref, watch } from 'vue'
-import type { Dayjs } from 'dayjs'
 import type { InvalidShortcutEventPayload } from './types'
+import dayjs, { type Dayjs } from 'dayjs'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import VueTailwindDatePicker from './VueTailwindDatePicker.vue'
 
 const dateValue = ref({
@@ -81,7 +80,10 @@ const allFeaturesShortcutsMode = ref<'off' | 'preset' | 'legacy' | 'custom'>('cu
 const allFeaturesOpenFocusTarget = ref<'input' | 'calendar'>('input')
 const allFeaturesDebugInstrumentation = ref(false)
 const allFeaturesUsesWheelPicker = computed(() => {
-  return allFeaturesTimePickerStyle.value === 'wheel-page' || allFeaturesTimePickerStyle.value === 'wheel-inline'
+  return (
+    allFeaturesTimePickerStyle.value === 'wheel-page'
+    || allFeaturesTimePickerStyle.value === 'wheel-inline'
+  )
 })
 const allFeaturesWheelControlsDisabled = computed(() => !allFeaturesUsesWheelPicker.value)
 const allFeaturesSelectClass = 'w-full rounded border border-blue-300 bg-white px-2 py-1.5 text-xs text-blue-900'
@@ -172,7 +174,7 @@ const allFeaturesDemoShortcuts = [
   {
     id: 'highlight-next-week-range',
     label: 'Highlight next week range',
-    resolver: ({ now, mode }: { now: Date; mode: 'single' | 'range' }) => {
+    resolver: ({ now, mode }: { now: Date, mode: 'single' | 'range' }) => {
       const nextWeekStart = dayjs(now).add(1, 'week').startOf('week')
       const nextWeekEnd = nextWeekStart.endOf('week')
       if (mode === 'range')
@@ -256,9 +258,10 @@ function describeActiveElementForPerf() {
   if (!(active instanceof HTMLElement))
     return 'none'
   const id = active.id ? `#${active.id}` : ''
-  const className = typeof active.className === 'string' && active.className.trim().length > 0
-    ? `.${active.className.trim().split(/\s+/).slice(0, 2).join('.')}`
-    : ''
+  const className
+    = typeof active.className === 'string' && active.className.trim().length > 0
+      ? `.${active.className.trim().split(/\s+/).slice(0, 2).join('.')}`
+      : ''
   return `${active.tagName.toLowerCase()}${id}${className}`
 }
 
@@ -430,7 +433,12 @@ function logVtdDebugSnapshot() {
     })
     .filter(item => Number.isFinite(item.gapMs) && item.gapMs >= 250)
     .slice(-20)
-  console.log('[VTD DEBUG] primaryInstance=%s events=%d slowPanelMeasures(>=8ms)=%d', primaryInstance, primaryEvents.length, slowPanelMeasures.length)
+  console.log(
+    '[VTD DEBUG] primaryInstance=%s events=%d slowPanelMeasures(>=8ms)=%d',
+    primaryInstance,
+    primaryEvents.length,
+    slowPanelMeasures.length,
+  )
   if (instanceSummary.length > 0)
     console.table(instanceSummary.slice(0, 10))
   console.table(recentPrimaryEvents.map((event) => {
@@ -452,7 +460,11 @@ function logVtdDebugSnapshot() {
   const perf = runtimeWindow.__VTD_PERF__
   const frameGaps = perf?.frameGaps ?? []
   const longTasks = perf?.longTasks ?? []
-  console.log('[VTD PERF] frame gaps (>=120ms)=%d long tasks=%d', frameGaps.length, longTasks.length)
+  console.log(
+    '[VTD PERF] frame gaps (>=120ms)=%d long tasks=%d',
+    frameGaps.length,
+    longTasks.length,
+  )
   if (frameGaps.length > 0)
     console.table(frameGaps.slice(-20).map(item => ({ ...item, at: item.at.toFixed(2) })))
   if (longTasks.length > 0)
@@ -512,8 +524,7 @@ function startPerfTracking() {
         })
         longTaskObserver.observe({ type: 'longtask', buffered: true })
       }
-    }
-    catch {
+    } catch {
       // No-op: long task observer is best effort across browsers.
     }
   }
@@ -556,11 +567,13 @@ onUnmounted(() => {
   stopPerfTracking()
   setComponentDebugEnabled(false)
 })
-
 </script>
 
 <template>
-  <div :class="[isDark ? 'dark bg-slate-950' : 'bg-sky-50', 'min-h-screen px-10 pt-10 pb-[28rem]']">
+  <div
+    class="min-h-screen px-10 pt-10 pb-[28rem]"
+    :class="[isDark ? 'dark bg-slate-950' : 'bg-sky-50']"
+  >
     <div class="mb-3">
       <span class="text-sm text-slate-700 dark:text-slate-200">Choose one locale</span>
       <div class="mt-2 flex flex-wrap gap-2">
@@ -569,8 +582,8 @@ onUnmounted(() => {
           :key="locale.code"
           type="button"
           :aria-pressed="currentLocale === locale.code"
+          class="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors"
           :class="[
-            'inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors',
             currentLocale === locale.code
               ? 'border-sky-400 bg-sky-50 text-sky-700 dark:border-sky-500 dark:bg-sky-900/30 dark:text-sky-200'
               : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800',
@@ -583,13 +596,18 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <label class="mb-6 inline-flex cursor-pointer items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
-      <input v-model="isDark" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-900">
+    <label
+      class="mb-6 inline-flex cursor-pointer items-center gap-2 text-sm text-slate-700 dark:text-slate-200"
+    >
+      <input
+        v-model="isDark"
+        type="checkbox"
+        class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-900"
+      >
       <span>Dark Theme</span>
     </label>
 
     <div class="grid gap-4">
-
       <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
         <p class="mb-3 text-sm font-medium text-blue-900">
           All-features playground (range + selector wheels + modern shortcuts + wheel time)
@@ -599,7 +617,9 @@ onUnmounted(() => {
             <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
               Settings
             </p>
-            <div class="mb-3 rounded border border-blue-200 bg-blue-50 px-2 py-1.5 text-[11px] text-blue-800">
+            <div
+              class="mb-3 rounded border border-blue-200 bg-blue-50 px-2 py-1.5 text-[11px] text-blue-800"
+            >
               <p class="font-semibold">
                 Shortcuts panel
               </p>
@@ -756,11 +776,21 @@ onUnmounted(() => {
             <div class="mb-3">
               <span class="mb-1 block text-xs font-medium text-blue-900">Range layout</span>
               <label class="mb-1 flex items-center gap-2 text-xs text-blue-900">
-                <input v-model="allFeaturesSinglePanelRange" :value="true" type="radio" name="all-features-range-layout">
+                <input
+                  v-model="allFeaturesSinglePanelRange"
+                  :value="true"
+                  type="radio"
+                  name="all-features-range-layout"
+                >
                 Single page (`asSingle`)
               </label>
               <label class="flex items-center gap-2 text-xs text-blue-900">
-                <input v-model="allFeaturesSinglePanelRange" :value="false" type="radio" name="all-features-range-layout">
+                <input
+                  v-model="allFeaturesSinglePanelRange"
+                  :value="false"
+                  type="radio"
+                  name="all-features-range-layout"
+                >
                 Double page (`asSingle=false`)
               </label>
             </div>
@@ -770,8 +800,15 @@ onUnmounted(() => {
                 <input v-model="allFeaturesWeekendTintEnabled" type="checkbox">
                 Weekend red styling
               </label>
-              <label class="flex items-center gap-2 text-xs text-blue-900" :class="allFeaturesSelectorStyle !== 'wheel' ? 'opacity-50' : ''">
-                <input v-model="allFeaturesDirectYearInput" type="checkbox" :disabled="allFeaturesSelectorStyle !== 'wheel'">
+              <label
+                class="flex items-center gap-2 text-xs text-blue-900"
+                :class="allFeaturesSelectorStyle !== 'wheel' ? 'opacity-50' : ''"
+              >
+                <input
+                  v-model="allFeaturesDirectYearInput"
+                  type="checkbox"
+                  :disabled="allFeaturesSelectorStyle !== 'wheel'"
+                >
                 Direct year input
               </label>
             </div>
@@ -789,27 +826,35 @@ onUnmounted(() => {
               Restore trigger focus on close
             </label>
 
-            <div class="mt-3 rounded border border-blue-200 bg-blue-50 px-2 py-2 text-[11px] text-blue-900">
+            <div
+              class="mt-3 rounded border border-blue-200 bg-blue-50 px-2 py-2 text-[11px] text-blue-900"
+            >
               <label class="mb-2 flex items-center gap-2">
                 <input v-model="allFeaturesDebugInstrumentation" type="checkbox">
                 Enable debug instrumentation (dev only)
               </label>
               <div class="flex flex-wrap gap-2">
-                <button type="button" class="rounded border border-blue-300 bg-white px-2 py-1 text-[11px] font-medium text-blue-900" @click="logVtdDebugSnapshot">
+                <button
+                  type="button"
+                  class="rounded border border-blue-300 bg-white px-2 py-1 text-[11px] font-medium text-blue-900"
+                  @click="logVtdDebugSnapshot"
+                >
                   Log debug snapshot
                 </button>
-                <button type="button" class="rounded border border-blue-300 bg-white px-2 py-1 text-[11px] font-medium text-blue-900" @click="clearVtdDebugSnapshot">
+                <button
+                  type="button"
+                  class="rounded border border-blue-300 bg-white px-2 py-1 text-[11px] font-medium text-blue-900"
+                  @click="clearVtdDebugSnapshot"
+                >
                   Clear debug events
                 </button>
               </div>
             </div>
-
           </div>
 
-          <div :class="[
-              'rounded-md border border-blue-200/70 bg-white p-3',
-              allFeaturesWeekendTintEnabled ? 'all-features-weekend' : '',
-            ]"
+          <div
+            class="rounded-md border border-blue-200/70 bg-white p-3"
+            :class="[allFeaturesWeekendTintEnabled ? 'all-features-weekend' : '']"
           >
             <VueTailwindDatePicker
               v-model="allFeaturesValue"
@@ -1145,7 +1190,8 @@ onUnmounted(() => {
               :data-shortcut-id="id"
               @click="activate"
             >
-              {{ label }} <span v-if="meta?.hint" class="text-xs text-indigo-600">({{ meta.hint }})</span>
+              {{ label }}
+              <span v-if="meta?.hint" class="text-xs text-indigo-600">({{ meta.hint }})</span>
             </button>
           </template>
         </VueTailwindDatePicker>
@@ -1174,7 +1220,8 @@ onUnmounted(() => {
               :data-shortcut-id="id"
               @click="activate"
             >
-              {{ label }} <span v-if="meta?.hint" class="text-xs text-fuchsia-600">({{ meta.hint }})</span>
+              {{ label }}
+              <span v-if="meta?.hint" class="text-xs text-fuchsia-600">({{ meta.hint }})</span>
             </button>
           </template>
         </VueTailwindDatePicker>
@@ -1206,11 +1253,21 @@ onUnmounted(() => {
               <span>{{ label }}</span>
               <span
                 class="ml-2 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                :class="isDisabled
-                  ? (disabledReason === 'blocked-date' ? 'bg-amber-100 text-amber-700' : 'bg-teal-100 text-teal-700')
-                  : 'bg-teal-600 text-white'"
+                :class="
+                  isDisabled
+                    ? disabledReason === 'blocked-date'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-teal-100 text-teal-700'
+                    : 'bg-teal-600 text-white'
+                "
               >
-                {{ isDisabled ? (disabledReason === 'blocked-date' ? 'Blocked' : 'Disabled') : 'Active' }}
+                {{
+                  isDisabled
+                    ? disabledReason === 'blocked-date'
+                      ? 'Blocked'
+                      : 'Disabled'
+                    : 'Active'
+                }}
               </span>
             </button>
           </template>
@@ -1224,27 +1281,33 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.weekend-tint-demo :deep(.vtd-datepicker-date.vtd-weekend:not(.vtd-datepicker-date-selected):not(:disabled)) {
+.weekend-tint-demo
+  :deep(.vtd-datepicker-date.vtd-weekend:not(.vtd-datepicker-date-selected):not(:disabled)) {
   color: rgb(220 38 38 / 100%);
 }
 
-.weekend-tint-demo :deep(.vtd-datepicker-date.vtd-saturday:not(.vtd-datepicker-date-selected):not(:disabled)) {
+.weekend-tint-demo
+  :deep(.vtd-datepicker-date.vtd-saturday:not(.vtd-datepicker-date-selected):not(:disabled)) {
   color: rgb(234 88 12 / 100%);
 }
 
-.weekend-tint-demo :deep(.vtd-datepicker-date.vtd-sunday:not(.vtd-datepicker-date-selected):not(:disabled)) {
+.weekend-tint-demo
+  :deep(.vtd-datepicker-date.vtd-sunday:not(.vtd-datepicker-date-selected):not(:disabled)) {
   color: rgb(185 28 28 / 100%);
 }
 
-.all-features-weekend :deep(.vtd-datepicker-date.vtd-weekend:not(.vtd-datepicker-date-selected):not(:disabled)) {
+.all-features-weekend
+  :deep(.vtd-datepicker-date.vtd-weekend:not(.vtd-datepicker-date-selected):not(:disabled)) {
   color: rgb(220 38 38 / 100%);
 }
 
-.all-features-weekend :deep(.vtd-datepicker-date.vtd-saturday:not(.vtd-datepicker-date-selected):not(:disabled)) {
+.all-features-weekend
+  :deep(.vtd-datepicker-date.vtd-saturday:not(.vtd-datepicker-date-selected):not(:disabled)) {
   color: rgb(234 88 12 / 100%);
 }
 
-.all-features-weekend :deep(.vtd-datepicker-date.vtd-sunday:not(.vtd-datepicker-date-selected):not(:disabled)) {
+.all-features-weekend
+  :deep(.vtd-datepicker-date.vtd-sunday:not(.vtd-datepicker-date-selected):not(:disabled)) {
   color: rgb(185 28 28 / 100%);
 }
 </style>

@@ -3,31 +3,32 @@
 Theme of Vue Tailwind Datepicker is customizable, so you can customize your theme with any color you want, via Tailwind CSS configuration. And all will work well.
 
 Just modify your `main.css` to includes the plugin directive for `@tailwindcss/forms` and your `tailwind.config.js` file
+
 ```css
 @plugin "@tailwindcss/forms";
 
 /* Your tailwindconfig file */
-@config "../../tailwind.config.js"
+@config "../../tailwind.config.js";
 ```
 
 ```js
-const colors = require("tailwindcss/colors");
+const colors = require('tailwindcss/colors')
 
 module.exports = {
   content: [
-    "./index.html",
-    "./src/**/*.{vue,js,ts,jsx,tsx}",
-    "./node_modules/vue-tailwind-datepicker/**/*.js",
+    './index.html',
+    './src/**/*.{vue,js,ts,jsx,tsx}',
+    './node_modules/vue-tailwind-datepicker/**/*.js',
   ],
   theme: {
     extend: {
       colors: {
-        "vtd-primary": colors.sky,
-        "vtd-secondary": colors.gray,
+        'vtd-primary': colors.sky,
+        'vtd-secondary': colors.gray,
       },
     },
   },
-};
+}
 ```
 
 ## Light mode

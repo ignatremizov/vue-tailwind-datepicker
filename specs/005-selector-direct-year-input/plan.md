@@ -9,14 +9,14 @@ Add an opt-in direct-year text input flow inside selector mode (entered from hea
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.9, Vue 3.5 SFCs  
-**Primary Dependencies**: Vue 3, dayjs, @headlessui/vue, tailwindcss  
-**Storage**: N/A (component-local state only)  
-**Testing**: `npm run typecheck`, `npm run build`, manual quickstart scenarios  
-**Target Platform**: Browser (desktop + mobile), Vue 3 library consumers  
-**Project Type**: Single frontend component library  
-**Performance Goals**: Keep selector typing and year-wheel synchronization responsive (no perceptible lag during normal typing pace)  
-**Constraints**: Backward-compatible defaults, deterministic keyboard semantics, no hidden range auto-corrections during live typing  
+**Language/Version**: TypeScript 5.9, Vue 3.5 SFCs
+**Primary Dependencies**: Vue 3, dayjs, @headlessui/vue, tailwindcss
+**Storage**: N/A (component-local state only)
+**Testing**: `npm run typecheck`, `npm run build`, manual quickstart scenarios
+**Target Platform**: Browser (desktop + mobile), Vue 3 library consumers
+**Project Type**: Single frontend component library
+**Performance Goals**: Keep selector typing and year-wheel synchronization responsive (no perceptible lag during normal typing pace)
+**Constraints**: Backward-compatible defaults, deterministic keyboard semantics, no hidden range auto-corrections during live typing
 **Scale/Scope**: Extend existing selector/calendar flow in `src/VueTailwindDatePicker.vue` and related header/month/year subcomponents
 
 ## Constitution Check

@@ -20,8 +20,7 @@ describe.sequential('date validation DST behavior', () => {
       expect(result.isValid).toBe(true)
       expect(result.isDstNonexistent).toBe(false)
       expect(result.isAmbiguous).toBe(true)
-    }
-    finally {
+    } finally {
       if (previousTimeZone === undefined)
         delete process.env.TZ
       else

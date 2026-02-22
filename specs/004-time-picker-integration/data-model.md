@@ -97,25 +97,29 @@ This feature adds deterministic datetime state, endpoint projection, validation,
 ## State Transitions
 
 1. **Initialization**
+
 - Parse incoming model value.
 - Hydrate missing time parts from defaults/fallback.
 - Do not emit `update:modelValue` during hydration.
 
 2. **Edit**
+
 - Update draft for active endpoint (or directly edited endpoint in dual-input mode).
 - Update inline validation state.
 - Preserve range-order error until ordering becomes valid.
 
 3. **Endpoint toggle**
+
 - In wheel range mode, set active endpoint.
 - Clicking currently active endpoint flips to opposite endpoint.
 
 4. **Apply attempt**
+
 - Evaluate guard in order:
-  1) formatter/token contract
-  2) typed/parsed input validity
-  3) DST local-time validity
-  4) range ordering (`end >= start`)
+  1. formatter/token contract
+  2. typed/parsed input validity
+  3. DST local-time validity
+  4. range ordering (`end >= start`)
 - If blocked:
   - keep panel open
   - show inline/panel-level error
@@ -124,6 +128,7 @@ This feature adds deterministic datetime state, endpoint projection, validation,
   - commit formatted datetime values preserving external model shape
 
 5. **Structural settings changed while open**
+
 - Reset panel lock state.
 - Re-measure shell/content dimensions.
 - Re-apply bounded lock styles for current mode.

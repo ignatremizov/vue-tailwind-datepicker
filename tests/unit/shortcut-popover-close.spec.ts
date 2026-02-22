@@ -1,7 +1,7 @@
-import dayjs from 'dayjs'
-import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
+import dayjs from 'dayjs'
 import { describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
 import { createLocalDate, withFixedNow } from './shortcut-test-utils'
 
@@ -10,7 +10,7 @@ const DATE_FORMAT = 'YYYY-MM-DD HH:mm:ss'
 const nextWeekRangeShortcut = {
   id: 'highlight-next-week-range',
   label: 'Highlight next week range',
-  resolver: ({ now, mode }: { now: Date; mode: 'single' | 'range' }) => {
+  resolver: ({ now, mode }: { now: Date, mode: 'single' | 'range' }) => {
     const start = dayjs(now).add(1, 'week').startOf('week')
     const end = start.endOf('week')
     if (mode === 'range')
@@ -75,8 +75,19 @@ describe.sequential('shortcut popover close behavior', () => {
       const updates = wrapper.emitted('update:modelValue')
       expect(updates).toBeTruthy()
       const lastPayload = updates!.at(-1)?.[0] as Record<string, string>
-      expect(lastPayload.startDate).toBe(dayjs(createLocalDate(2026, 1, 14, 9, 0, 0)).add(1, 'week').startOf('week').format(DATE_FORMAT))
-      expect(lastPayload.endDate).toBe(dayjs(createLocalDate(2026, 1, 14, 9, 0, 0)).add(1, 'week').startOf('week').endOf('week').format(DATE_FORMAT))
+      expect(lastPayload.startDate).toBe(
+        dayjs(createLocalDate(2026, 1, 14, 9, 0, 0))
+          .add(1, 'week')
+          .startOf('week')
+          .format(DATE_FORMAT),
+      )
+      expect(lastPayload.endDate).toBe(
+        dayjs(createLocalDate(2026, 1, 14, 9, 0, 0))
+          .add(1, 'week')
+          .startOf('week')
+          .endOf('week')
+          .format(DATE_FORMAT),
+      )
 
       wrapper.unmount()
     })

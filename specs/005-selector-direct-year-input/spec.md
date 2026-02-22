@@ -1,11 +1,11 @@
 # Feature Specification: Direct Year Typing in Selector Mode
 
-**Feature Branch**: `005-selector-direct-year-input`  
-**Created**: 2026-02-12  
-**Status**: Draft  
+**Feature Branch**: `005-selector-direct-year-input`
+**Created**: 2026-02-12
+**Status**: Draft
 **Input**: User description: "In selector mode, when toggled from header, users can type a year directly."
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Type Year Directly from Selector Header Flow (Priority: P1)
 
@@ -70,7 +70,7 @@ As a date picker user, I can still use scroll-based month/year selection even wh
 - Locale or IME input behavior for numeric entry.
 - Keyboard-only workflow (Tab, Enter, Escape) with typed year and selector panel transitions.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -97,12 +97,12 @@ As a date picker user, I can still use scroll-based month/year selection even wh
 - **FR-021**: When normalization occurs at commit boundary for temporary inversion, implementation MUST auto-swap range endpoints to restore chronological order.
 - **FR-022**: Explicit commit boundary for inversion normalization MUST include Apply and close-with-persist exits, and MUST exclude Enter key confirmation-in-place plus cancel-like exits (Escape/Cancel/backdrop dismiss).
 
-### Key Entities *(include if feature involves data)*
+### Key Entities _(include if feature involves data)_
 
 - **Selector Year Input State**: Raw user-entered year text and its validated numeric value.
 - **Resolved Calendar Context**: Active month/year context used to render calendar and apply selection.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

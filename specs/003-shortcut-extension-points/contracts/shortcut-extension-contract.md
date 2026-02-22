@@ -43,7 +43,7 @@ interface LegacyShortcutDefinition {
 ```ts
 type ShortcutMode = 'single' | 'range'
 
-type ShortcutResolverContext = {
+interface ShortcutResolverContext {
   currentValue: unknown
   mode: ShortcutMode
   now: Date
@@ -87,7 +87,7 @@ interface TypedShortcutDefinition {
 Consumers can customize per-item rendering through slot/callback while keeping activation semantics internal.
 
 ```ts
-type ShortcutRenderPayload = {
+interface ShortcutRenderPayload {
   id: string
   label: string
   isDisabled: boolean
@@ -125,12 +125,12 @@ type ShortcutRenderPayload = {
 - Payload contract:
 
 ```ts
-type InvalidShortcutReason =
-  | 'disabled'
-  | 'blocked-date'
-  | 'mode-mismatch'
-  | 'resolver-error'
-  | 'invalid-result'
+type InvalidShortcutReason
+  = | 'disabled'
+    | 'blocked-date'
+    | 'mode-mismatch'
+    | 'resolver-error'
+    | 'invalid-result'
 
 interface InvalidShortcutPayload {
   id: string

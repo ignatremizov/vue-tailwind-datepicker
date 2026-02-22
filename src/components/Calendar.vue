@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { injectStrict } from '../utils'
 import {
   atMouseOverKey,
   betweenRangeClassesKey,
   datepickerClassesKey,
   isBetweenRangeKey,
 } from '../keys'
+import { injectStrict } from '../utils'
 
 const props = defineProps<{
   calendar: {
@@ -91,7 +91,9 @@ function ensureFocusedDateKey(dates = calendarDates.value) {
     return
   }
 
-  const stillFocusable = dates.some((date: any) => getDateKey(date) === focusedDateKey.value && isDateFocusable(date))
+  const stillFocusable = dates.some(
+    (date: any) => getDateKey(date) === focusedDateKey.value && isDateFocusable(date),
+  )
   if (!stillFocusable)
     focusedDateKey.value = resolveDefaultFocusKey(dates)
 }
@@ -171,7 +173,9 @@ function weekendHookClasses(date: any) {
 
 function onDateKeydown(event: KeyboardEvent, date: any) {
   const currentKey = getDateKey(date)
-  const currentIndex = calendarDates.value.findIndex((entry: any) => getDateKey(entry) === currentKey)
+  const currentIndex = calendarDates.value.findIndex(
+    (entry: any) => getDateKey(entry) === currentKey,
+  )
   if (currentIndex < 0)
     return
 
@@ -214,9 +218,7 @@ function onDateKeydown(event: KeyboardEvent, date: any) {
       source: 'keyboard',
       activationKey: event.key,
     })
-    return
   }
-
 }
 
 function onDateClick(date: any) {
@@ -238,20 +240,28 @@ watch(
 <template>
   <div ref="calendarRootRef" class="grid grid-cols-7 gap-y-0.5 my-1">
     <transition-group
-      enter-from-class="opacity-0" enter-to-class="opacity-100"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
       enter-active-class="transition-opacity ease-out duration-300"
-      leave-active-class="transition-opacity ease-in duration-200" leave-from-class="opacity-100"
+      leave-active-class="transition-opacity ease-in duration-200"
+      leave-from-class="opacity-100"
       leave-to-class="opacity-0"
     >
       <template v-for="(date, keyDate) in calendarDates" :key="keyDate">
-        <div v-if="keyDate % 7 === 0 && weekNumber" class="col-span-7 border-b relative dark:border-vtd-secondary-600">
-          <span class="absolute -left-2 top-1/2 -translate-y-2/4 bg-white dark:bg-vtd-secondary-800 text-[8px] pr-2 text-vtd-secondary-400">{{ date.week() }}</span>
-        </div>
-        <div class="relative" :class="{ 'vtd-tooltip': asRange && date.duration() }" :data-tooltip="`${date.duration()}`">
+        <div
+          v-if="keyDate % 7 === 0 && weekNumber"
+          class="col-span-7 border-b relative dark:border-vtd-secondary-600"
+        >
           <span
-            class="vtd-datepicker-range-preview absolute"
-            :class="getRangePreviewClass(date)"
-          />
+            class="absolute -left-2 top-1/2 -translate-y-2/4 bg-white dark:bg-vtd-secondary-800 text-[8px] pr-2 text-vtd-secondary-400"
+          >{{ date.week() }}</span>
+        </div>
+        <div
+          class="relative"
+          :class="{ 'vtd-tooltip': asRange && date.duration() }"
+          :data-tooltip="`${date.duration()}`"
+        >
+          <span class="vtd-datepicker-range-preview absolute" :class="getRangePreviewClass(date)" />
           <transition
             enter-from-class="opacity-0"
             enter-to-class="opacity-100"
@@ -274,10 +284,16 @@ watch(
               weekendHookClasses(date),
               asRange ? 'transition-[color] duration-120 ease-out' : 'transition-colors',
               isCalendarFocusTarget(date) ? 'vtd-calendar-focus-target' : '',
-            ]" :disabled="isDateDisabled(date) || isDateInRange(date)" :data-date="date.toDate()" @click="onDateClick(date)"
+            ]"
+            :disabled="isDateDisabled(date) || isDateInRange(date)"
+            :data-date="date.toDate()"
             :data-date-key="getDateKey(date)"
             :tabindex="isCalendarFocusTarget(date) ? 0 : -1"
-            @mouseenter="atMouseOver(date)" @focusin="onDateFocus(date)" @keydown="onDateKeydown($event, date)" v-text="date.date()"
+            @click="onDateClick(date)"
+            @mouseenter="atMouseOver(date)"
+            @focusin="onDateFocus(date)"
+            @keydown="onDateKeydown($event, date)"
+            v-text="date.date()"
           />
         </div>
       </template>

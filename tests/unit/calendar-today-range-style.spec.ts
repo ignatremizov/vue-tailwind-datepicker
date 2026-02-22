@@ -1,14 +1,14 @@
-import dayjs from 'dayjs'
-import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
+import dayjs from 'dayjs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
 
 afterEach(() => {
   vi.useRealTimers()
 })
 
-describe('Calendar today styling in range preview', () => {
+describe('calendar today styling in range preview', () => {
   it('keeps today marker styling when today is inside an active range (non-endpoint)', async () => {
     vi.useFakeTimers()
     const startDate = dayjs().subtract(2, 'day').format('YYYY-MM-DD HH:mm:ss')

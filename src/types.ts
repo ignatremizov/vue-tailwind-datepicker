@@ -29,12 +29,12 @@ export type ShortcutMode = 'single' | 'range'
 
 export type ShortcutResolvedValue = Date | [Date, Date]
 
-export type ShortcutInvalidReason =
-  | 'disabled'
-  | 'blocked-date'
-  | 'mode-mismatch'
-  | 'resolver-error'
-  | 'invalid-result'
+export type ShortcutInvalidReason
+  = | 'disabled'
+    | 'blocked-date'
+    | 'mode-mismatch'
+    | 'resolver-error'
+    | 'invalid-result'
 
 export interface ShortcutConstraints {
   isDateBlocked: (date: Date) => boolean

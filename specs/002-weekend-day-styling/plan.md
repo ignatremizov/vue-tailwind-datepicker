@@ -9,19 +9,19 @@ Add deterministic weekend styling hooks for day cells so Saturday/Sunday can be 
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.9, Vue 3.5 SFCs  
-**Primary Dependencies**: Vue 3, dayjs, tailwindcss, @headlessui/vue  
-**Storage**: N/A (computed view state only)  
-**Testing**: `npm run typecheck`, `npm run build`, manual picker checks from quickstart  
-**Target Platform**: Browser-based Vue 3 component consumers (desktop + mobile)  
-**Project Type**: Single frontend component library  
-**Performance Goals**: No perceptible regression in month navigation or day-grid paint responsiveness  
-**Constraints**: Backward-compatible API (no new props), weekend hooks are additive only, fixed Saturday/Sunday local-date semantics  
+**Language/Version**: TypeScript 5.9, Vue 3.5 SFCs
+**Primary Dependencies**: Vue 3, dayjs, tailwindcss, @headlessui/vue
+**Storage**: N/A (computed view state only)
+**Testing**: `npm run typecheck`, `npm run build`, manual picker checks from quickstart
+**Target Platform**: Browser-based Vue 3 component consumers (desktop + mobile)
+**Project Type**: Single frontend component library
+**Performance Goals**: No perceptible regression in month navigation or day-grid paint responsiveness
+**Constraints**: Backward-compatible API (no new props), weekend hooks are additive only, fixed Saturday/Sunday local-date semantics
 **Scale/Scope**: `src/VueTailwindDatePicker.vue`, `src/components/Calendar.vue`, `src/types.ts`, `src/App.vue`, `README.md`, `docs/theming-options.md`, and docs under `specs/002-weekend-day-styling/`
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
 - **I. Backward Compatibility by Default**: PASS. No new required API or behavior flags; existing consumers continue to function without changes.
 - **II. Spec-Driven Changes**: PASS. Plan, research, data model, contract, and quickstart map directly to FR/SC/CL items in `spec.md`.

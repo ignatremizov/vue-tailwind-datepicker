@@ -1,10 +1,10 @@
-import { nextTick } from 'vue'
+import type { LengthArray } from '../../src/types'
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import Month from '../../src/components/Month.vue'
 import Year from '../../src/components/Year.vue'
 import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
-import type { LengthArray } from '../../src/types'
 
 const MONTHS: LengthArray<string, 12> = [
   'Jan',
@@ -21,13 +21,15 @@ const MONTHS: LengthArray<string, 12> = [
   'Dec',
 ] as const
 
-function dispatchKey(target: HTMLElement, options: { key: string; shiftKey?: boolean }) {
-  target.dispatchEvent(new KeyboardEvent('keydown', {
-    key: options.key,
-    bubbles: true,
-    cancelable: true,
-    shiftKey: !!options.shiftKey,
-  }))
+function dispatchKey(target: HTMLElement, options: { key: string, shiftKey?: boolean }) {
+  target.dispatchEvent(
+    new KeyboardEvent('keydown', {
+      key: options.key,
+      bubbles: true,
+      cancelable: true,
+      shiftKey: !!options.shiftKey,
+    }),
+  )
 }
 
 afterEach(() => {
@@ -81,7 +83,7 @@ async function mountRangeSelectorPicker() {
   return wrapper
 }
 
-describe('Selector wheel keyboard behavior', () => {
+describe('selector wheel keyboard behavior', () => {
   it('navigates month wheel and requests year focus with keyboard keys', async () => {
     const wrapper = mount(Month, {
       props: {
@@ -105,7 +107,6 @@ describe('Selector wheel keyboard behavior', () => {
     ])
     expect(wrapper.emitted('requestFocusYear')).toHaveLength(2)
   })
-
 
   it('navigates year wheel and requests month focus with keyboard keys', async () => {
     const years = Array.from({ length: 401 }, (_, index) => 1900 + index)
@@ -134,8 +135,7 @@ describe('Selector wheel keyboard behavior', () => {
 
   it('supports direct year typing on focused year wheel without inline textbox', async () => {
     const years = Array.from({ length: 401 }, (_, index) => 1900 + index)
-    let wrapper: ReturnType<typeof mount>
-    wrapper = mount(Year, {
+    const wrapper: ReturnType<typeof mount> = mount(Year, {
       props: {
         years,
         selectorMode: true,
@@ -166,8 +166,7 @@ describe('Selector wheel keyboard behavior', () => {
 
   it('allows direct year typing to target values outside the current wheel window', async () => {
     const years = Array.from({ length: 401 }, (_, index) => 1826 + index)
-    let wrapper: ReturnType<typeof mount>
-    wrapper = mount(Year, {
+    const wrapper: ReturnType<typeof mount> = mount(Year, {
       props: {
         years,
         selectorMode: true,
@@ -247,8 +246,7 @@ describe('Selector wheel keyboard behavior', () => {
 
   it('uses the 1900s anchor when direct typing starts with 1', async () => {
     const years = Array.from({ length: 8001 }, (_, index) => -2000 + index)
-    let wrapper: ReturnType<typeof mount>
-    wrapper = mount(Year, {
+    const wrapper: ReturnType<typeof mount> = mount(Year, {
       props: {
         years,
         selectorMode: true,
@@ -272,8 +270,7 @@ describe('Selector wheel keyboard behavior', () => {
 
   it('uses mid-century anchoring for two-digit direct year prefixes', async () => {
     const years = Array.from({ length: 8001 }, (_, index) => -2000 + index)
-    let wrapper: ReturnType<typeof mount>
-    wrapper = mount(Year, {
+    const wrapper: ReturnType<typeof mount> = mount(Year, {
       props: {
         years,
         selectorMode: true,
@@ -300,8 +297,7 @@ describe('Selector wheel keyboard behavior', () => {
 
   it('uses middle-century suffix for two-digit prefixes regardless of previous selection suffix', async () => {
     const years = Array.from({ length: 8001 }, (_, index) => -2000 + index)
-    let wrapper: ReturnType<typeof mount>
-    wrapper = mount(Year, {
+    const wrapper: ReturnType<typeof mount> = mount(Year, {
       props: {
         years,
         selectorMode: true,
@@ -328,8 +324,7 @@ describe('Selector wheel keyboard behavior', () => {
 
   it('uses middle-decade suffix for three-digit prefixes regardless of previous selection suffix', async () => {
     const years = Array.from({ length: 8001 }, (_, index) => -2000 + index)
-    let wrapper: ReturnType<typeof mount>
-    wrapper = mount(Year, {
+    const wrapper: ReturnType<typeof mount> = mount(Year, {
       props: {
         years,
         selectorMode: true,
@@ -360,8 +355,7 @@ describe('Selector wheel keyboard behavior', () => {
   it('uses the current-year anchor when direct typing starts with 2', async () => {
     const years = Array.from({ length: 8001 }, (_, index) => -2000 + index)
     const expectedYear = new Date().getFullYear()
-    let wrapper: ReturnType<typeof mount>
-    wrapper = mount(Year, {
+    const wrapper: ReturnType<typeof mount> = mount(Year, {
       props: {
         years,
         selectorMode: true,
@@ -385,8 +379,7 @@ describe('Selector wheel keyboard behavior', () => {
 
   it('supports signed direct year typing in astronomical mode', async () => {
     const years = Array.from({ length: 12001 }, (_, index) => -6000 + index)
-    let wrapper: ReturnType<typeof mount>
-    wrapper = mount(Year, {
+    const wrapper: ReturnType<typeof mount> = mount(Year, {
       props: {
         years,
         selectorMode: true,
@@ -421,8 +414,7 @@ describe('Selector wheel keyboard behavior', () => {
 
   it('supports explicit positive sign typing from a negative anchor in astronomical mode', async () => {
     const years = Array.from({ length: 12001 }, (_, index) => -6000 + index)
-    let wrapper: ReturnType<typeof mount>
-    wrapper = mount(Year, {
+    const wrapper: ReturnType<typeof mount> = mount(Year, {
       props: {
         years,
         selectorMode: true,
@@ -457,8 +449,7 @@ describe('Selector wheel keyboard behavior', () => {
 
   it('does not emit year zero via direct typing in historical mode', async () => {
     const years = Array.from({ length: 401 }, (_, index) => -200 + index)
-    let wrapper: ReturnType<typeof mount>
-    wrapper = mount(Year, {
+    const wrapper: ReturnType<typeof mount> = mount(Year, {
       props: {
         years,
         selectorMode: true,
@@ -491,8 +482,7 @@ describe('Selector wheel keyboard behavior', () => {
 
   it('supports configurable Home/End keyboard jumps for year wheel', async () => {
     const years = Array.from({ length: 401 }, (_, index) => 1900 + index)
-    let wrapper: ReturnType<typeof mount>
-    wrapper = mount(Year, {
+    const wrapper: ReturnType<typeof mount> = mount(Year, {
       props: {
         years,
         selectorMode: true,
@@ -519,8 +509,7 @@ describe('Selector wheel keyboard behavior', () => {
 
   it('supports configurable PageUp/PageDown keyboard jumps for year wheel', async () => {
     const years = Array.from({ length: 401 }, (_, index) => 1900 + index)
-    let wrapper: ReturnType<typeof mount>
-    wrapper = mount(Year, {
+    const wrapper: ReturnType<typeof mount> = mount(Year, {
       props: {
         years,
         selectorMode: true,
@@ -643,14 +632,18 @@ describe('Selector wheel keyboard behavior', () => {
     await nextTick()
 
     const selectedBefore = wrapper.get('[role="option"][aria-selected="true"]')
-    const selectedRowBefore = selectedBefore.element.closest('[data-month-index]') as HTMLElement | null
+    const selectedRowBefore = selectedBefore.element.closest(
+      '[data-month-index]',
+    ) as HTMLElement | null
     const selectedIndexBefore = Number(selectedRowBefore?.getAttribute('data-month-index'))
 
     await wrapper.setProps({ selectedYear: 2026 })
     await nextTick()
 
     const selectedAfter = wrapper.get('[role="option"][aria-selected="true"]')
-    const selectedRowAfter = selectedAfter.element.closest('[data-month-index]') as HTMLElement | null
+    const selectedRowAfter = selectedAfter.element.closest(
+      '[data-month-index]',
+    ) as HTMLElement | null
     const selectedIndexAfter = Number(selectedRowAfter?.getAttribute('data-month-index'))
     expect(selectedIndexAfter).toBe(selectedIndexBefore)
   })
@@ -687,7 +680,9 @@ describe('Selector wheel keyboard behavior', () => {
     await wrapper.get('#vtd-header-previous-month').trigger('click')
     await nextTick()
 
-    const selectedBefore = wrapper.get('[aria-label="Month selector"] [role="option"][aria-selected="true"]')
+    const selectedBefore = wrapper.get(
+      '[aria-label="Month selector"] [role="option"][aria-selected="true"]',
+    )
     const normalize = (value: string) => value.trim().slice(0, 3).toUpperCase()
     const beforeMonth = normalize(selectedBefore.text())
     const beforeIndex = MONTHS.findIndex(month => month.toUpperCase() === beforeMonth)
@@ -703,7 +698,9 @@ describe('Selector wheel keyboard behavior', () => {
     })
     expect(calledWithSmoothBehavior).toBe(true)
 
-    const selectedAfter = wrapper.get('[aria-label="Month selector"] [role="option"][aria-selected="true"]')
+    const selectedAfter = wrapper.get(
+      '[aria-label="Month selector"] [role="option"][aria-selected="true"]',
+    )
     const afterMonth = normalize(selectedAfter.text())
     const afterIndex = MONTHS.findIndex(month => month.toUpperCase() === afterMonth)
     expect(afterIndex).toBe((beforeIndex + 11) % 12)
@@ -718,21 +715,41 @@ describe('Selector wheel keyboard behavior', () => {
 
     await wrapper.get('#vtd-header-previous-month').trigger('click')
     await nextTick()
-    expect(wrapper.find('[data-vtd-selector-panel="previous"] [aria-label="Month selector"]').exists()).toBe(true)
-    expect(wrapper.find('[data-vtd-selector-panel="next"] [aria-label="Month selector"]').exists()).toBe(false)
+    expect(
+      wrapper.find('[data-vtd-selector-panel="previous"] [aria-label="Month selector"]').exists(),
+    ).toBe(true)
+    expect(
+      wrapper.find('[data-vtd-selector-panel="next"] [aria-label="Month selector"]').exists(),
+    ).toBe(false)
     const previousBefore = normalize(
-      wrapper.get('[data-vtd-selector-panel="previous"] [aria-label="Month selector"] [role="option"][aria-selected="true"]').text(),
+      wrapper
+        .get(
+          '[data-vtd-selector-panel="previous"] [aria-label="Month selector"] [role="option"][aria-selected="true"]',
+        )
+        .text(),
     )
 
     await wrapper.get('#vtd-header-next-month').trigger('click')
     await nextTick()
-    expect(wrapper.find('[data-vtd-selector-panel="previous"] [aria-label="Month selector"]').exists()).toBe(true)
-    expect(wrapper.find('[data-vtd-selector-panel="next"] [aria-label="Month selector"]').exists()).toBe(true)
+    expect(
+      wrapper.find('[data-vtd-selector-panel="previous"] [aria-label="Month selector"]').exists(),
+    ).toBe(true)
+    expect(
+      wrapper.find('[data-vtd-selector-panel="next"] [aria-label="Month selector"]').exists(),
+    ).toBe(true)
     const previousAfter = normalize(
-      wrapper.get('[data-vtd-selector-panel="previous"] [aria-label="Month selector"] [role="option"][aria-selected="true"]').text(),
+      wrapper
+        .get(
+          '[data-vtd-selector-panel="previous"] [aria-label="Month selector"] [role="option"][aria-selected="true"]',
+        )
+        .text(),
     )
     const nextSelected = normalize(
-      wrapper.get('[data-vtd-selector-panel="next"] [aria-label="Month selector"] [role="option"][aria-selected="true"]').text(),
+      wrapper
+        .get(
+          '[data-vtd-selector-panel="next"] [aria-label="Month selector"] [role="option"][aria-selected="true"]',
+        )
+        .text(),
     )
     expect(previousAfter).toBe(previousBefore)
     expect(nextSelected).not.toBe(previousAfter)

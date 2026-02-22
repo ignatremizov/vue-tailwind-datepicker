@@ -1,5 +1,7 @@
 import type { Dayjs } from 'dayjs'
 import type { DatePickerDay } from '~/types'
+import 'dayjs/plugin/isBetween'
+import 'dayjs/plugin/localeData'
 
 interface LocalDateTimeParts {
   year: number
@@ -32,9 +34,14 @@ export default function useDate() {
     )
   }
 
-  const useValidateLocalDateTime = (
-    { year, month, day, hour, minute, second }: LocalDateTimeParts,
-  ): LocalDateTimeValidationResult => {
+  const useValidateLocalDateTime = ({
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+  }: LocalDateTimeParts): LocalDateTimeValidationResult => {
     const resolvedDate = new Date(year, month - 1, day, hour, minute, second, 0)
     const matchesInput = useMatchesLocalDateParts(resolvedDate, {
       year,
@@ -104,7 +111,6 @@ export default function useDate() {
 
   const usePreviousDate = (date: Dayjs) => {
     const display = []
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const firstDay = date.localeData().firstDayOfWeek()
     for (let i = 0; i <= date.date(0 - firstDay).day(); i++)
       display.push(date.date(0).subtract(i, 'day'))
@@ -144,7 +150,7 @@ export default function useDate() {
 
   const useBetweenRange = (
     date: DatePickerDay,
-    { previous, next }: { previous: Dayjs; next: Dayjs },
+    { previous, next }: { previous: Dayjs, next: Dayjs },
   ) => {
     const pattern = previous.isAfter(next, 'date') ? '(]' : '[)'
 
@@ -153,21 +159,19 @@ export default function useDate() {
 
   const useToValueFromString = (
     date: Dayjs,
-    { formatter }: { formatter: { date: string; month: string } },
+    { formatter }: { formatter: { date: string, month: string } },
   ) => {
     return date.format(formatter.date)
   }
 
   const useToValueFromArray = (
-    { previous, next }: { previous: Dayjs; next: Dayjs },
+    { previous, next }: { previous: Dayjs, next: Dayjs },
     {
       formatter,
       separator,
-    }: { formatter: { date: string; month: string }; separator: string },
+    }: { formatter: { date: string, month: string }, separator: string },
   ) => {
-    return `${previous.format(formatter.date)}${separator}${next.format(
-      formatter.date,
-    )}`
+    return `${previous.format(formatter.date)}${separator}${next.format(formatter.date)}`
   }
   return {
     useValidateLocalDateTime,

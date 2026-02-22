@@ -1,6 +1,6 @@
-import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import Month from '../../src/components/Month.vue'
 import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
 
@@ -54,7 +54,6 @@ describe('selectorFocusTint behavior', () => {
 
     await wrapper.get('[aria-label="Year selector"]').trigger('focus')
     await nextTick()
-
     ;[monthColumn, yearColumn] = getSelectorColumns(wrapper)
     expect(yearColumn.classes()).toContain('bg-vtd-primary-50/40')
     expect(yearColumn.classes()).toContain('ring-2')
@@ -73,7 +72,6 @@ describe('selectorFocusTint behavior', () => {
 
     await wrapper.get('[aria-label="Year selector"]').trigger('focus')
     await nextTick()
-
     ;[monthColumn, yearColumn] = getSelectorColumns(wrapper)
     expect(yearColumn.classes()).toContain('border-vtd-primary-300')
     expect(yearColumn.classes()).not.toContain('bg-vtd-primary-50/40')
@@ -136,14 +134,12 @@ describe('selectorFocusTint behavior', () => {
     const hourWheel = wrapper.get('.vtd-time-wheel[aria-label="Hour wheel"]')
     await hourWheel.trigger('pointerdown')
     await nextTick()
-
     ;[monthColumn, yearColumn] = getSelectorColumns(wrapper)
     expect(monthColumn.classes()).not.toContain('ring-2')
     expect(yearColumn.classes()).not.toContain('ring-2')
 
     await wrapper.get('[aria-label="Month selector"]').trigger('focus')
     await nextTick()
-
     ;[monthColumn, yearColumn] = getSelectorColumns(wrapper)
     expect(monthColumn.classes()).toContain('ring-2')
     expect(yearColumn.classes()).not.toContain('ring-2')

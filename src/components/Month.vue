@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import type { LengthArray } from '../types'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import VtdSelectorWheelStepButton from './SelectorWheelStepButton.vue'
 
 type SelectorFocus = 'month' | 'year'
@@ -17,18 +17,21 @@ interface SelectorMonthItem {
   index: number
 }
 
-const props = withDefaults(defineProps<{
-  months: LengthArray<string, 12>
-  selectorMode?: boolean
-  selectedMonth?: number | null
-  selectedYear?: number | null
-  selectorFocus?: SelectorFocus
-}>(), {
-  selectorMode: false,
-  selectedMonth: null,
-  selectedYear: null,
-  selectorFocus: 'month',
-})
+const props = withDefaults(
+  defineProps<{
+    months: LengthArray<string, 12>
+    selectorMode?: boolean
+    selectedMonth?: number | null
+    selectedYear?: number | null
+    selectorFocus?: SelectorFocus
+  }>(),
+  {
+    selectorMode: false,
+    selectedMonth: null,
+    selectedYear: null,
+    selectorFocus: 'month',
+  },
+)
 
 const emit = defineEmits<{
   (e: 'updateMonth', value: number): void
@@ -236,7 +239,9 @@ function syncSelectorToSelected(force = false, behavior: ScrollBehavior = 'auto'
   lastEmittedScrollKey = monthKey(props.selectedMonth, props.selectedYear)
 
   nextTick(() => {
-    markProgrammaticScrollSync(behavior === 'smooth' ? SMOOTH_SCROLL_SYNC_MS : PROGRAMMATIC_SCROLL_SYNC_MS)
+    markProgrammaticScrollSync(
+      behavior === 'smooth' ? SMOOTH_SCROLL_SYNC_MS : PROGRAMMATIC_SCROLL_SYNC_MS,
+    )
     updateSelectorMetrics()
     scrollToIndex(SELECTOR_CENTER_INDEX, behavior)
   })
@@ -304,9 +309,9 @@ function onSelectorKeydown(event: KeyboardEvent) {
     if (event.key === 'Backspace' && monthTypeaheadText.value.length > 0) {
       event.preventDefault()
       monthTypeaheadText.value = monthTypeaheadText.value.slice(0, -1)
-      if (!monthTypeaheadText.value)
+      if (!monthTypeaheadText.value) {
         clearMonthTypeaheadState()
-      else {
+      } else {
         applyMonthTypeahead(monthTypeaheadText.value)
         scheduleMonthTypeaheadReset()
       }
@@ -431,8 +436,7 @@ function applyMonthTypeahead(typedText: string) {
   if (targetItem) {
     markProgrammaticScrollSync(SMOOTH_SCROLL_SYNC_MS)
     scrollToIndex(targetItem.index, 'smooth')
-  }
-  else {
+  } else {
     anchorSelection.value = next
     nextTick(() => {
       markProgrammaticScrollSync(SMOOTH_SCROLL_SYNC_MS)
@@ -519,8 +523,7 @@ watch(
             year: anchorSelection.value.year + yearDelta,
           }
         }
-      }
-      else {
+      } else {
         anchorSelection.value = { month: selectedMonth, year: selectedYear }
       }
       lastEmittedScrollKey = monthKey(selectedMonth, selectedYear)
@@ -534,7 +537,8 @@ watch(
       const previousMonth = previous?.selectedMonth
       const previousYear = previous?.selectedYear
       if (typeof previousMonth === 'number' && typeof previousYear === 'number') {
-        const delta = totalMonths(selectedMonth, selectedYear) - totalMonths(previousMonth, previousYear)
+        const delta
+          = totalMonths(selectedMonth, selectedYear) - totalMonths(previousMonth, previousYear)
         if (delta !== 0 && Math.abs(delta) <= 2) {
           lastEmittedScrollKey = monthKey(selectedMonth, selectedYear)
           nextTick(() => {
@@ -579,7 +583,8 @@ defineExpose({
         <button
           type="button"
           class="px-3 py-2 block w-full leading-6 rounded-md bg-white text-xs 2xl:text-sm tracking-wide text-vtd-secondary-600 font-medium transition-colors border border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring-3 focus:ring-vtd-primary-500/10 focus:outline-hidden uppercase dark:bg-vtd-secondary-800 dark:hover:bg-vtd-secondary-700 dark:text-vtd-secondary-300 dark:hover:text-vtd-secondary-100 dark:focus:bg-vtd-secondary-700"
-          @click="emit('updateMonth', Number(key))" v-text="month"
+          @click="emit('updateMonth', Number(key))"
+          v-text="month"
         />
       </span>
     </div>

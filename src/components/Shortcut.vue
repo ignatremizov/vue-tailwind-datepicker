@@ -1,26 +1,22 @@
 <script setup lang="ts">
-import type { Ref } from 'vue'
-import { computed } from 'vue'
-import { legacyShortcutFallbackId } from '../composables/shortcut'
 import type { ShortcutDefinition, ShortcutFactory } from '../types'
-import { injectStrict } from '../utils'
+import { computed, type Ref } from 'vue'
+import { legacyShortcutFallbackId } from '../composables/shortcut'
 import {
-  type BuiltInShortcutId,
-  type ShortcutDisabledReason,
   activateShortcutKey,
   getShortcutDisabledStateKey,
+  type BuiltInShortcutId,
+  type ShortcutDisabledReason,
 } from '../keys'
+import { injectStrict } from '../utils'
 
 const props = defineProps<{
   shortcuts: boolean | ShortcutDefinition[] | ShortcutFactory
-  builtInShortcuts: { id: BuiltInShortcutId; label: string }[]
+  builtInShortcuts: { id: BuiltInShortcutId, label: string }[]
   close?: (ref?: Ref | HTMLElement) => void
   asRange: boolean
   asSingle: boolean
 }>()
-
-const activateShortcut = injectStrict(activateShortcutKey)
-const getShortcutDisabledState = injectStrict(getShortcutDisabledStateKey)
 
 defineSlots<{
   'shortcut-item': (props: {
@@ -32,6 +28,8 @@ defineSlots<{
     activate: () => void
   }) => unknown
 }>()
+const activateShortcut = injectStrict(activateShortcutKey)
+const getShortcutDisabledState = injectStrict(getShortcutDisabledStateKey)
 
 interface RenderShortcutItem {
   id: string
@@ -105,7 +103,9 @@ function onShortcutKeydown(event: KeyboardEvent) {
   if (!list)
     return
 
-  const focusableButtons = Array.from(list.querySelectorAll<HTMLButtonElement>('button.vtd-shortcuts:not(:disabled)'))
+  const focusableButtons = Array.from(
+    list.querySelectorAll<HTMLButtonElement>('button.vtd-shortcuts:not(:disabled)'),
+  )
   if (focusableButtons.length <= 1)
     return
 
@@ -134,8 +134,7 @@ function onShortcutKeydown(event: KeyboardEvent) {
 
 <template>
   <div
-    v-if="(props.asRange && props.asSingle) || (props.asRange && !props.asSingle)
-    "
+    v-if="(props.asRange && props.asSingle) || (props.asRange && !props.asSingle)"
     class="relative w-full border-t border-b-0 sm:border-t-0 sm:border-b lg:border-b-0 lg:border-r border-black/10 order-last sm:order-0 dark:border-vtd-secondary-700 sm:mt-1 lg:mr-1 sm:mb-1 lg:mb-0 sm:mx-1 lg:mx-0 sm:w-auto"
   >
     <ol
@@ -143,10 +142,7 @@ function onShortcutKeydown(event: KeyboardEvent) {
       class="grid grid-cols-2 sm:grid-cols-3 gap-1 lg:block w-full lg:w-auto pr-5 sm:pr-6 mt-1.5 sm:mt-0 sm:mb-1.5 lg:mb-0"
     >
       <li v-for="item in customShortcutItems" :key="item.id">
-        <slot
-          name="shortcut-item"
-          v-bind="item"
-        >
+        <slot name="shortcut-item" v-bind="item">
           <button
             type="button"
             :disabled="item.isDisabled"
@@ -166,10 +162,7 @@ function onShortcutKeydown(event: KeyboardEvent) {
       class="grid grid-cols-2 sm:grid-cols-3 gap-1 lg:block w-full lg:w-auto pr-5 sm:pr-6 mt-1.5 sm:mt-0 sm:mb-1.5 lg:mb-0"
     >
       <li v-for="item in builtInShortcutItems" :key="item.id">
-        <slot
-          name="shortcut-item"
-          v-bind="item"
-        >
+        <slot name="shortcut-item" v-bind="item">
           <button
             type="button"
             :disabled="item.isDisabled"

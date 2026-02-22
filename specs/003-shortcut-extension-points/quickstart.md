@@ -23,6 +23,7 @@ npm run build
 ```
 
 Expected modern actions:
+
 - Today
 - 3 business days
 - Next week
@@ -32,10 +33,7 @@ Expected modern actions:
 
 ```vue
 <template>
-  <vue-tailwind-datepicker
-    v-model="value"
-    :shortcuts="true"
-  />
+  <vue-tailwind-datepicker v-model="value" :shortcuts="true" />
 </template>
 ```
 
@@ -60,11 +58,7 @@ const customShortcuts = [
 </script>
 
 <template>
-  <vue-tailwind-datepicker
-    v-model="value"
-    :shortcuts="customShortcuts"
-    shortcut-preset="modern"
-  />
+  <vue-tailwind-datepicker v-model="value" :shortcuts="customShortcuts" shortcut-preset="modern" />
 </template>
 ```
 
@@ -97,12 +91,7 @@ Use the `shortcut-item` slot payload and trigger activation only via `activate()
 <template>
   <vue-tailwind-datepicker v-model="value" :shortcuts="customShortcuts">
     <template #shortcut-item="{ id, label, isDisabled, meta, activate }">
-      <button
-        type="button"
-        :data-shortcut-id="id"
-        :disabled="isDisabled"
-        @click="activate"
-      >
+      <button type="button" :data-shortcut-id="id" :disabled="isDisabled" @click="activate">
         {{ label }}{{ meta?.hint ? ` (${meta.hint})` : '' }}
       </button>
     </template>
