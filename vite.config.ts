@@ -23,5 +23,15 @@ export default defineConfig({
       },
     },
   },
-  plugins: [vue(), cssInjectedByJsPlugin(), dts()],
+  plugins: [
+    vue(),
+    cssInjectedByJsPlugin(),
+    dts({
+      include: ['src'],
+      exclude: [
+        'src/App.vue',
+        'src/main.ts',
+      ],
+    }),
+  ],
 })
