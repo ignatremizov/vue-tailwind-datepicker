@@ -1,7 +1,7 @@
-import type { LengthArray } from '../../src/types'
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
+import type { LengthArray } from '../../src/types'
 import Month from '../../src/components/Month.vue'
 import Year from '../../src/components/Year.vue'
 import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
@@ -641,6 +641,7 @@ describe('selector wheel keyboard behavior', () => {
         shortcuts: false,
         autoApply: true,
         modelValue: {
+          endDate: '',
           startDate: '10000-02-15 00:00:00',
         },
       },

@@ -1,22 +1,39 @@
 {
-  "name": "vue-tailwind-datepicker",
+  "name": "@ignatremizov/vue-tailwind-datepicker",
   "type": "module",
   "version": "1.7.4",
-  "description": "A date range picker component for Vue.js 3 using Tailwind CSS",
+  "description": "A Vue 3 datepicker component using Tailwind CSS and Day.js",
   "author": {
-    "name": "elreco",
-    "email": "alexandre@heypongo.com",
-    "url": "https://github.com/elreco"
+    "name": "Ignat Remizov",
+    "email": "ignat@ignatremizov.com",
+    "url": "https://github.com/ignatremizov"
   },
-  "contributors": [],
-  "homepage": "https://vue-tailwind-datepicker.com",
+  "contributors": [
+    {
+      "name": "Ignat Remizov",
+      "url": "https://github.com/ignatremizov"
+    },
+    {
+      "name": "Kenhyuwa",
+      "url": "https://github.com/kenhyuwa"
+    },
+    {
+      "name": "Alexandre Le Corre",
+      "url": "https://github.com/elreco"
+    }
+  ],
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/ignatremizov"
+  },
+  "homepage": "https://github.com/ignatremizov/vue-tailwind-datepicker#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/elreco/vue-tailwind-datepicker.git"
+    "url": "git+https://github.com/ignatremizov/vue-tailwind-datepicker.git"
   },
   "bugs": {
-    "url": "https://github.com/elreco/vue-tailwind-datepicker/issues",
-    "email": "alexandre@heypongo.com"
+    "url": "https://github.com/ignatremizov/vue-tailwind-datepicker/issues",
+    "email": "ignat@ignatremizov.com"
   },
   "keywords": [
     "vue-tailwind-datepicker",
@@ -39,6 +56,10 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",

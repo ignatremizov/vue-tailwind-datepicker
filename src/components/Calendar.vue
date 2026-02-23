@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { DatePickerDay } from '../types'
 import { computed, ref, watch } from 'vue'
+import type { DatePickerDay } from '../types'
 import {
   atMouseOverKey,
   betweenRangeClassesKey,
@@ -46,11 +46,19 @@ function getDateKey(date: DatePickerDay) {
   return date.format('YYYY-MM-DD')
 }
 
-function resolveDateFlag(date: DatePickerDay, key: string) {
-  const value = (date as Record<string, unknown>)?.[key]
-  if (typeof value === 'function')
-    return !!value.call(date)
-  return !!value
+type DateFlagKey
+  = | 'active'
+    | 'disabled'
+    | 'duration'
+    | 'hovered'
+    | 'inRange'
+    | 'saturday'
+    | 'sunday'
+    | 'today'
+    | 'weekend'
+
+function resolveDateFlag(date: DatePickerDay, key: DateFlagKey) {
+  return !!date[key]
 }
 
 function isDateDisabled(date: DatePickerDay) {
@@ -158,12 +166,7 @@ function hasDateDuration(date: DatePickerDay) {
 }
 
 function getDateDurationLabel(date: DatePickerDay) {
-  const durationValue = (date as Record<string, unknown>).duration
-  const resolvedValue
-    = typeof durationValue === 'function'
-      ? durationValue.call(date)
-      : durationValue
-  return `${resolvedValue ?? ''}`
+  return `${date.duration ?? ''}`
 }
 
 function focusHeaderFromCalendar(target: EventTarget | null) {

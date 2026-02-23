@@ -1,83 +1,66 @@
 # Release Guide
 
-This project uses automated releases via GitHub Actions and semantic-release.
+This fork publishes `@ignatremizov/vue-tailwind-datepicker` with `semantic-release`.
 
-## How it works
+Maintainer: **Ignat Remizov** (<ignat@ignatremizov.com>)
 
-### Automatic releases on `main` branch
+## CI Workflows
 
-Every push to the `main` branch triggers the release workflow:
+- `.github/workflows/release.yml`: publishes stable releases from `main`.
+- `.github/workflows/release-candidate.yml`: publishes prerelease channels from `develop`, `next`, `beta`, `alpha`.
 
-1. **Build verification**: The project is built and tested
-2. **Commit analysis**: semantic-release analyzes commit messages
-3. **Version determination**: Based on conventional commit types
-4. **Release creation**: Automatic version bump, changelog, and NPM publication
+## Required Repository Secrets
 
-### Commit message format
+- `NPM_TOKEN`: npm token with publish rights for `@ignatremizov/vue-tailwind-datepicker`.
+- `GITHUB_TOKEN`: provided automatically by GitHub Actions.
 
-Use conventional commits to control releases:
+## Local Preflight Before Merge
 
-```bash
-feat: add new calendar navigation
-# → Creates a minor version (1.7.4 → 1.8.0)
-
-fix: resolve date parsing issue
-# → Creates a patch version (1.7.4 → 1.7.5)
-
-feat!: change API structure
-# → Creates a major version (1.7.4 → 2.0.0)
-
-docs: update installation guide
-# → Creates a patch version (configured in package.json)
-
-chore: update dependencies
-# → No release (use "no-release" type to skip)
-```
-
-### Release types mapping
-
-- `feat:` → **minor** version
-- `fix:` → **patch** version
-- `BREAKING CHANGE:` or `!` → **major** version
-- `docs:`, `style:`, `refactor:`, `perf:`, `test:`, `ci:`, `build:`, `chore:` → **patch** version
-
-## Workflow process
-
-1. **Make your changes** on a feature branch
-2. **Create a PR** with conventional commit messages
-3. **Merge to main** - The release workflow automatically:
-   - Builds the project
-   - Determines the next version number
-   - Updates `package.json` and `CHANGELOG.md`
-   - Creates a Git tag and GitHub release
-   - Publishes to NPM using the configured `NPM_TOKEN`
-
-## Manual override (if needed)
-
-If you need to skip a release for a particular commit:
+Run these before merging release-impacting changes:
 
 ```bash
-git commit -m "chore: update docs
-
-[skip release]"
+npm install
+npm run test:unit
+npm run build
+npm audit
 ```
+
+## Commit Message Conventions
+
+Use conventional commits:
+
+```text
+feat: add new capability
+fix: patch an issue
+docs: update docs
+chore: maintenance updates
+```
+
+Release impact:
+
+- `feat` -> minor
+- `fix` -> patch
+- `BREAKING CHANGE` or `!` -> major
+- `docs`, `test`, `refactor`, `perf`, `ci`, `build`, `chore` -> patch (as configured)
+
+## Publish Flow
+
+1. Merge PR into `main`.
+2. `release.yml` runs:
+   - install dependencies
+   - build
+   - verify signatures
+   - execute `semantic-release`
+3. `semantic-release`:
+   - determines version from commit history
+   - creates tag and GitHub release
+   - publishes package to npm
 
 ## Troubleshooting
 
-### NPM publication fails
-
-- Verify `NPM_TOKEN` is set in repository secrets
-- Check NPM registry permissions
-- Ensure package name is available
-
-### Build fails
-
-- Check build logs in GitHub Actions
-- Verify all dependencies are properly declared
-- Run `npm run build` locally to test
-
-### No release created
-
-- Verify commit messages follow conventional format
-- Check if commits since last release warrant a new version
-- Review semantic-release logs in GitHub Actions
+- No release generated:
+  - verify conventional commits since last tag
+  - check workflow logs for `semantic-release` skip reasons
+- npm publish failure:
+  - verify token scope and package access for `@ignatremizov/*`
+  - confirm `publishConfig.access` is `public` for the scoped package

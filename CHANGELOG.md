@@ -1,3 +1,5 @@
+> Historical entries before this fork may reference the upstream repository (`elreco/vue-tailwind-datepicker`) in compare/commit links.
+
 ## [1.6.5](https://github.com/elreco/vue-tailwind-datepicker/compare/v1.6.4...v1.6.5) (2024-02-05)
 
 ### :repeat: Chore

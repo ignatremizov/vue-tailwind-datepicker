@@ -1,8 +1,8 @@
 # Vue Tailwind Datepicker
 
 <p align="center">
-    <a href="https://vue-tailwind-datepicker.com" target="_blank">
-      <img alt="Vue Tailwind Datepicker" width="100" style="border-radius: 100%;" src="https://github.com/elreco/vue-tailwind-datepicker/blob/main/docs/logo.png?raw=true">
+    <a href="https://github.com/ignatremizov/vue-tailwind-datepicker" target="_blank">
+      <img alt="Vue Tailwind Datepicker" width="100" style="border-radius: 100%;" src="https://github.com/ignatremizov/vue-tailwind-datepicker/blob/main/docs/logo.png?raw=true">
     </a><br><br>
     A Datepicker component for Vue 3 using Tailwind and dayjs.
 </p>
@@ -11,23 +11,29 @@
 
 ## Documentation
 
-Go to [full documentation](https://vue-tailwind-datepicker.com)
+Go to [full documentation](https://github.com/ignatremizov/vue-tailwind-datepicker/tree/main/docs) or run `npm run docs:dev` locally.
+
+Project guidelines:
+
+- [Contributing](./CONTRIBUTING.md)
+- [Code of Conduct](./.github/CODE_OF_CONDUCT.md)
+- [Release Guide](./.github/RELEASE_GUIDE.md)
 
 ## Installation
 
 ⚠️ Vue Tailwind Datepicker uses Tailwind CSS (with the @tailwindcss/forms plugin) & Day.js under the hood, **you must install those packages** before.
-You can follow [this tutorial](https://dev.to/elreco/add-a-tailwind-datepicker-to-your-vue-3-application-57j2).
+See the repository docs for complete setup guides.
 
 ### Install via npm
 
 ```
-npm install vue-tailwind-datepicker
+npm install @ignatremizov/vue-tailwind-datepicker
 ```
 
 ### Install via yarn
 
 ```
-yarn add vue-tailwind-datepicker
+yarn add @ignatremizov/vue-tailwind-datepicker
 ```
 
 ## Simple Usage
@@ -37,7 +43,7 @@ How it works,
 ```vue
 <script setup>
 import { ref } from 'vue'
-import VueTailwindDatepicker from 'vue-tailwind-datepicker'
+import VueTailwindDatepicker from '@ignatremizov/vue-tailwind-datepicker'
 
 const dateValue = ref([])
 const formatter = ref({
@@ -325,11 +331,11 @@ Behavior summary:
 
 **Light Mode**
 
-![Light Mode](https://github.com/elreco/vue-tailwind-datepicker/blob/main/docs/light.png?raw=true)
+![Light Mode](https://github.com/ignatremizov/vue-tailwind-datepicker/blob/main/docs/light.png?raw=true)
 
 **Dark Mode**
 
-![Dark Mode](https://github.com/elreco/vue-tailwind-datepicker/blob/main/docs/dark.png?raw=true)
+![Dark Mode](https://github.com/ignatremizov/vue-tailwind-datepicker/blob/main/docs/dark.png?raw=true)
 
 ## Local Dev Ports
 
@@ -359,20 +365,22 @@ Behavior summary:
 
 ## Changelog
 
-All notable changes to this project will be documented in the [Releases Page](https://github.com/elreco/vue-tailwind-datepicker/releases).
+All notable changes to this project will be documented in the [Releases Page](https://github.com/ignatremizov/vue-tailwind-datepicker/releases).
 
-## Sponsors
+## Funding
 
-- [Open Source AI Tools](https://ai.coderocket.app)
-- [www.coderocket.app](https://www.coderocket.app)
+- [GitHub Sponsors: @ignatremizov](https://github.com/sponsors/ignatremizov)
 
 ## License
 
 The [MIT](LICENSE) License. Please [see](http://opensource.org/licenses/MIT) for more information.
 
-## Thanks to
+## Contributors
 
-- [kenhyuwa](https://github.com/kenhyuwa)
+- [Ignat Remizov](https://github.com/ignatremizov) (maintainer of this fork)
+- [Alexandre Le Corre](https://github.com/elreco) (upstream maintainer)
+- [Kenhyuwa](https://github.com/kenhyuwa) (original author/contributor)
+- See [CONTRIBUTORS.md](./CONTRIBUTORS.md) for contributor notes.
 - [Vue](https://v3.vuejs.org/)
 - [Tailwind CSS](https://tailwindcss.com/)
 - [day.js](https://day.js.org/)

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { SelectionPanel, SelectorFocus, YearNumberingMode } from '../types'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import type { SelectionPanel, SelectorFocus, YearNumberingMode } from '../types'
 import VtdSelectorWheelStepButton from './SelectorWheelStepButton.vue'
 
 const props = withDefaults(

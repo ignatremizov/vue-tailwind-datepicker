@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
+import type { DatePickerDay } from '../../src/types'
 import Calendar from '../../src/components/Calendar.vue'
 import {
   atMouseOverKey,
@@ -21,13 +22,13 @@ function createCalendarDate(
     toDate: () => new Date(`${key}T00:00:00.000Z`),
     date: () => day,
     week: () => 7,
-    hovered: () => false,
-    duration: () => false,
+    hovered: false,
+    duration: false,
     disabled: options.disabled ?? false,
     inRange: options.inRange ?? false,
     active: true,
     today: false,
-  }
+  } as unknown as DatePickerDay
 }
 
 function mountCalendarForKeyboard() {
