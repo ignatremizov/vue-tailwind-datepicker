@@ -4,8 +4,8 @@
 
 ### :bug: Fixes
 
-- Type declaration entrypoints now resolve correctly from package root (`types`/`exports.types` -> `dist/entry.d.ts`) and build output includes declaration files under `dist/`.
-- Tailwind peer compatibility widened to support both `^3.4.0` and `^4.0.0`.
+- Type declaration entrypoints now resolve correctly from package root (`types`/`exports.types` -> `dist/entry.d.ts`) and build output includes declaration files under `dist/`. ([#8](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/8))
+- Tailwind peer compatibility widened to support both `^3.4.0` and `^4.0.0`. ([#8](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/8))
 
 # [2.0.0](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v1.7.4...v2.0.0) (2026-02-23)
 
