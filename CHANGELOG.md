@@ -1,5 +1,12 @@
 > Historical entries before this fork may reference the upstream repository (`elreco/vue-tailwind-datepicker`) in compare/commit links.
 
+## [2.0.1](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.0.0...v2.0.1) (2026-02-23)
+
+### :bug: Fixes
+
+- Type declaration entrypoints now resolve correctly from package root (`types`/`exports.types` -> `dist/entry.d.ts`) and build output includes declaration files under `dist/`.
+- Tailwind peer compatibility widened to support both `^3.4.0` and `^4.0.0`.
+
 # [2.0.0](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v1.7.4...v2.0.0) (2026-02-23)
 
 Compare: https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v1.7.4...v2.0.0

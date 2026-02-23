@@ -46,14 +46,14 @@
   ],
   "exports": {
     ".": {
-      "types": "./dist/types.d.ts",
+      "types": "./dist/entry.d.ts",
       "import": "./dist/vue-tailwind-datepicker.js",
       "require": "./dist/vue-tailwind-datepicker.umd.cjs"
     }
   },
   "main": "./dist/vue-tailwind-datepicker.umd.cjs",
   "module": "./dist/vue-tailwind-datepicker.js",
-  "types": "./dist/types.d.ts",
+  "types": "./dist/entry.d.ts",
   "files": [
     "dist"
   ],
@@ -195,7 +195,7 @@
   },
   "peerDependencies": {
     "dayjs": "^1.11.13",
-    "tailwindcss": "^4.1.11",
+    "tailwindcss": "^3.4.0 || ^4.0.0",
     "vue": "^3.3.13"
   },
   "dependencies": {
