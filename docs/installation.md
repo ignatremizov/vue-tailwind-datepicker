@@ -23,8 +23,8 @@ Setup the component globally
 
 ```js
 // main.js
-import VueTailwindDatepicker from '@ignatremizov/vue-tailwind-datepicker'
 import { createApp } from 'vue'
+import VueTailwindDatepicker from '@ignatremizov/vue-tailwind-datepicker'
 import App from '@/App.vue'
 // ...
 
@@ -39,8 +39,8 @@ Setup as a single component
 ```vue
 <!-- SFC file -->
 <script setup>
-import VueTailwindDatepicker from '@ignatremizov/vue-tailwind-datepicker'
 import { ref } from 'vue'
+import VueTailwindDatepicker from '@ignatremizov/vue-tailwind-datepicker'
 
 const dateValue = ref([])
 </script>
@@ -81,8 +81,8 @@ module.exports = {
 2. Create a plugin for Vue Tailwind Datepicker in the plugins directory of your Nuxt project. For example, vue-tailwind-datepicker.js:
 
 ```js
-import { defineNuxtPlugin } from '#app'
 import VueTailwindDatepicker from '@ignatremizov/vue-tailwind-datepicker'
+import { defineNuxtPlugin } from '#app'
 
 export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.component('VueTailwindDatepicker', VueTailwindDatepicker)

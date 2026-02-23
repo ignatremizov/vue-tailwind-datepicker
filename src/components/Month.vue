@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { LengthArray } from '../types'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import type { LengthArray } from '../types'
 import VtdSelectorWheelStepButton from './SelectorWheelStepButton.vue'
 
 type SelectorFocus = 'month' | 'year'

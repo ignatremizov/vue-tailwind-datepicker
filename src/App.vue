@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { InvalidShortcutEventPayload } from './types'
 import dayjs, { type Dayjs } from 'dayjs'
 import { computed, onUnmounted, ref, watch } from 'vue'
+import type { InvalidShortcutEventPayload } from './types'
 import VueTailwindDatePicker from './VueTailwindDatePicker.vue'
 
 const dateValue = ref({

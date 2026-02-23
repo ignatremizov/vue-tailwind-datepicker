@@ -1,5 +1,5 @@
-import type { SelectorYearInputTokenState, YearNumberingMode } from '../types'
 import dayjs, { type Dayjs } from 'dayjs'
+import type { SelectorYearInputTokenState, YearNumberingMode } from '../types'
 
 export const DIRECT_YEAR_MIN = -99999
 export const DIRECT_YEAR_MAX = 99999

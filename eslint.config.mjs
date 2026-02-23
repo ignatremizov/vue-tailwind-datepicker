@@ -22,6 +22,20 @@ export default antfu(
       }],
       'import/consistent-type-specifier-style': ['error', 'prefer-top-level'],
       'import/no-duplicates': ['error', { 'prefer-inline': true }],
+      'perfectionist/sort-imports': ['error', {
+        type: 'alphabetical',
+        order: 'asc',
+        newlinesBetween: 'ignore',
+        groups: [
+          ['type-builtin', 'type-external'],
+          ['value-builtin', 'value-external'],
+          ['type-internal', 'value-internal'],
+          ['type-parent', 'type-sibling', 'type-index'],
+          ['value-parent', 'value-sibling', 'value-index'],
+          'ts-equals-import',
+          'unknown',
+        ],
+      }],
       'perfectionist/sort-named-imports': ['error', {
         type: 'alphabetical',
         order: 'asc',
@@ -38,6 +52,18 @@ export default antfu(
     files: ['src/App.vue'],
     rules: {
       'no-console': 'off',
+    },
+  },
+  {
+    files: ['README.md', 'docs/**/*.md'],
+    rules: {
+      'perfectionist/sort-imports': 'off',
+    },
+  },
+  {
+    files: ['**/*.md/**'],
+    rules: {
+      'perfectionist/sort-imports': 'off',
     },
   },
   {

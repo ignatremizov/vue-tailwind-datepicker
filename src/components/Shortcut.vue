@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { ShortcutDefinition, ShortcutFactory } from '../types'
 import { computed, type Ref } from 'vue'
+import type { ShortcutDefinition, ShortcutFactory } from '../types'
 import { legacyShortcutFallbackId } from '../composables/shortcut'
 import {
   activateShortcutKey,

@@ -1,23 +1,4 @@
 <script setup lang="ts">
-import type {
-  ApplyGuardState,
-  DatePickerDay,
-  DateTimeDraft,
-  DateTimeEndpointSelection,
-  DateTimeErrorCode,
-  DateTimeErrorEventPayload,
-  DateTimeModeConfig,
-  InvalidShortcutEventPayload,
-  LegacyShortcutDefinition,
-  RangeDraftState,
-  SelectionPanel,
-  SelectorFocus,
-  ShortcutDefinition,
-  ShortcutFactory,
-  ShortcutPreset,
-  TypedShortcutDefinition,
-  YearNumberingMode,
-} from './types'
 import {
   Popover,
   PopoverButton,
@@ -47,6 +28,25 @@ import {
   watchEffect,
   type Ref,
 } from 'vue'
+import type {
+  ApplyGuardState,
+  DatePickerDay,
+  DateTimeDraft,
+  DateTimeEndpointSelection,
+  DateTimeErrorCode,
+  DateTimeErrorEventPayload,
+  DateTimeModeConfig,
+  InvalidShortcutEventPayload,
+  LegacyShortcutDefinition,
+  RangeDraftState,
+  SelectionPanel,
+  SelectorFocus,
+  ShortcutDefinition,
+  ShortcutFactory,
+  ShortcutPreset,
+  TypedShortcutDefinition,
+  YearNumberingMode,
+} from './types'
 import VtdCalendar from './components/Calendar.vue'
 import VtdHeader from './components/Header.vue'
 import VtdMonth from './components/Month.vue'
@@ -1987,15 +1987,11 @@ const calendar = computed(() => {
               sunday,
               weekend,
               disabled: useDisableDate(v, props) && !inRangeDate(v),
-              inRange: () => {
-                if (props.asSingle && !props.useRange)
-                  return previous.month() !== v.month()
-              },
-              hovered: () => {
-                if (!asRange())
-                  return false
-                if (hoverValue.value.length > 1) {
-                  return (
+              inRange: props.asSingle && !props.useRange
+                ? previous.month() !== v.month()
+                : undefined,
+              hovered: asRange() && hoverValue.value.length > 1
+                ? (
                     (v.isBetween(
                       hoverValue.value[0],
                       hoverValue.value[1],
@@ -2010,12 +2006,8 @@ const calendar = computed(() => {
                     ))
                     && previous.month() === v.month()
                   )
-                }
-                return false
-              },
-              duration: () => {
-                return false
-              },
+                : false,
+              duration: false,
             })
 
             return v as DatePickerDay
@@ -2142,13 +2134,11 @@ const calendar = computed(() => {
               sunday,
               weekend,
               disabled: useDisableDate(v, props) && !inRangeDate(v),
-              inRange: () => {
-                if (props.asSingle && !props.useRange)
-                  return next.month() !== v.month()
-              },
-              hovered: () => {
-                if (hoverValue.value.length > 1) {
-                  return (
+              inRange: props.asSingle && !props.useRange
+                ? next.month() !== v.month()
+                : undefined,
+              hovered: hoverValue.value.length > 1
+                ? (
                     (v.isBetween(
                       hoverValue.value[0],
                       hoverValue.value[1],
@@ -2163,12 +2153,8 @@ const calendar = computed(() => {
                     ))
                     && next.month() === v.month()
                   )
-                }
-                return false
-              },
-              duration: () => {
-                return false
-              },
+                : false,
+              duration: false,
             })
 
             return v as DatePickerDay

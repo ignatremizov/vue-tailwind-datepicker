@@ -42,8 +42,8 @@ How it works,
 
 ```vue
 <script setup>
-import VueTailwindDatepicker from '@ignatremizov/vue-tailwind-datepicker'
 import { ref } from 'vue'
+import VueTailwindDatepicker from '@ignatremizov/vue-tailwind-datepicker'
 
 const dateValue = ref([])
 const formatter = ref({

@@ -22,8 +22,8 @@ See also: [Screenshot Gallery](./screenshot-gallery.md) for a curated matrix of 
 
 ```vue
 <script setup>
-import VueTailwindDatePicker from '@ignatremizov/vue-tailwind-datepicker'
 import { ref } from 'vue'
+import VueTailwindDatePicker from '@ignatremizov/vue-tailwind-datepicker'
 
 const dateValue = ref('')
 </script>
