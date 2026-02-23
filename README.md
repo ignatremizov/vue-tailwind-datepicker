@@ -4,10 +4,22 @@
     <a href="https://github.com/ignatremizov/vue-tailwind-datepicker" target="_blank">
       <img alt="Vue Tailwind Datepicker" width="100" style="border-radius: 100%;" src="https://github.com/ignatremizov/vue-tailwind-datepicker/blob/main/docs/logo.png?raw=true">
     </a><br><br>
-    A Datepicker component for Vue 3 using Tailwind and dayjs.
+    Advanced date-time picker with native-UI like wheels for Vue 3 using Tailwind and dayjs.
+    <br />
+    Maintained fork by Ignat Remizov.
 </p>
 
 [![Commitizen friendly](https://img.shields.io/badge/commitizen-friendly-brightgreen.svg)](http://commitizen.github.io/cz-cli/)
+
+## Highlights
+
+<p>
+  <img alt="Dual calendar wheel-page layout" width="100%" src="./docs/assets/screenshots/all-features-wheel-page-dual-calendar.png">
+</p>
+<p>
+  <img alt="12-hour time wheel with seconds and meridiem" width="49%" src="./docs/assets/screenshots/all-features-format-hh-mm-ss-a-time.png">
+  <img alt="Selector mode month and year wheels" width="49%" src="./docs/assets/screenshots/all-features-direct-year-input-off-selector.png">
+</p>
 
 ## Documentation
 
