@@ -2,19 +2,19 @@
 
 ::: warning
 ⚠️ Vue Tailwind Datepicker uses Tailwind CSS (with the @tailwindcss/forms plugin) & Day.js under the hood, **you must install those packages** before.
-You can follow [this tutorial](https://dev.to/elreco/add-a-tailwind-datepicker-to-your-vue-3-application-57j2).
+See this repository's docs for integration examples and configuration guidance.
 :::
 
 ## Install via npm
 
 ```
-$ npm install vue-tailwind-datepicker
+$ npm install @ignatremizov/vue-tailwind-datepicker
 ```
 
 ## Install via yarn
 
 ```
-$ yarn add vue-tailwind-datepicker
+$ yarn add @ignatremizov/vue-tailwind-datepicker
 ```
 
 ## How it works
@@ -23,8 +23,8 @@ Setup the component globally
 
 ```js
 // main.js
+import VueTailwindDatepicker from '@ignatremizov/vue-tailwind-datepicker'
 import { createApp } from 'vue'
-import VueTailwindDatepicker from 'vue-tailwind-datepicker'
 import App from '@/App.vue'
 // ...
 
@@ -39,8 +39,8 @@ Setup as a single component
 ```vue
 <!-- SFC file -->
 <script setup>
+import VueTailwindDatepicker from '@ignatremizov/vue-tailwind-datepicker'
 import { ref } from 'vue'
-import VueTailwindDatepicker from 'vue-tailwind-datepicker'
 
 const dateValue = ref([])
 </script>
@@ -60,7 +60,7 @@ module.exports = {
   content: [
     './index.html',
     './src/**/*.{vue,js,ts,jsx,tsx}',
-    './node_modules/vue-tailwind-datepicker/**/*.js',
+    './node_modules/@ignatremizov/vue-tailwind-datepicker/**/*.js',
   ],
   theme: {
     extend: {
@@ -82,7 +82,7 @@ module.exports = {
 
 ```js
 import { defineNuxtPlugin } from '#app'
-import VueTailwindDatepicker from 'vue-tailwind-datepicker'
+import VueTailwindDatepicker from '@ignatremizov/vue-tailwind-datepicker'
 
 export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.component('VueTailwindDatepicker', VueTailwindDatepicker)

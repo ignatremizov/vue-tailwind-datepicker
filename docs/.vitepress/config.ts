@@ -9,11 +9,11 @@ export default defineConfig({
     search: {
       provider: 'local',
     },
-    /* logo: 'https://github.com/elreco/vue-tailwind-datepicker/blob/main/docs/logo.png?raw=true', */
-    socialLinks: [{ icon: 'github', link: 'https://github.com/elreco/vue-tailwind-datepicker' }],
+    /* logo: 'https://github.com/ignatremizov/vue-tailwind-datepicker/blob/main/docs/logo.png?raw=true', */
+    socialLinks: [{ icon: 'github', link: 'https://github.com/ignatremizov/vue-tailwind-datepicker' }],
     footer: {
       message: 'Released under the MIT License.',
-      copyright: `Copyright © ${new Date().getFullYear()} Alexandre Le Corre`,
+      copyright: `Copyright © ${new Date().getFullYear()} Ignat Remizov`,
     },
     sidebar: [
       {
@@ -43,7 +43,7 @@ export default defineConfig({
         items: [
           {
             text: 'Changelog',
-            link: 'https://github.com/elreco/vue-tailwind-datepicker/releases',
+            link: 'https://github.com/ignatremizov/vue-tailwind-datepicker/releases',
           },
         ],
       },

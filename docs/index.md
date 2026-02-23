@@ -5,18 +5,18 @@ hero:
   name: Vue Tailwind Datepicker
   tagline: A Datepicker component for Vue 3 using Tailwind and dayjs.
   image:
-    src: https://github.com/elreco/vue-tailwind-datepicker/blob/main/docs/logo.png?raw=true
-    alt: Hey Brick
+    src: https://github.com/ignatremizov/vue-tailwind-datepicker/blob/main/docs/logo.png?raw=true
+    alt: Vue Tailwind Datepicker logo
   actions:
     - theme: brand
       text: Get Started
       link: /installation
     - theme: alt
       text: View on GitHub
-      link: https://github.com/elreco/vue-tailwind-datepicker
+      link: https://github.com/ignatremizov/vue-tailwind-datepicker
     - theme: alt
       text: Playground
-      link: https://stackblitz.com/edit/vue-tailwind-datepicker?file=src/components/Playground.vue
+      link: /demo
 features:
   - icon: ⚡️
     title: Powerful

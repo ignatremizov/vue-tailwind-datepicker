@@ -9,7 +9,7 @@
 # Demo
 
 ::: tip
-You can also test it with [the playground](https://stackblitz.com/edit/vue-tailwind-datepicker?file=src/components/Playground.vue)!
+You can test interactive examples directly on this docs page and in `src/App.vue` during local development.
 :::
 
 See also: [Screenshot Gallery](./screenshot-gallery.md) for a curated matrix of UI states and settings.
@@ -22,8 +22,8 @@ See also: [Screenshot Gallery](./screenshot-gallery.md) for a curated matrix of 
 
 ```vue
 <script setup>
+import VueTailwindDatePicker from '@ignatremizov/vue-tailwind-datepicker'
 import { ref } from 'vue'
-import VueTailwindDatePicker from 'vue-tailwind-datepicker'
 
 const dateValue = ref('')
 </script>
