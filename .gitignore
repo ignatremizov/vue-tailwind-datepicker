@@ -1,3 +1,13 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+
+# Coverage
+coverage
+
 # Logs
 logs
 *.log
@@ -7,15 +17,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-.DS_Store
-dist
-dist-ssr
-coverage
+# Environment & local overrides
+.env
 *.local
-
-/cypress/videos/
-/cypress/screenshots/
 
 # Editor directories and files
 .vscode/*
@@ -27,6 +31,13 @@ coverage
 *.sln
 *.sw?
 
-# vitepress
+# OS files
+.DS_Store
+
+# Cypress
+/cypress/videos/
+/cypress/screenshots/
+
+# VitePress
 docs/.vitepress/cache
 docs/.vitepress/dist
