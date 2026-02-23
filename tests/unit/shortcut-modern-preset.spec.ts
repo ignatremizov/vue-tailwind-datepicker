@@ -61,14 +61,22 @@ function expectedSingleRange(date: Date) {
   return [value, value]
 }
 
+function expectedRange(start: Date, end: Date) {
+  return [dayjs(start).format(DATE_FORMAT), dayjs(end).format(DATE_FORMAT)]
+}
+
 describe.sequential('shortcutPreset=modern', () => {
-  it('renders modern built-ins and hides legacy built-ins', async () => {
+  it('renders modern built-ins plus legacy built-ins', async () => {
     await withFixedNow(SHORTCUT_EDGE_FIXTURES.weekendSaturday.now, async () => {
       const wrapper = await mountModernPresetPicker()
       expect(getShortcutLabels(wrapper)).toEqual([
         'Today',
+        'Yesterday',
         '3 business days',
+        'Past week',
         'Next week',
+        'Last Month',
+        'This Month',
         'Next month',
       ])
       wrapper.unmount()
@@ -97,13 +105,13 @@ describe.sequential('shortcutPreset=modern', () => {
     })
   })
 
-  it('applies Next week as +7 calendar days', async () => {
+  it('applies Next week as a rolling +1..+7 day range', async () => {
     const now = SHORTCUT_EDGE_FIXTURES.monthBoundary.now
     await withFixedNow(now, async () => {
       const wrapper = await mountModernPresetPicker()
       await clickShortcut(wrapper, 'Next week')
       expect(getLastRangeEmission(wrapper)).toEqual(
-        expectedSingleRange(addCalendarDays(now, 7)),
+        expectedRange(addCalendarDays(now, 1), addCalendarDays(now, 7)),
       )
       wrapper.unmount()
     })
@@ -132,7 +140,7 @@ describe.sequential('shortcutPreset=modern', () => {
       await nextWeekButton!.trigger('keydown', { key: 'Enter' })
       await nextTick()
       expect(getLastRangeEmission(wrapper)).toEqual(
-        expectedSingleRange(addCalendarDays(now, 7)),
+        expectedRange(addCalendarDays(now, 1), addCalendarDays(now, 7)),
       )
 
       const nextMonthButton = getShortcutButtons(wrapper).find(
@@ -178,6 +186,7 @@ describe.sequential('shortcutPreset=modern', () => {
             today: 'Hoy',
             yesterday: 'Ayer',
             past: (period: number) => `Ultimos ${period} dias`,
+            pastWeek: 'Semana pasada',
             currentMonth: 'Este mes',
             pastMonth: 'Mes pasado',
             businessDays: (period: number) => `${period} dias habiles`,
@@ -193,14 +202,18 @@ describe.sequential('shortcutPreset=modern', () => {
 
       expect(getShortcutLabels(wrapper)).toEqual([
         'Hoy',
+        'Ayer',
         '3 dias habiles',
+        'Semana pasada',
         'Proxima semana',
+        'Mes pasado',
+        'Este mes',
         'Proximo mes',
       ])
 
       await clickShortcut(wrapper, 'Proxima semana')
       expect(getLastRangeEmission(wrapper)).toEqual(
-        expectedSingleRange(addCalendarDays(now, 7)),
+        expectedRange(addCalendarDays(now, 1), addCalendarDays(now, 7)),
       )
 
       wrapper.unmount()

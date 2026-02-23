@@ -16,10 +16,12 @@ const atMouseOverKey: InjectionKey<(date: Dayjs) => false | undefined>
 export type BuiltInShortcutId
   = | 'today'
     | 'yesterday'
+    | 'past-week'
     | 'past-7-days'
     | 'past-30-days'
     | 'this-month'
     | 'last-month'
+    | 'next-three-business-days'
     | 'three-business-days'
     | 'next-week'
     | 'next-month'
