@@ -430,9 +430,9 @@ const dateValue = ref([])
 Choose which built-in shortcut inventory is active when `shortcuts` is `true` and no custom shortcuts are provided.
 
 - `legacy` (default): Today, Yesterday, Last 7 Days, Last 30 Days, This Month, Last Month
-- `modern`: Today, 3 business days, Next week, Next month
+- `modern`: Today, Yesterday, 3 business days, Past week, Next week, Last Month, This Month, Next month
 
-Modern preset labels can be overridden via `options.shortcuts.today`, `options.shortcuts.businessDays(period)`, `options.shortcuts.nextWeek`, and `options.shortcuts.nextMonth`.
+Modern preset labels can be overridden via `options.shortcuts.today`, `options.shortcuts.yesterday`, `options.shortcuts.businessDays(period)`, `options.shortcuts.pastWeek`, `options.shortcuts.nextWeek`, `options.shortcuts.pastMonth`, `options.shortcuts.currentMonth`, and `options.shortcuts.nextMonth`.
 
 <DemoLayout>
   <VueTailwindDatePicker

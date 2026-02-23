@@ -171,7 +171,16 @@ const allFeaturesDemoShortcuts = [
     resolver: ({ now }: { now: Date }) => new Date(now),
   },
   {
-    id: 'next-3-business-days',
+    id: 'yesterday',
+    label: 'Yesterday',
+    resolver: ({ now }: { now: Date }) => {
+      const date = new Date(now)
+      date.setDate(date.getDate() - 1)
+      return date
+    },
+  },
+  {
+    id: 'next-three-business-days',
     label: '3 business days',
     resolver: ({ now }: { now: Date }) => {
       const date = new Date(now)
@@ -186,12 +195,42 @@ const allFeaturesDemoShortcuts = [
     },
   },
   {
+    id: 'past-week',
+    label: 'Past week',
+    resolver: ({ now }: { now: Date }) => {
+      const end = new Date(now)
+      const start = new Date(now)
+      start.setDate(start.getDate() - 6)
+      return [start, end] as [Date, Date]
+    },
+  },
+  {
     id: 'next-week',
     label: 'Next week',
+    resolver: ({ now, mode }: { now: Date, mode: 'single' | 'range' }) => {
+      const end = new Date(now)
+      end.setDate(end.getDate() + 7)
+      if (mode !== 'range')
+        return end
+      const start = new Date(now)
+      start.setDate(start.getDate() + 1)
+      return [start, end] as [Date, Date]
+    },
+  },
+  {
+    id: 'last-month',
+    label: 'Last month',
     resolver: ({ now }: { now: Date }) => {
-      const date = new Date(now)
-      date.setDate(date.getDate() + 7)
-      return date
+      const current = dayjs(now)
+      return [current.date(1).subtract(1, 'month').toDate(), current.date(0).toDate()] as [Date, Date]
+    },
+  },
+  {
+    id: 'this-month',
+    label: 'This month',
+    resolver: ({ now }: { now: Date }) => {
+      const current = dayjs(now)
+      return [current.date(1).toDate(), current.date(current.daysInMonth()).toDate()] as [Date, Date]
     },
   },
   {

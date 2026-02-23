@@ -135,6 +135,7 @@ export interface Props {
       today: string
       yesterday: string
       past: (period: number) => string
+      pastWeek?: string
       currentMonth: string
       pastMonth: string
       businessDays?: (period: number) => string
@@ -200,6 +201,7 @@ const props = withDefaults(defineProps<Props>(), {
       today: 'Today',
       yesterday: 'Yesterday',
       past: period => `Last ${period} Days`,
+      pastWeek: 'Past week',
       currentMonth: 'This Month',
       pastMonth: 'Last Month',
       businessDays: period => `${period} business days`,
@@ -1937,12 +1939,16 @@ function classifyWeekend(date: Dayjs) {
   }
 }
 
-function getModernShortcutLabel(id: 'today' | 'three-business-days' | 'next-week' | 'next-month') {
+function getModernShortcutLabel(
+  id: 'today' | 'next-three-business-days' | 'past-week' | 'next-week' | 'next-month',
+) {
   switch (id) {
     case 'today':
       return props.options.shortcuts.today
-    case 'three-business-days':
+    case 'next-three-business-days':
       return props.options.shortcuts.businessDays?.(3) ?? '3 business days'
+    case 'past-week':
+      return props.options.shortcuts.pastWeek ?? props.options.shortcuts.past(7)
     case 'next-week':
       return props.options.shortcuts.nextWeek ?? 'Next week'
     case 'next-month':
@@ -1954,8 +1960,12 @@ const builtInShortcutItems = computed(() => {
   if (props.shortcutPreset === 'modern') {
     return [
       { id: 'today' as const, label: getModernShortcutLabel('today') },
-      { id: 'three-business-days' as const, label: getModernShortcutLabel('three-business-days') },
+      { id: 'yesterday' as const, label: props.options.shortcuts.yesterday },
+      { id: 'next-three-business-days' as const, label: getModernShortcutLabel('next-three-business-days') },
+      { id: 'past-week' as const, label: getModernShortcutLabel('past-week') },
       { id: 'next-week' as const, label: getModernShortcutLabel('next-week') },
+      { id: 'last-month' as const, label: props.options.shortcuts.pastMonth },
+      { id: 'this-month' as const, label: props.options.shortcuts.currentMonth },
       { id: 'next-month' as const, label: getModernShortcutLabel('next-month') },
     ]
   }
@@ -4722,9 +4732,12 @@ function getBuiltInShortcut(
         },
       }
     case 'past-7-days':
+    case 'past-week':
       return {
-        id: 'past-7-days',
-        label: props.options.shortcuts.past(7),
+        id: target,
+        label: target === 'past-week'
+          ? getModernShortcutLabel('past-week')
+          : props.options.shortcuts.past(7),
         atClick: () => {
           const now = dayjsWithResolvedLocale()
           return [
@@ -4770,16 +4783,26 @@ function getBuiltInShortcut(
         },
       }
     case 'three-business-days':
+    case 'next-three-business-days':
       return {
-        id: 'three-business-days',
-        label: getModernShortcutLabel('three-business-days'),
-        resolver: ({ now }) => resolveModernBuiltInDate('three-business-days', now),
+        id: target,
+        label: getModernShortcutLabel('next-three-business-days'),
+        resolver: ({ now }) => resolveModernBuiltInDate(target, now),
       }
     case 'next-week':
       return {
         id: 'next-week',
         label: getModernShortcutLabel('next-week'),
-        resolver: ({ now }) => resolveModernBuiltInDate('next-week', now),
+        resolver: ({ now, mode }) => {
+          if (mode === 'single')
+            return resolveModernBuiltInDate('next-week', now)
+
+          const start = new Date(now.getTime())
+          start.setDate(start.getDate() + 1)
+          const end = new Date(now.getTime())
+          end.setDate(end.getDate() + 7)
+          return [start, end]
+        },
       }
     case 'next-month':
       return {

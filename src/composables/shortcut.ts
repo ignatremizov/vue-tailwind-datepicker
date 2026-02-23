@@ -164,7 +164,7 @@ function addMonthClamped(base: Date) {
 export function resolveModernBuiltInDate(
   shortcut: Extract<
     BuiltInShortcutId,
-    'today' | 'three-business-days' | 'next-week' | 'next-month'
+    'today' | 'three-business-days' | 'next-three-business-days' | 'next-week' | 'next-month'
   >,
   now: Date,
 ) {
@@ -173,6 +173,7 @@ export function resolveModernBuiltInDate(
     case 'today':
       return baseline
     case 'three-business-days':
+    case 'next-three-business-days':
       return addBusinessDays(baseline, 3)
     case 'next-week':
       return addWeek(baseline)

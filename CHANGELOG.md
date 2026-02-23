@@ -7,14 +7,14 @@ Compare: https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v1.7.4.
 ### :boom: Breaking Changes
 
 - Package scope renamed to `@ignatremizov/vue-tailwind-datepicker` — update your imports and dependency references.
-- Shortcut system completely replaced: the old hard-coded presets are gone in favour of a fully customizable extension-point API. See the updated props documentation for migration details.
+- Shortcut system completely replaced with a fully customizable extension-point API, with built-in presets added for drop-in usage (`legacy` compatibility preset for the old list, plus `modern`).
 
 ### :sparkles: Features
 
 - Brand-new native selector wheel mode shipped: canvas-backed year rendering, keyboard-first UX, dual-panel behavior stabilization, header quick-nav controls, and configurable year jump controls. ([#1](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/1))
 - Direct year input shipped in selector mode with signed-year handling and range-boundary commit behavior. ([#4](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/4))
 - Brand-new time picker support shipped (input + wheel modes); previously the picker was day-only calendar selection. ([#5](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/5))
-- Brand-new customizable shortcut system shipped in place of hard pre-set shortcuts, with typed extension points, disabled-state reason tracking, and layout customization hooks. ([#3](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/3))
+- Brand-new customizable shortcut system shipped with typed extension points, disabled-state reason tracking, and layout customization hooks. Modern preset shortcut list: Today, Yesterday, 3 business days, Past week, Next week, Last Month, This Month, Next Month. ([#3](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/3), [#7](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/7))
 - Brand-new keyboard accessibility support shipped: full keyboard traversal/activation flow, stronger focus management, and broader screen-reader support. ([#1](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/1), [#4](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/4), [#5](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/5))
 - Tailwind v4 compatibility: legacy opacity utilities migrated to modern syntax and range-preview styling made deterministic. ([#1](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/1))
 - Weekend days are now styleable via stable Saturday/Sunday/weekend hooks for host theming. ([#2](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/2))
