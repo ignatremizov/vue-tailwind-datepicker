@@ -9,6 +9,11 @@ import {
 } from '../keys'
 import { injectStrict } from '../utils'
 
+export interface VtdCalendarRef {
+  focusCalendarTarget: (options?: FocusOptions) => boolean
+  isReady: () => boolean
+}
+
 const props = defineProps<{
   calendar: {
     date: () => DatePickerDay[]
@@ -31,6 +36,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'updateDate', event: { date: DatePickerDay, source: 'keyboard' | 'pointer', activationKey?: string }): void
+  (e: 'readyStateChange'): void
 }>()
 
 const isBetweenRange = injectStrict(isBetweenRangeKey)
@@ -306,13 +312,42 @@ function onDateClick(date: DatePickerDay) {
   })
 }
 
+function resolveFocusableDateButton() {
+  const root = calendarRootRef.value
+  if (!root)
+    return null
+
+  return root.querySelector<HTMLButtonElement>('.vtd-calendar-focus-target:not(:disabled)')
+    ?? root.querySelector<HTMLButtonElement>('.vtd-datepicker-date[tabindex="0"]:not(:disabled)')
+    ?? root.querySelector<HTMLButtonElement>('.vtd-datepicker-date:not(:disabled)')
+}
+
+function focusCalendarTarget(options: FocusOptions = {}) {
+  const target = resolveFocusableDateButton()
+  if (!target)
+    return false
+
+  target.focus(options)
+  return true
+}
+
+function isReady() {
+  return !!resolveFocusableDateButton()
+}
+
 watch(
   () => calendarDates.value,
   (dates) => {
     ensureFocusedDateKey(dates)
+    emit('readyStateChange')
   },
-  { immediate: true },
+  { immediate: true, flush: 'post' },
 )
+
+defineExpose<VtdCalendarRef>({
+  focusCalendarTarget,
+  isReady,
+})
 </script>
 
 <template>

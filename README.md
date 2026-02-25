@@ -227,6 +227,42 @@ const rangeDate = ref({
 />
 ```
 
+**Template ref API (stable integration)**
+
+For host flows that need imperative focus/readiness control, use the component ref API instead of querying internal `.vtd-*` selectors:
+
+- `isReady(): boolean`
+- `waitForReady(options?): Promise<boolean>`
+- `focusCalendar(options?): Promise<boolean>`
+- `focusInput(options?): boolean`
+
+`waitForReady` is event-driven with a timeout fallback. Use `timeoutMs` (or legacy `maxAttempts`/`retryDelayMs`).
+
+```vue
+<script setup lang="ts">
+import VueTailwindDatepicker from '@ignatremizov/vue-tailwind-datepicker'
+import { ref } from 'vue'
+
+type DatePickerRef = InstanceType<typeof VueTailwindDatepicker>
+
+const pickerRef = ref<DatePickerRef | null>(null)
+const rangeDate = ref({
+  startDate: '',
+  endDate: '',
+})
+
+async function focusCalendarAfterOpen() {
+  const ready = await pickerRef.value?.waitForReady({ timeoutMs: 400 })
+  if (ready)
+    await pickerRef.value?.focusCalendar({ preventScroll: true })
+}
+</script>
+
+<template>
+  <VueTailwindDatepicker ref="pickerRef" v-model="rangeDate" use-range />
+</template>
+```
+
 Selector wheel visuals are also themeable through CSS variables on `.vtd-datepicker` (month/year selected and hover colors, borders, typography, wheel cell sizing, and shared selected/unselected wheel text tokens used by selector + time wheels). Calendar range preview colors/opacity are exposed via `--vtd-calendar-range-preview-bg` and `--vtd-calendar-range-preview-bg-dark`. See `docs/theming-options.md` for examples.
 
 ## Shortcut Layout Customization
