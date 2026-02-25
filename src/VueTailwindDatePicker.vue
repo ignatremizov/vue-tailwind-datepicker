@@ -47,7 +47,7 @@ import type {
   TypedShortcutDefinition,
   YearNumberingMode,
 } from './types'
-import VtdCalendar from './components/Calendar.vue'
+import VtdCalendar, { type VtdCalendarRef } from './components/Calendar.vue'
 import VtdHeader from './components/Header.vue'
 import VtdMonth from './components/Month.vue'
 import VtdShortcut from './components/Shortcut.vue'
@@ -155,6 +155,24 @@ export interface Props {
       endDate: Date | string
     }
     | string
+}
+
+export interface DatePickerReadyOptions {
+  timeoutMs?: number
+  maxAttempts?: number
+  retryDelayMs?: number
+}
+
+export interface FocusCalendarOptions extends DatePickerReadyOptions {
+  preventScroll?: boolean
+}
+
+export interface VueTailwindDatePickerRef {
+  clearPicker: () => void
+  focusInput: (options?: FocusOptions) => boolean
+  isReady: () => boolean
+  waitForReady: (options?: DatePickerReadyOptions) => Promise<boolean>
+  focusCalendar: (options?: FocusCalendarOptions) => Promise<boolean>
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -283,6 +301,8 @@ const VtdStaticRef = ref<HTMLElement | null>(null)
 const VtdPanelContentRef = ref<HTMLElement | null>(null)
 const VtdInputRef = ref<HTMLInputElement | null>(null)
 const VtdPopoverButtonRef = ref<unknown>(null)
+const previousCalendarRef = ref<VtdCalendarRef | null>(null)
+const nextCalendarRef = ref<VtdCalendarRef | null>(null)
 let preserveInputFocusOnNextPopoverClose = false
 let panelMeasureJobToken = 0
 const placement = ref<boolean | null>(null)
@@ -2735,26 +2755,15 @@ function focusSelectorModeTargetDeferred(
 }
 
 function focusCalendarModeTarget() {
-  const queryRoot = getPickerQueryRoot()
-  if (!queryRoot)
-    return false
-
-  const preferredPanel = queryRoot.querySelector<HTMLElement>(
-    '[data-vtd-selector-panel="previous"]',
+  return (
+    previousCalendarRef.value?.focusCalendarTarget()
+    || nextCalendarRef.value?.focusCalendarTarget()
+    || false
   )
-  const fallbackPanel = queryRoot.querySelector<HTMLElement>('[data-vtd-selector-panel="next"]')
-  const panelElement = preferredPanel ?? fallbackPanel
-  if (!panelElement)
-    return false
+}
 
-  const calendarDateButton
-    = panelElement.querySelector<HTMLButtonElement>('.vtd-calendar-focus-target')
-      ?? panelElement.querySelector<HTMLButtonElement>('.vtd-datepicker-date:not(:disabled)')
-  if (!calendarDateButton)
-    return false
-
-  calendarDateButton.focus()
-  return true
+function isReady() {
+  return previousCalendarRef.value?.isReady() || nextCalendarRef.value?.isReady() || false
 }
 
 function focusCalendarModeTargetDeferred(attempt = 0) {
@@ -2763,6 +2772,117 @@ function focusCalendarModeTargetDeferred(attempt = 0) {
     if (!focused && attempt < 2)
       focusCalendarModeTargetDeferred(attempt + 1)
   })
+}
+
+const readyWaiters = new Set<(ready: boolean) => void>()
+let readyFlushScheduled = false
+
+function resolveReadyWaiters(ready: boolean) {
+  if (readyWaiters.size === 0)
+    return
+
+  const waiters = Array.from(readyWaiters)
+  readyWaiters.clear()
+  for (const resolve of waiters)
+    resolve(ready)
+}
+
+function flushReadyWaiters() {
+  if (!isReady())
+    return
+
+  resolveReadyWaiters(true)
+}
+
+function scheduleReadyWaitersFlush() {
+  if (readyFlushScheduled)
+    return
+
+  readyFlushScheduled = true
+  nextTick(() => {
+    window.requestAnimationFrame(() => {
+      readyFlushScheduled = false
+      flushReadyWaiters()
+    })
+  })
+}
+
+function resolveRetryCount(value: number | undefined, fallback: number) {
+  if (typeof value !== 'number' || !Number.isFinite(value))
+    return fallback
+
+  return Math.max(1, Math.floor(value))
+}
+
+function resolveRetryDelayMs(value: number | undefined, fallback: number) {
+  if (typeof value !== 'number' || !Number.isFinite(value))
+    return fallback
+
+  return Math.max(0, Math.floor(value))
+}
+
+function resolveWaitForReadyTimeoutMs(options: DatePickerReadyOptions) {
+  if (typeof options.timeoutMs === 'number' && Number.isFinite(options.timeoutMs))
+    return Math.max(0, Math.floor(options.timeoutMs))
+
+  const maxAttempts = resolveRetryCount(options.maxAttempts, 20)
+  const retryDelayMs = resolveRetryDelayMs(options.retryDelayMs, 16)
+  return maxAttempts * retryDelayMs
+}
+
+function waitForReady(options: DatePickerReadyOptions = {}) {
+  if (isReady())
+    return Promise.resolve(true)
+
+  const timeoutMs = resolveWaitForReadyTimeoutMs(options)
+
+  return new Promise<boolean>((resolve) => {
+    let settled = false
+    let timeoutId: number | undefined
+
+    const settle = (ready: boolean) => {
+      if (settled)
+        return
+      settled = true
+      readyWaiters.delete(settle)
+      if (typeof timeoutId === 'number')
+        window.clearTimeout(timeoutId)
+      resolve(ready)
+    }
+
+    if (timeoutMs === 0) {
+      settle(false)
+      return
+    }
+
+    readyWaiters.add(settle)
+    timeoutId = window.setTimeout(() => {
+      settle(false)
+    }, timeoutMs)
+
+    scheduleReadyWaitersFlush()
+  })
+}
+
+function focusInput(options: FocusOptions = { preventScroll: true }) {
+  if (!VtdInputRef.value || props.disabled || VtdInputRef.value.disabled)
+    return false
+
+  VtdInputRef.value.focus(options)
+  return document.activeElement === VtdInputRef.value
+}
+
+async function focusCalendar(options: FocusCalendarOptions = {}) {
+  const ready = await waitForReady(options)
+  if (!ready)
+    return false
+
+  const preventScroll = options.preventScroll ?? true
+  return (
+    previousCalendarRef.value?.focusCalendarTarget({ preventScroll })
+    || nextCalendarRef.value?.focusCalendarTarget({ preventScroll })
+    || false
+  )
 }
 
 interface SyncSelectorStateOptions {
@@ -3885,6 +4005,7 @@ function onInputKeydown(event: KeyboardEvent) {
 
 function onPopoverAfterEnter() {
   pushDebugEvent('after-enter', { activeElement: describeActiveElement() })
+  scheduleReadyWaitersFlush()
   // Preserve lock dimensions across reopen cycles so inline-right wheels remain
   // bounded while a fresh measurement is queued.
   if (panelContentLockState.width <= 0 || panelContentLockState.height <= 0)
@@ -3918,6 +4039,7 @@ function onPopoverAfterLeave() {
 }
 
 onMounted(() => {
+  scheduleReadyWaitersFlush()
   const store = getDebugStore()
   if (!store)
     return
@@ -3929,6 +4051,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  resolveReadyWaiters(false)
+
   const store = getDebugStore()
   if (!store)
     return
@@ -3938,6 +4062,23 @@ onUnmounted(() => {
     mountedCount: store.mountedCount,
   })
 })
+
+watch(
+  () => [previousCalendarRef.value, nextCalendarRef.value],
+  () => {
+    scheduleReadyWaitersFlush()
+  },
+  { flush: 'post' },
+)
+
+watch(
+  () => displayDatepicker.value,
+  (visible) => {
+    if (visible)
+      scheduleReadyWaitersFlush()
+  },
+  { flush: 'post' },
+)
 
 watch(
   () => props.selectorMode,
@@ -4045,9 +4186,15 @@ function clearPicker() {
   pickerValue.value = ''
   emitEmptyModelValue()
   applyValue.value = []
-  VtdInputRef.value && VtdInputRef.value.focus()
+  focusInput()
 }
-defineExpose({ clearPicker })
+defineExpose<VueTailwindDatePickerRef>({
+  clearPicker,
+  focusInput,
+  isReady,
+  waitForReady,
+  focusCalendar,
+})
 
 function resolveDateTimeErrorMessage(
   code: DateTimeErrorCode,
@@ -5508,10 +5655,12 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                           <div v-show="panel.previous.calendar">
                             <VtdWeek :weeks="weeks" />
                             <VtdCalendar
+                              ref="previousCalendarRef"
                               :calendar="calendar.previous"
                               :weeks="weeks"
                               :as-range="asRange()"
                               :week-number="weekNumber"
+                              @ready-state-change="scheduleReadyWaitersFlush"
                               @update-date="date => setDate(date, close)"
                             />
                           </div>
@@ -5621,11 +5770,13 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                           <div v-show="panel.next.calendar">
                             <VtdWeek :weeks="weeks" />
                             <VtdCalendar
+                              ref="nextCalendarRef"
                               as-prev-or-next
                               :calendar="calendar.next"
                               :weeks="weeks"
                               :as-range="asRange()"
                               :week-number="weekNumber"
+                              @ready-state-change="scheduleReadyWaitersFlush"
                               @update-date="date => setDate(date, close)"
                             />
                           </div>
@@ -6252,10 +6403,12 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                   <div v-show="panel.previous.calendar">
                     <VtdWeek :weeks="weeks" />
                     <VtdCalendar
+                      ref="previousCalendarRef"
                       :calendar="calendar.previous"
                       :weeks="weeks"
                       :as-range="asRange()"
                       :week-number="weekNumber"
+                      @ready-state-change="scheduleReadyWaitersFlush"
                       @update-date="date => setDate(date)"
                     />
                   </div>
@@ -6364,11 +6517,13 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                   <div v-show="panel.next.calendar">
                     <VtdWeek :weeks="weeks" />
                     <VtdCalendar
+                      ref="nextCalendarRef"
                       as-prev-or-next
                       :calendar="calendar.next"
                       :weeks="weeks"
                       :as-range="asRange()"
                       :week-number="weekNumber"
+                      @ready-state-change="scheduleReadyWaitersFlush"
                       @update-date="date => setDate(date)"
                     />
                   </div>
