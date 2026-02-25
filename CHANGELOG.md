@@ -1,5 +1,30 @@
 > Historical entries before this fork may reference the upstream repository (`elreco/vue-tailwind-datepicker`) in compare/commit links.
 
+## [2.1.0](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.0.1...v2.1.0) (2026-02-25)
+
+### :sparkles: Features
+
+- Public template-ref API for stable readiness/focus integration:
+  - `isReady(): boolean`
+  - `waitForReady(options?): Promise<boolean>`
+  - `focusCalendar(options?): Promise<boolean>`
+  - `focusInput(options?): boolean`
+  - `clearPicker()` (existing)
+  ([#9](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/9))
+
+### :bug: Fixes
+
+- `waitForReady` is now event-driven with timeout fallback and resolves pending waiters when mounted calendar content transitions from not-ready to ready. Legacy `maxAttempts` / `retryDelayMs` options map to `timeoutMs` for backward compatibility. ([#9](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/9))
+- `focusInput` now returns `false` when input focus cannot be applied (missing/disabled input or focus did not land). ([#9](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/9))
+
+### :memo: Documentation
+
+- Updated README template-ref API docs with a copy-paste-ready usage example and declared model value. ([#9](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/9))
+
+### :white_check_mark: Tests
+
+- Added `tests/unit/public-ref-api.spec.ts` coverage for readiness, focus, and timeout behavior. ([#9](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/9))
+
 ## [2.0.1](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.0.0...v2.0.1) (2026-02-23)
 
 ### :bug: Fixes

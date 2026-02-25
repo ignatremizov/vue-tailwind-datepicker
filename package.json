@@ -1,7 +1,7 @@
 {
   "name": "@ignatremizov/vue-tailwind-datepicker",
   "type": "module",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "A Vue 3 datepicker component using Tailwind CSS and Day.js",
   "author": {
     "name": "Ignat Remizov",
