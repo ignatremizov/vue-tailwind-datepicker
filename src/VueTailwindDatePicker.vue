@@ -302,6 +302,11 @@ const highlightDateKeys = computed(() => {
   const keys = new Set<string>()
 
   for (const value of props.highlightDates) {
+    if (value == null)
+      continue
+    if (typeof value === 'string' && value.trim().length === 0)
+      continue
+
     const parsed = dayjsWithResolvedLocale(value)
     if (!parsed.isValid())
       continue

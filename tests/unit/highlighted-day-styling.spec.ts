@@ -155,4 +155,21 @@ describe('highlighted day styling hooks', () => {
       wrapper.unmount()
     }
   })
+
+  it('does not treat nullish or blank highlight values as today', async () => {
+    const today = dayjs()
+    const wrapper = await mountSinglePicker({
+      startFrom: today.toDate(),
+      modelValue: `${today.format('YYYY-MM-DD')} 00:00:00`,
+      highlightDates: [null, undefined, '', '   '] as unknown as Array<string | Dayjs>,
+    })
+
+    try {
+      const todayButton = findButtonByDate(wrapper, today.format('YYYY-MM-DD'))
+      expect(todayButton).toBeTruthy()
+      expect(todayButton?.classes()).not.toContain('vtd-highlighted')
+    } finally {
+      wrapper.unmount()
+    }
+  })
 })
