@@ -333,6 +333,44 @@ Hooks are stable across locales and also apply when `selector-mode` is enabled:
 
 Hooks are additive: selected/range/disabled/today semantics remain unchanged unless your host CSS explicitly overrides them.
 
+## Highlighted Day Hooks
+
+Use `highlightDates` to mark specific calendar days with a stable hook class.
+
+```vue
+<script setup>
+import dayjs from 'dayjs'
+import { ref } from 'vue'
+
+const value = ref('2025-06-15 00:00:00')
+const highlightedDates = [
+  new Date(2025, 5, 7),
+  '2025-06-15',
+  dayjs('2025-06-21'),
+]
+</script>
+
+<template>
+  <vue-tailwind-datepicker
+    v-model="value"
+    as-single
+    :highlight-dates="highlightedDates"
+  />
+</template>
+```
+
+- `highlightDates` accepts an array of `Date`, `dayjs`, or parseable date strings.
+- Matching is date-only (`YYYY-MM-DD`), so time values are ignored.
+- Matching cells receive the `vtd-highlighted` class.
+
+```css
+.vtd-datepicker-date.vtd-highlighted {
+  color: #0f766e;
+}
+```
+
+The hook is additive, so highlighted cells still keep their normal selected/range/disabled/today behavior unless your host CSS overrides it.
+
 ## Direct Year Input (Selector Mode)
 
 Use `directYearInput` to allow typing a year directly in selector mode. The feature is opt-in and defaults to `false`.

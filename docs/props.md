@@ -144,6 +144,53 @@ const dateValue = ref([])
 </template>
 ```
 
+## Highlight Dates
+
+Pass specific days through `highlight-dates` to attach the stable `.vtd-highlighted` hook class to matching cells.
+
+<DemoLayout>
+  <VueTailwindDatePicker
+    v-model="dateValue17"
+    as-single
+    :highlight-dates="[
+      new Date(2020, 0, 4),
+      '2020-01-10',
+      '2020-01-18 09:30:00',
+    ]"
+    :start-from="startFrom"
+  />
+</DemoLayout>
+
+```vue
+<script setup>
+import dayjs from 'dayjs'
+import { ref } from 'vue'
+
+const dateValue = ref('2020-01-10')
+const highlightedDates = [
+  new Date(2020, 0, 4),
+  '2020-01-10',
+  dayjs('2020-01-18'),
+]
+</script>
+
+<template>
+  <vue-tailwind-datepicker
+    v-model="dateValue"
+    as-single
+    :highlight-dates="highlightedDates"
+  />
+</template>
+```
+
+Use host CSS to style the hook:
+
+```css
+.vtd-datepicker-date.vtd-highlighted {
+  color: #0f766e;
+}
+```
+
 ## Single Date
 
 Using date picker as single date.

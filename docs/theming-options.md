@@ -133,3 +133,19 @@ These classes remain stable across locales and in selector mode (`:selector-mode
 
 These hooks are additive selectors layered on top of existing day states.
 Selected/range/disabled/today semantics remain the base behavior unless host CSS intentionally overrides them.
+
+## Highlighted Day Hook Theming
+
+Specific day-cell theming is available through the `highlightDates` prop and a stable hook:
+
+- `.vtd-highlighted` applies to any day included in `highlightDates`.
+
+```css
+.vtd-datepicker-date.vtd-highlighted {
+  color: rgb(15 118 110 / 100%);
+}
+```
+
+`highlightDates` accepts an array of `Date`, `dayjs`, or parseable date strings.
+Matching is date-only, so time parts are ignored when resolving the hook.
+Like the weekend hooks, `.vtd-highlighted` is additive with selected/range/disabled/today states.

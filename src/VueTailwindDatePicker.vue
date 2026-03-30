@@ -103,6 +103,7 @@ export interface Props {
     | ShortcutFactory<TypedShortcutDefinition>
   defaultTime?: string
   defaultEndTime?: string
+  highlightDates?: Array<Date | string | Dayjs>
   timePickerStyle?: 'none' | 'input' | 'wheel-inline' | 'wheel-page'
   timeWheelHeight?: number
   timeWheelPageHeight?: number
@@ -186,6 +187,7 @@ const props = withDefaults(defineProps<Props>(), {
   shortcutPreset: 'legacy',
   defaultTime: undefined,
   defaultEndTime: undefined,
+  highlightDates: () => [],
   timePickerStyle: 'none',
   timeWheelHeight: 176,
   timeWheelPageHeight: 232,
@@ -294,6 +296,23 @@ function resolveMonthLabels() {
   return props.formatter.month === 'MMM'
     ? localeData.monthsShort()
     : localeData.months()
+}
+
+const highlightDateKeys = computed(() => {
+  const keys = new Set<string>()
+
+  for (const value of props.highlightDates) {
+    const parsed = dayjsWithResolvedLocale(value)
+    if (!parsed.isValid())
+      continue
+    keys.add(parsed.format('YYYY-MM-DD'))
+  }
+
+  return keys
+})
+
+function isHighlightedDate(date: Dayjs) {
+  return highlightDateKeys.value.has(date.format('YYYY-MM-DD'))
 }
 
 const VtdRef = ref<HTMLElement | null>(null)
@@ -2016,6 +2035,7 @@ const calendar = computed(() => {
               saturday,
               sunday,
               weekend,
+              highlighted: isHighlightedDate(v),
               disabled: useDisableDate(v, props) && !inRangeDate(v),
               inRange: props.asSingle && !props.useRange
                 ? previous.month() !== v.month()
@@ -2163,6 +2183,7 @@ const calendar = computed(() => {
               saturday,
               sunday,
               weekend,
+              highlighted: isHighlightedDate(v),
               disabled: useDisableDate(v, props) && !inRangeDate(v),
               inRange: props.asSingle && !props.useRange
                 ? next.month() !== v.month()
