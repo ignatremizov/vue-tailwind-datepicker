@@ -2445,7 +2445,7 @@ function resolveModelRangeDates() {
     endDate = parseModelDateCandidate(end)
   } else if (typeof props.modelValue === 'object') {
     if (props.modelValue) {
-      const [start, end] = Object.values(props.modelValue)
+      const { startValue: start, endValue: end } = resolveObjectModelValues(props.modelValue)
       startDate = parseModelDateCandidate(start)
       endDate = parseModelDateCandidate(end)
     }
@@ -2466,8 +2466,28 @@ function resolveModelValueKeys() {
     }
   }
 
+  const hasNamedRangeKeys
+    = 'startDate' in props.modelValue
+      || 'endDate' in props.modelValue
+
+  if (hasNamedRangeKeys) {
+    return {
+      startKey: 'startDate',
+      endKey: 'endDate',
+    }
+  }
+
   const [startKey = 'startDate', endKey = 'endDate'] = Object.keys(props.modelValue)
   return { startKey, endKey }
+}
+
+function resolveObjectModelValues(value: Record<string, unknown>) {
+  const { startKey, endKey } = resolveModelValueKeys()
+
+  return {
+    startValue: value[startKey],
+    endValue: value[endKey],
+  }
 }
 
 function emitRangeModelValueFromFormatted(
@@ -5248,7 +5268,7 @@ watchEffect(() => {
           }
         }
         if (modelValueCloned) {
-          const [start, end] = Object.values(modelValueCloned)
+          const { startValue: start, endValue: end } = resolveObjectModelValues(modelValueCloned)
           const resolvedStart = resolveModelDateValue(start, 'start')
           const resolvedEnd = resolveModelDateValue(end, 'end')
           s = resolvedStart.value
@@ -5324,7 +5344,7 @@ watchEffect(() => {
         }
       } else if (typeof modelValueCloned === 'object') {
         if (modelValueCloned) {
-          const [start] = Object.values(modelValueCloned)
+          const { startValue: start } = resolveObjectModelValues(modelValueCloned)
           const resolvedStart = resolveModelDateValue(start, 'start')
           s = resolvedStart.value
           startHydrated = resolvedStart.isHydrated
