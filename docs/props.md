@@ -170,7 +170,7 @@ const dateValue = ref('2020-01-10')
 const highlightedDates = [
   new Date(2020, 0, 4),
   '2020-01-10',
-  dayjs('2020-01-18'),
+  dayjs('2020-01-18 09:30:00'),
 ]
 </script>
 
