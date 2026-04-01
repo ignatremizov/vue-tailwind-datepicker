@@ -56,6 +56,7 @@ type DateFlagKey
   = | 'active'
     | 'disabled'
     | 'duration'
+    | 'highlighted'
     | 'hovered'
     | 'inRange'
     | 'saturday'
@@ -235,6 +236,10 @@ function weekendHookClasses(date: DatePickerDay) {
   return classes.join(' ')
 }
 
+function highlightHookClasses(date: DatePickerDay) {
+  return date.highlighted ? 'vtd-highlighted' : ''
+}
+
 function onDateKeydown(event: KeyboardEvent, date: DatePickerDay) {
   const currentKey = getDateKey(date)
   const currentIndex = calendarDates.value.findIndex(
@@ -395,6 +400,7 @@ defineExpose<VtdCalendarRef>({
             :class="[
               datepickerClasses(date),
               weekendHookClasses(date),
+              highlightHookClasses(date),
               asRange ? 'transition-[color] duration-120 ease-out' : 'transition-colors',
               isCalendarFocusTarget(date) ? 'vtd-calendar-focus-target' : '',
             ]"

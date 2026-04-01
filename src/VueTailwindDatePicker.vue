@@ -103,6 +103,7 @@ export interface Props {
     | ShortcutFactory<TypedShortcutDefinition>
   defaultTime?: string
   defaultEndTime?: string
+  highlightDates?: Array<Date | string | Dayjs>
   timePickerStyle?: 'none' | 'input' | 'wheel-inline' | 'wheel-page'
   timeWheelHeight?: number
   timeWheelPageHeight?: number
@@ -186,6 +187,7 @@ const props = withDefaults(defineProps<Props>(), {
   shortcutPreset: 'legacy',
   defaultTime: undefined,
   defaultEndTime: undefined,
+  highlightDates: () => [],
   timePickerStyle: 'none',
   timeWheelHeight: 176,
   timeWheelPageHeight: 232,
@@ -294,6 +296,52 @@ function resolveMonthLabels() {
   return props.formatter.month === 'MMM'
     ? localeData.monthsShort()
     : localeData.months()
+}
+
+const highlightDateFormat = 'YYYY-MM-DD'
+const highlightDateOnlyFormatter = computed(() => extractDateOnlyFormatter(props.formatter.date))
+
+function parseHighlightDateValue(value: Date | string | Dayjs) {
+  if (typeof value === 'string') {
+    const parsedFromFormatter = parseModelDateWithDirectYear(
+      value,
+      props.formatter.date,
+    )
+    if (parsedFromFormatter?.isValid())
+      return parsedFromFormatter
+
+    const dateOnlyFormatter = highlightDateOnlyFormatter.value
+    if (dateOnlyFormatter && dateOnlyFormatter !== props.formatter.date) {
+      const parsedDateOnly = parseModelDateWithDirectYear(value, dateOnlyFormatter)
+      if (parsedDateOnly?.isValid())
+        return parsedDateOnly
+    }
+
+    return null
+  }
+
+  return dayjsWithResolvedLocale(value)
+}
+
+const highlightDateKeys = computed(() => {
+  const keys = new Set<string>()
+  const highlightDates = Array.isArray(props.highlightDates) ? props.highlightDates : []
+
+  for (const value of highlightDates) {
+    if (value == null)
+      continue
+
+    const parsed = parseHighlightDateValue(value)
+    if (!parsed?.isValid())
+      continue
+    keys.add(parsed.format(highlightDateFormat))
+  }
+
+  return keys
+})
+
+function isHighlightedDate(date: Dayjs) {
+  return highlightDateKeys.value.size > 0 && highlightDateKeys.value.has(date.format(highlightDateFormat))
 }
 
 const VtdRef = ref<HTMLElement | null>(null)
@@ -2016,6 +2064,7 @@ const calendar = computed(() => {
               saturday,
               sunday,
               weekend,
+              highlighted: isHighlightedDate(v),
               disabled: useDisableDate(v, props) && !inRangeDate(v),
               inRange: props.asSingle && !props.useRange
                 ? previous.month() !== v.month()
@@ -2163,6 +2212,7 @@ const calendar = computed(() => {
               saturday,
               sunday,
               weekend,
+              highlighted: isHighlightedDate(v),
               disabled: useDisableDate(v, props) && !inRangeDate(v),
               inRange: props.asSingle && !props.useRange
                 ? next.month() !== v.month()
