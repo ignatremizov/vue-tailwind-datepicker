@@ -146,6 +146,7 @@ Specific day-cell theming is available through the `highlightDates` prop and a s
 }
 ```
 
-`highlightDates` accepts an array of `Date`, `dayjs`, or parseable date strings.
+`highlightDates` accepts an array of `Date`, `dayjs`, or strings matching the configured `formatter.date` (or its date-only form).
+Strings that do not match are ignored.
 Matching is date-only, so time parts are ignored when resolving the hook.
 Like the weekend hooks, `.vtd-highlighted` is additive with selected/range/disabled/today states.

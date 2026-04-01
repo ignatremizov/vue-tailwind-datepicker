@@ -20,6 +20,7 @@
   const dateValue15 = ref([])
   const dateValue16 = ref([])
   const dateValue17 = ref([])
+  const dateValue18 = ref('2020-01-10')
   const formatter = ref({
     date: 'DD MMM YYYY',
     month: 'MMM'
@@ -150,7 +151,7 @@ Pass specific days through `highlight-dates` to attach the stable `.vtd-highligh
 
 <DemoLayout>
   <VueTailwindDatePicker
-    v-model="dateValue17"
+    v-model="dateValue18"
     as-single
     :highlight-dates="[
       new Date(2020, 0, 4),

@@ -237,7 +237,7 @@ function weekendHookClasses(date: DatePickerDay) {
 }
 
 function highlightHookClasses(date: DatePickerDay) {
-  return resolveDateFlag(date, 'highlighted') ? 'vtd-highlighted' : ''
+  return date.highlighted ? 'vtd-highlighted' : ''
 }
 
 function onDateKeydown(event: KeyboardEvent, date: DatePickerDay) {

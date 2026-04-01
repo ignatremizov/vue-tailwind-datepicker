@@ -359,7 +359,7 @@ const highlightedDates = [
 </template>
 ```
 
-- `highlightDates` accepts an array of `Date`, `dayjs`, or parseable date strings.
+- `highlightDates` accepts an array of `Date`, `dayjs`, or strings matching the configured `formatter.date` or its date-only form.
 - Matching is date-only (`YYYY-MM-DD`), so time values are ignored.
 - Matching cells receive the `vtd-highlighted` class.
 

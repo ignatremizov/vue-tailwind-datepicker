@@ -329,8 +329,6 @@ const highlightDateKeys = computed(() => {
   for (const value of highlightDates) {
     if (value == null)
       continue
-    if (typeof value === 'string' && value.trim().length === 0)
-      continue
 
     const parsed = parseHighlightDateValue(value)
     if (!parsed?.isValid())
