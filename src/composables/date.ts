@@ -1,6 +1,21 @@
 import type { Dayjs } from 'dayjs'
 import type { DatePickerDay } from '~/types'
 
+type DayjsWithLocaleData = {
+  localeData: () => {
+    firstDayOfWeek: () => number
+  }
+}
+
+type DayjsWithIsBetween = {
+  isBetween: (
+    previous: Dayjs,
+    next: Dayjs,
+    unit: string,
+    inclusivity: string,
+  ) => boolean
+}
+
 interface LocalDateTimeParts {
   year: number
   month: number
@@ -109,7 +124,7 @@ export default function useDate() {
 
   const usePreviousDate = (date: Dayjs) => {
     const display = []
-    const firstDay = date.localeData().firstDayOfWeek()
+    const firstDay = (date as unknown as DayjsWithLocaleData).localeData().firstDayOfWeek()
     for (let i = 0; i <= date.date(0 - firstDay).day(); i++)
       display.push(date.date(0).subtract(i, 'day'))
 
@@ -152,7 +167,7 @@ export default function useDate() {
   ) => {
     const pattern = previous.isAfter(next, 'date') ? '(]' : '[)'
 
-    return !!(date.isBetween(previous, next, 'date', pattern) && !date.off)
+    return !!((date as unknown as DayjsWithIsBetween).isBetween(previous, next, 'date', pattern) && !date.off)
   }
 
   const useToValueFromString = (

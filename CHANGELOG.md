@@ -1,5 +1,16 @@
 > Historical entries before this fork may reference the upstream repository (`elreco/vue-tailwind-datepicker`) in compare/commit links.
 
+## [2.1.3](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.1.2...v2.1.3) (2026-04-01)
+
+### :bug: Fixes
+
+- Rebuilt and republished the library from fresh `dist` artifacts so the shipped package includes the new `highlightDates` prop and `vtd-highlighted` day-hook support introduced in [#10](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/10).
+- Tightened internal Day.js helper typings in `src/composables/date.ts` so `npm run build` and declaration generation complete cleanly for the release build.
+
+### :white_check_mark: Tests
+
+- Verified the recovery release with `npm run typecheck` and `npm run build` before publishing.
+
 ## [2.1.2](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.1.1...v2.1.2) (2026-04-01)
 
 ### :sparkles: Features
