@@ -23,7 +23,7 @@ features:
     details: A Vue 3 components which offers a great range of features.
   - icon: 🖖
     title: Customizable
-    details: Supports multiple modes such as range, single date, various pickers, shortcuts and many more.
+    details: Supports range, single-date, time, selector, shortcut, and day-highlighting flows with stable theming hooks.
   - icon: 🛠️
     title: Tailwind CSS
     details: Get a modern datepicker component using Tailwind CSS.

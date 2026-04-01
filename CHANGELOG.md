@@ -1,5 +1,23 @@
 > Historical entries before this fork may reference the upstream repository (`elreco/vue-tailwind-datepicker`) in compare/commit links.
 
+## [2.1.2](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.1.1...v2.1.2) (2026-04-01)
+
+### :sparkles: Features
+
+- Added a public `highlightDates` prop for marking arbitrary calendar days with the additive `vtd-highlighted` hook. Highlight matching is normalized to date-only keys and preserves selected, range, disabled, today, and weekend behavior. ([#10](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/10))
+
+### :bug: Fixes
+
+- Highlight string inputs now parse strictly with `formatter.date` plus a derived date-only fallback instead of relying on native parsing. Invalid, nullish, blank, impossible, and runtime-null inputs are ignored safely. ([#10](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/10))
+
+### :memo: Documentation
+
+- Updated docs to document the stricter `highlightDates` string-format contract, theming hook usage, and the single-date highlight example wiring. ([#10](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/10))
+
+### :white_check_mark: Tests
+
+- Added focused `highlightDates` regression coverage for off-month cells, additive states, navigation stability, datetime strings, custom formatter date-only strings, and runtime-null inputs, and replaced real timer waits with fake timers for faster deterministic runs. ([#10](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/10))
+
 ## [2.1.0](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.0.1...v2.1.0) (2026-02-25)
 
 ### :sparkles: Features
