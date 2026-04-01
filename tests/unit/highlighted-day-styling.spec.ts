@@ -74,12 +74,12 @@ async function mountSinglePicker(extraProps: Record<string, unknown> = {}) {
 
 describe('highlighted day styling hooks', () => {
   it('applies the highlight hook class to matching cells including off-month cells', async () => {
-    const highlightedDates = ['2025-05-31', '2025-06-07', '2025-06-15', '2025-07-01']
+    const highlightedDates = ['2025-05-31', '2025-06-07', '2025-06-15', '2025-07-01', '2025-06-21']
     const wrapper = await mountSinglePicker({
-      highlightDates: highlightedDates.map((date, index) => {
+      highlightDates: highlightedDates.slice(0, 4).map((date, index) => {
         const mode = (['date', 'string', 'dayjs'] as const)[index % 3]
         return toHighlightInput(date, mode)
-      }),
+      }).concat('2025-06-21 09:30:00'),
     })
 
     try {
@@ -145,7 +145,7 @@ describe('highlighted day styling hooks', () => {
 
   it('ignores invalid highlight values', async () => {
     const wrapper = await mountSinglePicker({
-      highlightDates: ['not-a-date', null, undefined, '2025-06-07'] as unknown as Array<string | Dayjs>,
+      highlightDates: ['not-a-date', '2025-02-31', null, undefined, '2025-06-07'] as unknown as Array<string | Dayjs>,
     })
 
     try {
@@ -168,6 +168,42 @@ describe('highlighted day styling hooks', () => {
       const todayButton = findButtonByDate(wrapper, today.format('YYYY-MM-DD'))
       expect(todayButton).toBeTruthy()
       expect(todayButton?.classes()).not.toContain('vtd-highlighted')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('does not throw or highlight today when highlightDates is null at runtime', async () => {
+    const today = dayjs()
+    const wrapper = await mountSinglePicker({
+      startFrom: today.toDate(),
+      modelValue: `${today.format('YYYY-MM-DD')} 00:00:00`,
+      highlightDates: null as unknown as Array<string | Dayjs>,
+    })
+
+    try {
+      const todayButton = findButtonByDate(wrapper, today.format('YYYY-MM-DD'))
+      expect(todayButton).toBeTruthy()
+      expect(todayButton?.classes()).not.toContain('vtd-highlighted')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('supports formatter-derived date-only string highlights for custom datetime formats', async () => {
+    const wrapper = await mountSinglePicker({
+      formatter: {
+        date: 'MM/DD/YYYY HH:mm:ss',
+        month: 'MMM',
+      },
+      modelValue: '06/15/2025 00:00:00',
+      highlightDates: ['06/21/2025'],
+    })
+
+    try {
+      const highlightedButton = findButtonByDate(wrapper, '2025-06-21')
+      expect(highlightedButton).toBeTruthy()
+      expect(highlightedButton?.classes()).toContain('vtd-highlighted')
     } finally {
       wrapper.unmount()
     }

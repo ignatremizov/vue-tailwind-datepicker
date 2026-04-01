@@ -298,26 +298,51 @@ function resolveMonthLabels() {
     : localeData.months()
 }
 
+const highlightDateFormat = 'YYYY-MM-DD'
+
+function parseHighlightDateValue(value: Date | string | Dayjs) {
+  if (typeof value === 'string') {
+    const parsedFromFormatter = parseModelDateWithDirectYear(
+      value,
+      props.formatter.date,
+    )
+    if (parsedFromFormatter?.isValid())
+      return parsedFromFormatter
+
+    const dateOnlyFormatter = extractDateOnlyFormatter(props.formatter.date)
+    if (dateOnlyFormatter) {
+      const parsedDateOnly = parseModelDateWithDirectYear(value, dateOnlyFormatter)
+      if (parsedDateOnly?.isValid())
+        return parsedDateOnly
+    }
+
+    return null
+  }
+
+  return dayjsWithResolvedLocale(value)
+}
+
 const highlightDateKeys = computed(() => {
   const keys = new Set<string>()
+  const highlightDates = Array.isArray(props.highlightDates) ? props.highlightDates : []
 
-  for (const value of props.highlightDates) {
+  for (const value of highlightDates) {
     if (value == null)
       continue
     if (typeof value === 'string' && value.trim().length === 0)
       continue
 
-    const parsed = dayjsWithResolvedLocale(value)
-    if (!parsed.isValid())
+    const parsed = parseHighlightDateValue(value)
+    if (!parsed?.isValid())
       continue
-    keys.add(parsed.format('YYYY-MM-DD'))
+    keys.add(parsed.format(highlightDateFormat))
   }
 
   return keys
 })
 
 function isHighlightedDate(date: Dayjs) {
-  return highlightDateKeys.value.has(date.format('YYYY-MM-DD'))
+  return highlightDateKeys.value.size > 0 && highlightDateKeys.value.has(date.format(highlightDateFormat))
 }
 
 const VtdRef = ref<HTMLElement | null>(null)
