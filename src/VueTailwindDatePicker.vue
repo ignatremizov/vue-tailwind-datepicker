@@ -299,6 +299,7 @@ function resolveMonthLabels() {
 }
 
 const highlightDateFormat = 'YYYY-MM-DD'
+const highlightDateOnlyFormatter = computed(() => extractDateOnlyFormatter(props.formatter.date))
 
 function parseHighlightDateValue(value: Date | string | Dayjs) {
   if (typeof value === 'string') {
@@ -309,8 +310,8 @@ function parseHighlightDateValue(value: Date | string | Dayjs) {
     if (parsedFromFormatter?.isValid())
       return parsedFromFormatter
 
-    const dateOnlyFormatter = extractDateOnlyFormatter(props.formatter.date)
-    if (dateOnlyFormatter) {
+    const dateOnlyFormatter = highlightDateOnlyFormatter.value
+    if (dateOnlyFormatter && dateOnlyFormatter !== props.formatter.date) {
       const parsedDateOnly = parseModelDateWithDirectYear(value, dateOnlyFormatter)
       if (parsedDateOnly?.isValid())
         return parsedDateOnly

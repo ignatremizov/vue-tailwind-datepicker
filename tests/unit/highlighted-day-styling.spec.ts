@@ -1,6 +1,6 @@
 import { mount, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
 import dayjs, { type Dayjs } from 'dayjs'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import VueTailwindDatePicker from '../../src/VueTailwindDatePicker.vue'
 
@@ -46,10 +46,6 @@ function assertHighlightHookContract(
   }
 }
 
-function wait(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
 async function mountSinglePicker(extraProps: Record<string, unknown> = {}) {
   const { waitMs = 320, ...pickerProps } = extraProps as Record<string, unknown> & {
     waitMs?: number
@@ -67,12 +63,20 @@ async function mountSinglePicker(extraProps: Record<string, unknown> = {}) {
   })
 
   if (waitMs > 0)
-    await wait(waitMs)
+    await vi.advanceTimersByTimeAsync(waitMs)
   await nextTick()
   return wrapper
 }
 
 describe('highlighted day styling hooks', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('applies the highlight hook class to matching cells including off-month cells', async () => {
     const highlightedDates = ['2025-05-31', '2025-06-07', '2025-06-15', '2025-07-01', '2025-06-21']
     const wrapper = await mountSinglePicker({
