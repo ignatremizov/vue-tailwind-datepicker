@@ -49,7 +49,8 @@
       "types": "./dist/entry.d.ts",
       "import": "./dist/vue-tailwind-datepicker.js",
       "require": "./dist/vue-tailwind-datepicker.umd.cjs"
-    }
+    },
+    "./style.css": "./dist/vue-tailwind-datepicker.css"
   },
   "main": "./dist/vue-tailwind-datepicker.umd.cjs",
   "module": "./dist/vue-tailwind-datepicker.js",
@@ -62,10 +63,12 @@
     "provenance": true
   },
   "scripts": {
+    "prebuild": "node scripts/generate-dayjs-locale-loaders.mjs",
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/build-library-css.mjs",
     "preview": "vite preview --port 4173",
     "test:unit": "vitest run",
+    "test:dist": "npm run build && vitest run --config vitest.dist.config.ts",
     "test:shortcut-matrix": "vitest run --passWithNoTests tests/unit/shortcut-*.spec.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -199,8 +202,7 @@
     "vue": "^3.3.13"
   },
   "dependencies": {
-    "@vueuse/core": "^10.5.0",
-    "vite-plugin-css-injected-by-js": "^3.3.1"
+    "@vueuse/core": "^10.5.0"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^7.7.3",

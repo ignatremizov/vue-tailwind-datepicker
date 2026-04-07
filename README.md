@@ -56,6 +56,7 @@ How it works,
 <script setup>
 import { ref } from 'vue'
 import VueTailwindDatepicker from '@ignatremizov/vue-tailwind-datepicker'
+import '@ignatremizov/vue-tailwind-datepicker/style.css'
 
 const dateValue = ref([])
 const formatter = ref({
@@ -70,6 +71,8 @@ const formatter = ref({
   </div>
 </template>
 ```
+
+The published package now exposes its stylesheet explicitly. Import `@ignatremizov/vue-tailwind-datepicker/style.css` once in your app entry or alongside the first component usage.
 
 ## Time Picker Modes
 

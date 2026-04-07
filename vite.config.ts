@@ -1,7 +1,6 @@
 import vue from '@vitejs/plugin-vue'
 import path from 'node:path'
 import { defineConfig } from 'vite'
-import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js'
 import dts from 'vite-plugin-dts'
 
 // https://vitejs.dev/config/
@@ -10,7 +9,11 @@ export default defineConfig({
     lib: {
       entry: path.resolve(__dirname, 'src/entry.ts'),
       name: 'VueTailwindDatepicker',
-      fileName: 'vue-tailwind-datepicker',
+      fileName: (format) => {
+        return format === 'es'
+          ? 'vue-tailwind-datepicker.js'
+          : 'vue-tailwind-datepicker.umd.cjs'
+      },
     },
     rollupOptions: {
       external: ['vue'],
@@ -25,7 +28,6 @@ export default defineConfig({
   },
   plugins: [
     vue(),
-    cssInjectedByJsPlugin(),
     dts({
       include: ['src'],
       exclude: [

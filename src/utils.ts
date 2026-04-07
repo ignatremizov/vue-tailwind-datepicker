@@ -1,6 +1,7 @@
 import dayjs from 'dayjs'
 import customParseFormat from 'dayjs/plugin/customParseFormat'
 import { inject, type InjectionKey } from 'vue'
+import { dayjsLocaleLoaders } from './generated/dayjs-locale-loaders'
 
 export function injectStrict<T>(key: InjectionKey<T>, fallback?: T) {
   const resolved = inject(key, fallback)
@@ -11,11 +12,7 @@ export function injectStrict<T>(key: InjectionKey<T>, fallback?: T) {
   return resolved
 }
 
-export const localesMap = Object.fromEntries(
-  Object.entries(import.meta.glob('../node_modules/dayjs/esm/locale/*.js', { import: 'default' })).map(
-    ([path, loadLocale]) => [path.match(/([\w-]*)\.js$/)?.[1], loadLocale],
-  ),
-) as Record<string, () => Promise<ILocale>>
+export const localesMap = dayjsLocaleLoaders as Record<string, () => Promise<ILocale>>
 
 dayjs.extend(customParseFormat)
 
