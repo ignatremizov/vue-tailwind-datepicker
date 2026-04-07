@@ -1,5 +1,20 @@
 > Historical entries before this fork may reference the upstream repository (`elreco/vue-tailwind-datepicker`) in compare/commit links.
 
+## [Unreleased](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.1.3...main)
+
+### :bug: Fixes
+
+- Reworked the published package output so consumers import an explicit `@ignatremizov/vue-tailwind-datepicker/style.css` stylesheet instead of relying on JS-side CSS injection, and hardened the CSS publish step so the final exported asset remains stable even if Vite chooses a different intermediate CSS filename. ([#11](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/11))
+- Replaced the broad Day.js locale glob with a generated static lazy-loader map resolved from the installed `dayjs` package path, which reduces built-entry weight and avoids downstream Vitest/jsdom hangs during import. ([#11](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/11))
+
+### :memo: Documentation
+
+- Updated the installation guidance to document the explicit stylesheet import requirement for consumers. ([#11](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/11))
+
+### :white_check_mark: Tests
+
+- Added a dist-level smoke test that imports the published package entry under Vitest/jsdom, alongside focused locale-isolation verification for the new build output path. ([#11](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/11))
+
 ## [2.1.3](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.1.2...v2.1.3) (2026-04-01)
 
 ### :bug: Fixes
