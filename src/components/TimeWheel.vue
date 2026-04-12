@@ -857,16 +857,3 @@ onMounted(() => {
     />
   </div>
 </template>
-
-<style scoped>
-.vtd-time-wheel-option-selected {
-  color: var(
-    --vtd-time-wheel-selected-text,
-    var(--vtd-wheel-selected-text, rgb(56 189 248 / 100%))
-  );
-}
-
-.vtd-time-wheel-option-default {
-  color: var(--vtd-time-wheel-text, var(--vtd-wheel-text, rgb(163 163 163 / 100%)));
-}
-</style>
