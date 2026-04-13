@@ -1,19 +1,24 @@
 > Historical entries before this fork may reference the upstream repository (`elreco/vue-tailwind-datepicker`) in compare/commit links.
 
-## [Unreleased](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.1.3...main)
+## [Unreleased](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.1.4...main)
+
+## [2.1.4](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.1.3...v2.1.4) (2026-04-13)
 
 ### :bug: Fixes
 
 - Reworked the published package output so consumers import an explicit `@ignatremizov/vue-tailwind-datepicker/style.css` stylesheet instead of relying on JS-side CSS injection, and hardened the CSS publish step so the final exported asset remains stable even if Vite chooses a different intermediate CSS filename. ([#11](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/11))
 - Replaced the broad Day.js locale glob with a generated static lazy-loader map resolved from the installed `dayjs` package path, which reduces built-entry weight and avoids downstream Vitest/jsdom hangs during import. ([#11](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/11))
+- Consolidated the remaining published month-selector and time-wheel styles into `src/style.css`, hardened the standalone stylesheet publish helper around the package export contract, and removed intermediate chunk-cleanup assumptions from the built CSS path. ([#12](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/12))
 
 ### :memo: Documentation
 
-- Updated the installation guidance to document the explicit stylesheet import requirement for consumers. ([#11](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/11))
+- Updated the README installation guidance to document the explicit stylesheet import requirement for consumers. ([#11](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/11))
+- Updated the installation guide examples for app entry, single-component usage, and Nuxt integration so they import `@ignatremizov/vue-tailwind-datepicker/style.css` once globally.
 
 ### :white_check_mark: Tests
 
 - Added a dist-level smoke test that imports the published package entry under Vitest/jsdom, alongside focused locale-isolation verification for the new build output path. ([#11](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/11))
+- Extended built-artifact smoke coverage to validate the exported stylesheet contract, built CSS ordering for month focus utilities, and packaged month-selector focus semantics with the published stylesheet applied. ([#12](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/12))
 
 ## [2.1.3](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.1.2...v2.1.3) (2026-04-01)
 

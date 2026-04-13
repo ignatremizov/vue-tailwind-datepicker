@@ -25,6 +25,7 @@ Setup the component globally
 // main.js
 import { createApp } from 'vue'
 import VueTailwindDatepicker from '@ignatremizov/vue-tailwind-datepicker'
+import '@ignatremizov/vue-tailwind-datepicker/style.css'
 import App from '@/App.vue'
 // ...
 
@@ -41,6 +42,7 @@ Setup as a single component
 <script setup>
 import { ref } from 'vue'
 import VueTailwindDatepicker from '@ignatremizov/vue-tailwind-datepicker'
+import '@ignatremizov/vue-tailwind-datepicker/style.css'
 
 const dateValue = ref([])
 </script>
@@ -49,6 +51,8 @@ const dateValue = ref([])
   <VueTailwindDatepicker v-model="dateValue" />
 </template>
 ```
+
+Import `@ignatremizov/vue-tailwind-datepicker/style.css` once in your app entry or alongside the first component usage so the published stylesheet is applied.
 
 ## Add Tailwind CSS configuration
 
@@ -82,6 +86,7 @@ module.exports = {
 
 ```js
 import VueTailwindDatepicker from '@ignatremizov/vue-tailwind-datepicker'
+import '@ignatremizov/vue-tailwind-datepicker/style.css'
 import { defineNuxtPlugin } from '#app'
 
 export default defineNuxtPlugin((nuxtApp) => {
@@ -97,4 +102,6 @@ export default {
 }
 ```
 
-4. Now, you can use the `<vue-tailwind-datepicker>` component in any of your Nuxt pages or components.
+4. Ensure the published stylesheet is loaded once globally. You can keep the import in the plugin above, or add it through your Nuxt CSS configuration instead.
+
+5. Now, you can use the `<vue-tailwind-datepicker>` component in any of your Nuxt pages or components.
