@@ -1,6 +1,10 @@
 > Historical entries before this fork may reference the upstream repository (`elreco/vue-tailwind-datepicker`) in compare/commit links.
 
-## [Unreleased](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.1.4...main)
+## [2.1.5](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.1.4...v2.1.5) (2026-04-14)
+
+### :bug: Fixes
+
+- Added a `prepack` hook so `npm pack` and `npm publish` always rebuild the library before packaging, guaranteeing the exported `./style.css` asset is regenerated into `dist/` for published tarballs. ([131849e](https://github.com/ignatremizov/vue-tailwind-datepicker/commit/131849ec79ec89cdf8146b81d528e44c77095775))
 
 ## [2.1.4](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.1.3...v2.1.4) (2026-04-13)
 
