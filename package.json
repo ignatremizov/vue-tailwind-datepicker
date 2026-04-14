@@ -64,6 +64,7 @@
   },
   "scripts": {
     "prebuild": "node scripts/generate-dayjs-locale-loaders.mjs",
+    "prepack": "npm run build",
     "dev": "vite",
     "build": "vite build && node scripts/build-library-css.mjs",
     "preview": "vite preview --port 4173",
