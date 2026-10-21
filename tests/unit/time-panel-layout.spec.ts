@@ -861,7 +861,7 @@ describe.sequential('time panel layout behavior', () => {
     const firstWheel = wrapper.get('.vtd-time-panel-fill .vtd-time-wheel-grid .vtd-time-wheel')
       .element as HTMLElement
     const wheelNodes = wrapper.findAll('.vtd-time-panel-fill .vtd-time-wheel-grid .vtd-time-wheel')
-    const lastWheel = wheelNodes[wheelNodes.length - 1]!.element as HTMLElement
+    const lastWheel = wheelNodes.at(-1)!.element as HTMLElement
     const activeToggleButton = startButton!.classes().includes('bg-vtd-primary-600')
       ? startButton!
       : endButton!
@@ -1157,7 +1157,7 @@ describe.sequential('time panel layout behavior', () => {
 
     const emittedUpdates = wrapper.emitted('update:modelValue')
     expect(emittedUpdates).toBeTruthy()
-    const latestPayload = emittedUpdates![emittedUpdates!.length - 1]![0] as Record<string, string>
+    const latestPayload = emittedUpdates!.at(-1)![0] as Record<string, string>
     expect(latestPayload.startDate).toContain('12:00:00 PM')
     expect(latestPayload.endDate).toContain('12:10:10 PM')
 
@@ -1212,7 +1212,7 @@ describe.sequential('time panel layout behavior', () => {
 
     const emittedUpdates = wrapper.emitted('update:modelValue')
     expect(emittedUpdates).toBeTruthy()
-    const latestPayload = emittedUpdates![emittedUpdates!.length - 1]![0] as Record<string, string>
+    const latestPayload = emittedUpdates!.at(-1)![0] as Record<string, string>
     const start = dayjs(latestPayload.startDate, 'YYYY-MM-DD HH:mm:ss', true)
     expect(start.isValid()).toBe(true)
     expect(start.hour()).toBe(10)
@@ -1268,7 +1268,7 @@ describe.sequential('time panel layout behavior', () => {
 
     const emittedUpdates = wrapper.emitted('update:modelValue')
     expect(emittedUpdates).toBeTruthy()
-    const latestPayload = emittedUpdates![emittedUpdates!.length - 1]![0] as Record<string, string>
+    const latestPayload = emittedUpdates!.at(-1)![0] as Record<string, string>
     const start = dayjs(latestPayload.startDate, 'YYYY-MM-DD hh:mm:ss A', true)
     expect(start.isValid()).toBe(true)
     expect(start.hour()).toBe(12)
@@ -1335,7 +1335,7 @@ describe.sequential('time panel layout behavior', () => {
 
     const emittedUpdates = wrapper.emitted('update:modelValue')
     expect(emittedUpdates).toBeTruthy()
-    const latestPayload = emittedUpdates![emittedUpdates!.length - 1]![0] as Record<string, string>
+    const latestPayload = emittedUpdates!.at(-1)![0] as Record<string, string>
     const start = dayjs(latestPayload.startDate, 'YYYY-MM-DD hh:mm:ss A', true)
     expect(start.isValid()).toBe(true)
     expect(start.hour()).toBe(12)
@@ -1428,7 +1428,7 @@ describe.sequential('time panel layout behavior', () => {
 
     const errorEvents = wrapper.emitted('error')
     expect(errorEvents).toBeTruthy()
-    const payload = errorEvents![errorEvents!.length - 1]![0] as {
+    const payload = errorEvents!.at(-1)![0] as {
       code: string
       field: string
       endpoint: string | null
@@ -1498,7 +1498,7 @@ describe.sequential('time panel layout behavior', () => {
 
     const emittedUpdates = wrapper.emitted('update:modelValue')
     expect(emittedUpdates).toBeTruthy()
-    const latestPayload = emittedUpdates![emittedUpdates!.length - 1]![0] as Record<string, string>
+    const latestPayload = emittedUpdates!.at(-1)![0] as Record<string, string>
     const start = dayjs(latestPayload.startDate, 'YYYY-MM-DD hh:mm:ss A', true)
     const end = dayjs(latestPayload.endDate, 'YYYY-MM-DD hh:mm:ss A', true)
     expect(start.isValid()).toBe(true)

@@ -6,6 +6,7 @@ export const DIRECT_YEAR_MAX = 99999
 
 const SIGNED_YEAR_TOKEN_PATTERN = /^-?\d{1,5}$/
 const SIGNED_YEAR_MODEL_DATE_PATTERN = /^([+-]?\d{1,5})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/
+const NON_DIGIT_PATTERN = /\D+/g
 const DEFAULT_MODEL_DATE_FORMAT = 'YYYY-MM-DD HH:mm:ss'
 
 function isWithinDirectYearBounds(year: number) {
@@ -26,7 +27,7 @@ export function normalizeSignedYearToken(rawText: string) {
     return ''
 
   const hasLeadingMinus = trimmed.startsWith('-')
-  const numericPortion = (hasLeadingMinus ? trimmed.slice(1) : trimmed).replace(/\D+/g, '')
+  const numericPortion = (hasLeadingMinus ? trimmed.slice(1) : trimmed).replace(NON_DIGIT_PATTERN, '')
   if (!numericPortion)
     return hasLeadingMinus ? '-' : ''
 

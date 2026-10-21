@@ -479,6 +479,12 @@ function pushDebugEvent(type: string, payload?: Record<string, unknown>) {
     store.events.splice(0, store.events.length - 2000)
 }
 
+const WHITESPACE_PATTERN = /\s+/
+const WHITESPACE_RUN_PATTERN = /\s+/g
+const DATE_FORMAT_TRAILING_SEPARATOR_PATTERN = /(?:\[[Tt\s.,:;/_-]*\]|[\sT.,:;/_-])+$/u
+const LEGACY_MONTH_HEADER_ID_PATTERN = /^vtd-header-(?:previous|next)-month$/
+const MONTH_ID_SUFFIX_PATTERN = /-month$/
+
 function describeActiveElement() {
   if (typeof document === 'undefined')
     return 'none'
@@ -490,7 +496,7 @@ function describeActiveElement() {
   const id = active.id ? `#${active.id}` : ''
   const className
     = typeof active.className === 'string' && active.className.trim().length > 0
-      ? `.${active.className.trim().split(/\s+/).slice(0, 2).join('.')}`
+      ? `.${active.className.trim().split(WHITESPACE_PATTERN).slice(0, 2).join('.')}`
       : ''
   return `${active.tagName.toLowerCase()}${id}${className}`
 }
@@ -1254,7 +1260,7 @@ function extractDateOnlyFormatter(formatterDate: string) {
     return trimmedFormatter
 
   let datePart = trimmedFormatter.slice(0, match.index)
-  datePart = datePart.replace(/(?:\[[Tt\s.,:;/_-]*\]|[\sT.,:;/_-])+$/u, '').trimEnd()
+  datePart = datePart.replace(DATE_FORMAT_TRAILING_SEPARATOR_PATTERN, '').trimEnd()
   return datePart || null
 }
 
@@ -3105,7 +3111,7 @@ function shouldReanchorSelectorYearWindow(year: number) {
   if (years.length === 0)
     return true
   const firstYear = years[0]
-  const lastYear = years[years.length - 1]
+  const lastYear = years.at(-1)!
   return (
     year <= firstYear + SELECTOR_YEAR_REANCHOR_THRESHOLD
     || year >= lastYear - SELECTOR_YEAR_REANCHOR_THRESHOLD
@@ -3120,7 +3126,7 @@ function ensureSelectorYearInWindow(year: number) {
   }
 
   const firstYear = years[0]
-  const lastYear = years[years.length - 1]
+  const lastYear = years.at(-1)!
   if (year < firstYear || year > lastYear)
     anchorSelectorYearWindow(year)
 }
@@ -3434,7 +3440,7 @@ function isVisibleElement(element: HTMLElement) {
 }
 
 function getElementLabelText(element: HTMLElement) {
-  return (element.textContent ?? '').replace(/\s+/g, ' ').trim()
+  return (element.textContent ?? '').replace(WHITESPACE_RUN_PATTERN, ' ').trim()
 }
 
 function isDisabledFocusTarget(element: HTMLElement) {
@@ -3811,7 +3817,7 @@ function resolveSelectionPanelFromElement(element: HTMLElement): SelectionPanel 
 }
 
 function isLegacyMonthHeaderButton(element: HTMLElement) {
-  return /^vtd-header-(?:previous|next)-month$/.test(element.id)
+  return LEGACY_MONTH_HEADER_ID_PATTERN.test(element.id)
 }
 
 function handleLegacyMonthHeaderTab(event: KeyboardEvent) {
@@ -3826,7 +3832,7 @@ function handleLegacyMonthHeaderTab(event: KeyboardEvent) {
   if (!queryRoot)
     return false
 
-  const yearId = target.id.replace(/-month$/, '-year')
+  const yearId = target.id.replace(MONTH_ID_SUFFIX_PATTERN, '-year')
   const yearButton = queryRoot.querySelector<HTMLElement>(`#${yearId}`)
   if (!yearButton || !isVisibleElement(yearButton) || isDisabledFocusTarget(yearButton))
     return false
@@ -5058,7 +5064,7 @@ function isTypedShortcutDefinition(
 const shortcutDisabledStateCache = new Map<string, ShortcutDisabledState>()
 type ShortcutActivationState = ReturnType<typeof activateShortcutByDefinition>
 const shortcutActivationStateCache = new Map<string, ShortcutActivationState>()
-let shortcutDisabledStateCacheMinuteBucket = Math.floor(new Date().getTime() / 60000)
+let shortcutDisabledStateCacheMinuteBucket = Math.floor(Date.now() / 60000)
 
 function clearShortcutDisabledStateCache() {
   shortcutDisabledStateCache.clear()
@@ -5066,7 +5072,7 @@ function clearShortcutDisabledStateCache() {
 }
 
 function syncShortcutDisabledStateCacheBucket() {
-  const currentMinuteBucket = Math.floor(new Date().getTime() / 60000)
+  const currentMinuteBucket = Math.floor(Date.now() / 60000)
   if (currentMinuteBucket !== shortcutDisabledStateCacheMinuteBucket) {
     shortcutDisabledStateCacheMinuteBucket = currentMinuteBucket
     clearShortcutDisabledStateCache()

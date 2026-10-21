@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
+import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const scriptPath = fileURLToPath(import.meta.url)
@@ -11,6 +12,7 @@ const dayjsPackageJsonPath = require.resolve('dayjs/package.json')
 const dayjsRootDir = path.dirname(dayjsPackageJsonPath)
 const dayjsLocaleDir = path.join(dayjsRootDir, 'esm', 'locale')
 const outputPath = path.join(repoRoot, 'src', 'generated', 'dayjs-locale-loaders.ts')
+const jsFileExtensionPattern = /\.js$/
 
 async function main() {
   const localeFiles = (await fs.readdir(dayjsLocaleDir))
@@ -18,7 +20,7 @@ async function main() {
     .sort((left, right) => left.localeCompare(right))
 
   const entries = localeFiles.map((file) => {
-    const localeCode = file.replace(/\.js$/, '')
+    const localeCode = file.replace(jsFileExtensionPattern, '')
     return `  '${localeCode}': () => import('dayjs/esm/locale/${file}').then(mod => mod.default),`
   })
 

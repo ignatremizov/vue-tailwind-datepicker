@@ -4,6 +4,8 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import type { InvalidShortcutEventPayload } from './types'
 import VueTailwindDatePicker from './VueTailwindDatePicker.vue'
 
+const WHITESPACE_PATTERN = /\s+/
+
 const dateValue = ref({
   startDate: dayjs().format('YYYY-MM-DD HH:mm:ss'),
   endDate: dayjs().format('YYYY-MM-DD HH:mm:ss'),
@@ -330,7 +332,7 @@ function describeActiveElementForPerf() {
   const id = active.id ? `#${active.id}` : ''
   const className
     = typeof active.className === 'string' && active.className.trim().length > 0
-      ? `.${active.className.trim().split(/\s+/).slice(0, 2).join('.')}`
+      ? `.${active.className.trim().split(WHITESPACE_PATTERN).slice(0, 2).join('.')}`
       : ''
   return `${active.tagName.toLowerCase()}${id}${className}`
 }

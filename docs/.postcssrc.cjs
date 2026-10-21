@@ -1,3 +1,5 @@
+const trailingPseudoSelectorPattern = /(:\S*)$/
+
 module.exports = {
   plugins: {
     '@tailwindcss/postcss': {},
@@ -10,7 +12,7 @@ module.exports = {
       prefix: ':not(:where(.vp-raw *))',
       includeFiles: [/vp-doc\.css/],
       transform(prefix, _selector) {
-        const [selector, pseudo = ''] = _selector.split(/(:\S*)$/)
+        const [selector, pseudo = ''] = _selector.split(trailingPseudoSelectorPattern)
         return selector + prefix + pseudo
       },
     },

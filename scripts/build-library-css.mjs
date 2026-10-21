@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { build, defineConfig } from 'vite'
 
@@ -64,7 +65,7 @@ async function main() {
         },
         rollupOptions: {
           output: {
-            assetFileNames: (assetInfo) => assetInfo.name?.endsWith('.css')
+            assetFileNames: assetInfo => assetInfo.name?.endsWith('.css')
               ? publishedStylesheetName
               : '[name]-[hash][extname]',
           },
@@ -88,8 +89,7 @@ async function main() {
     if (cssAssetFiles.length !== 1 || cssAssetFiles[0] !== publishedStylesheetName) {
       throw new Error(`Expected exactly one emitted stylesheet named ${publishedStylesheetName}, got: ${cssAssetFiles.join(', ') || '(none)'}`)
     }
-  }
-  finally {
+  } finally {
     const filesToDelete = emittedChunkFiles.flatMap(file => [file, `${file}.map`])
 
     await Promise.all(filesToDelete.map(file => fs.rm(path.join(distDir, file), { force: true })))

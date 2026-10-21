@@ -48,6 +48,7 @@ const PROGRAMMATIC_SCROLL_SYNC_MS = 120
 const SMOOTH_SCROLL_SYNC_MS = 420
 const FALLBACK_ROW_HEIGHT = 44
 const MONTH_TYPEAHEAD_IDLE_MS = 900
+const LETTER_KEY_PATTERN = /\p{L}/u
 
 const selectorContainerRef = ref<HTMLDivElement | null>(null)
 const selectorScrollTop = ref(0)
@@ -291,7 +292,7 @@ function onSelectorKeydown(event: KeyboardEvent) {
     return
 
   if (!event.altKey && !event.ctrlKey && !event.metaKey) {
-    if (event.key.length === 1 && /\p{L}/u.test(event.key)) {
+    if (event.key.length === 1 && LETTER_KEY_PATTERN.test(event.key)) {
       event.preventDefault()
       const typed = event.key.toLocaleLowerCase()
       monthTypeaheadText.value += typed

@@ -102,7 +102,7 @@ async (page) => {
   async function ensureCalendarView(picker) {
     const switchToCalendar = picker
       .locator('button.away-cancel-picker')
-      .filter({ hasText: /^Calendar$/ })
+      .and(picker.getByRole('button', { name: 'Calendar', exact: true }))
       .first()
     if (await switchToCalendar.count()) {
       await switchToCalendar.click()
@@ -113,7 +113,7 @@ async (page) => {
   async function ensureTimeView(picker) {
     const switchToTime = picker
       .locator('button.away-cancel-picker')
-      .filter({ hasText: /^Time$/ })
+      .and(picker.getByRole('button', { name: 'Time', exact: true }))
       .first()
     if (await switchToTime.count()) {
       await switchToTime.click()

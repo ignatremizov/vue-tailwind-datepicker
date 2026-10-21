@@ -1,0 +1,47 @@
+# Copyright © 2026 Zolvat Ltd
+name: Validate
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Lint, types, tests, and builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.1
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
+      - name: Install repository npm version
+        run: npm install --global "$(node -p 'require("./package.json").packageManager')"
+      - name: Install library dependencies
+        run: npm ci
+      - name: Install documentation dependencies
+        run: npm --prefix docs ci
+      - name: Lint
+        run: npm run lint
+      - name: Build library and declarations
+        run: npm run build
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit -- --maxWorkers=2
+      - name: Packaged entry and stylesheet tests
+        run: npm exec -- vitest run --config vitest.dist.config.ts --maxWorkers=2
+      - name: Build documentation
+        run: npm run docs:build

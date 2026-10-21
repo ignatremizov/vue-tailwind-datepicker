@@ -55,7 +55,7 @@ export default antfu(
     },
   },
   {
-    files: ['README.md', 'docs/**/*.md'],
+    files: ['**/*.md'],
     rules: {
       'perfectionist/sort-imports': 'off',
     },

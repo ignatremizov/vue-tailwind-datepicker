@@ -444,13 +444,18 @@ Behavior summary:
 
 ## Dependency Pins (Dev)
 
+- Maintainer builds and CI workflows use Node 24.22.1 and the npm version declared in `packageManager` (11.21.1). Workflows install that npm version before dependencies so a runtime upgrade does not silently change package-manager behavior. Pull requests validate lint, library declarations, types, unit tests, packaged-entry tests, and documentation builds without running release steps.
 - `@headlessui/vue` is pinned to a GitHub release tarball from the fork to include Vue fixes not yet available in the upstream npm line used by this repo.
-- `js-beautify` is pinned via `overrides` to a fork tarball commit to break an upstream dev-only audit chain (through `@vue/test-utils`), until upstream publishes an equivalent fix.
-- When updating either pin, prefer a tagged release or commit SHA URL and run:
+- `js-beautify` now resolves to registry 2.0.3 through `@vue/test-utils`' declared `^2.0.0` dependency. Its upstream dependency modernization makes the old Git security override unnecessary. Test-utils bundles its HTML formatter, and this repo has no direct Angular `@let` or escaped Unicode formatter configuration requiring the fork's additional fixes. Exact HTML, raw output, and diagnostic formatting tests passed unchanged before and after removing the override.
+- The npm CLI used by `@semantic-release/npm` is pinned to 11.21.1 to take its security fixes without migrating the release toolchain to npm 12.
+- The separate docs package overrides only VitePress's Vite dependency to `^6.4.5`. Stable VitePress 1.6.4 still requests Vite 5, while its Vue plugin supports Vite 6. This keeps the existing documentation setup on a patched Vite line without adopting VitePress 2 prereleases. Recheck `npm run docs:build` and the interactive `/demo.html` page when changing this override.
+- When updating the Headless UI fork pin, prefer a tagged release or commit SHA URL and run:
   - `npm install`
   - `npm run test:unit`
   - `npm run build`
   - `npm audit`
+
+The remaining development audit advisory is [braces stack exhaustion](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm), reached through `semantic-release` and its plugins via `micromatch`. At the time of the October 2026 refresh, the latest stable parent packages still use the affected `braces` 3.0.3, and no patched version is published. The relevant patterns come from maintainer-controlled release configuration (branch patterns, release rules, and asset globs), not datepicker input. Keep release configuration trusted and recheck upstream for a fix; do not force the audit-suggested downgrade of the release plugins. Audit the runtime tree separately with `npm audit --omit=dev`, and audit documentation tooling with `npm --prefix docs audit`.
 
 ## Changelog
 
