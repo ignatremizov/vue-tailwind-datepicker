@@ -2,7 +2,12 @@
   "name": "@ignatremizov/vue-tailwind-datepicker",
   "type": "module",
   "version": "2.1.5",
-  "packageManager": "npm@11.21.1",
+  "packageManager": "npm@12.2.1",
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "fsevents@2.3.3": false,
+    "vue-demi@0.14.10": true
+  },
   "description": "A Vue 3 datepicker component using Tailwind CSS and Day.js",
   "author": {
     "name": "Ignat Remizov",
@@ -71,6 +76,7 @@
     "preview": "vite preview --port 4173",
     "test:unit": "vitest run",
     "test:dist": "npm run build && vitest run --config vitest.dist.config.ts",
+    "test:npm-policy": "node --test scripts/test-npm-policy.mjs",
     "test:shortcut-matrix": "vitest run --passWithNoTests tests/unit/shortcut-*.spec.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -242,7 +248,7 @@
   },
   "overrides": {
     "@semantic-release/npm": {
-      "npm": "11.21.1"
+      "npm": "12.2.1"
     }
   }
 }
