@@ -1,7 +1,7 @@
 {
   "name": "@ignatremizov/vue-tailwind-datepicker",
   "type": "module",
-  "version": "2.1.5",
+  "version": "2.1.6",
   "packageManager": "npm@12.2.1",
   "allowScripts": {
     "esbuild@0.28.2": true,
