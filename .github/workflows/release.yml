@@ -27,7 +27,7 @@ jobs:
           node-version: 24.22.1
           cache: npm
       - name: Install repository npm version
-        run: npm install --global "$(node -p 'require("./package.json").packageManager')"
+        run: npm install --global --ignore-scripts "$(node -p 'require("./package.json").packageManager')"
       - name: Install dependencies
         run: npm clean-install
       - name: Build

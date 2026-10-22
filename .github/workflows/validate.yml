@@ -28,13 +28,15 @@ jobs:
             package-lock.json
             docs/package-lock.json
       - name: Install repository npm version
-        run: npm install --global "$(node -p 'require("./package.json").packageManager')"
+        run: npm install --global --ignore-scripts "$(node -p 'require("./package.json").packageManager')"
       - name: Install library dependencies
         run: npm ci
       - name: Install documentation dependencies
         run: npm --prefix docs ci
       - name: Lint
         run: npm run lint
+      - name: Verify install-script policy
+        run: npm run test:npm-policy
       - name: Build library and declarations
         run: npm run build
       - name: Typecheck
