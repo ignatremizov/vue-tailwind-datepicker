@@ -210,7 +210,7 @@
     "@antfu/eslint-config": "^7.7.3",
     "@commitlint/cli": "^20.4.1",
     "@commitlint/config-conventional": "^20.4.1",
-    "@headlessui/vue": "https://github.com/ignatremizov/headlessui/releases/download/v1.7.24-iremizov.2/headlessui-vue-1.7.24-iremizov.2.tgz",
+    "@headlessui/vue": "https://github.com/ignatremizov/headlessui/releases/download/v1.7.24-iremizov.3/headlessui-vue-1.7.24-iremizov.3.tgz",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/git": "^10.0.1",
