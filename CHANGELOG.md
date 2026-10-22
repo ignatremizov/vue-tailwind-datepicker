@@ -1,5 +1,22 @@
 > Historical entries before this fork may reference the upstream repository (`elreco/vue-tailwind-datepicker`) in compare/commit links.
 
+## [2.1.6](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.1.5...v2.1.6) (2026-10-22)
+
+### :wrench: Maintenance
+
+- Rebuild the bundled Headless UI Vue fork from `1.7.24-iremizov.3`, retaining its Vue fixes and the datepicker's component, declaration, and explicit stylesheet contracts. ([#13](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/13))
+- Refresh library and documentation tooling, and replace the js-beautify Git override with registry `2.0.3` through Vue Test Utils after verifying identical formatting behavior. ([#13](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/13))
+- Pin maintainer builds to Node `24.22.1` and npm `12.2.1`, including semantic-release's npm CLI, with exact reviewed install-script approvals and strict dependency-source policies. ([#14](https://github.com/ignatremizov/vue-tailwind-datepicker/pull/14))
+
+### :white_check_mark: Tests
+
+- Add pull-request validation for lint, types, unit tests, library and documentation builds, and packaged-entry tests. All 169 unit tests and four packaged-entry tests pass with the refreshed Headless UI artifact.
+- Exercise npm's actual script/source enforcement and semantic-release's version/prepack/tarball preparation without publishing.
+
+### Security notes
+
+- Production and documentation audits are clean. One unpatched `braces` advisory remains in trusted maintainer release tooling, represented by nine affected-package entries in the full root audit.
+
 ## [2.1.5](https://github.com/ignatremizov/vue-tailwind-datepicker/compare/v2.1.4...v2.1.5) (2026-04-14)
 
 ### :bug: Fixes
