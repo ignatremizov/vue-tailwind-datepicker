@@ -61,7 +61,7 @@ function getFocusableCalendarEdgeButtons(
   expect(focusableButtons.length).toBeGreaterThan(0)
   return {
     first: focusableButtons[0]!,
-    last: focusableButtons[focusableButtons.length - 1]!,
+    last: focusableButtons.at(-1)!,
   }
 }
 

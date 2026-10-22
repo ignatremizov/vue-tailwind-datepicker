@@ -81,6 +81,8 @@ const STEP_BUTTON_FOCUS_SUPPRESS_MS = 650
 const YEAR_TYPEAHEAD_IDLE_MS = 900
 const YEAR_TYPEAHEAD_DIGITS = 4
 const YEAR_TYPEAHEAD_MAX_DIGITS = 5
+const ZERO_PREFIX_PATTERN = /^0+$/
+const DIGIT_KEY_PATTERN = /^\d$/
 let suppressFocusAutoCenterUntil = 0
 const yearTypeaheadDigits = ref('')
 const yearTypeaheadExplicitSign = ref<-1 | 0 | 1>(0)
@@ -860,7 +862,7 @@ function resolveTypeaheadYearCandidate() {
       : String(Math.abs(anchorYear))
           .padStart(YEAR_TYPEAHEAD_DIGITS, '0')
           .slice(-YEAR_TYPEAHEAD_DIGITS)
-  const isAllZeroPrefix = /^0+$/.test(yearTypeaheadDigits.value)
+  const isAllZeroPrefix = ZERO_PREFIX_PATTERN.test(yearTypeaheadDigits.value)
   const mergedDigits
     = yearTypeaheadDigits.value.length === 2
       ? `${yearTypeaheadDigits.value}50`
@@ -920,7 +922,7 @@ function handleDirectYearInput(event: KeyboardEvent) {
     return true
   }
 
-  if (event.key.length === 1 && /^\d$/.test(event.key)) {
+  if (event.key.length === 1 && DIGIT_KEY_PATTERN.test(event.key)) {
     event.preventDefault()
     if (yearTypeaheadDigits.value.length === 0)
       yearTypeaheadAnchorYear = getKeyboardBaseYear()
@@ -1081,7 +1083,7 @@ watch(
     props.selectedYear,
     props.selectedMonth,
     props.years[0],
-    props.years[props.years.length - 1],
+    props.years.at(-1),
     props.years.length,
   ],
   (

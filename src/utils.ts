@@ -18,6 +18,7 @@ dayjs.extend(customParseFormat)
 
 const FORMATTER_24_HOUR_PATTERN = /HH:mm(?::ss)?/
 const FORMATTER_12_HOUR_PATTERN = /(h{1,2}):mm(?::ss)?\s*([Aa])/
+const DAYJS_ESCAPED_LITERAL_PATTERN = /\[[^\]]*\]/g
 const DEFAULT_TIME_PARSE_FORMATS = [
   'HH:mm:ss',
   'H:mm:ss',
@@ -52,7 +53,7 @@ interface FormatterTokenMatch {
 }
 
 export function maskDayjsEscapedLiterals(formatterDate: string) {
-  return formatterDate.replace(/\[[^\]]*\]/g, literal => ' '.repeat(literal.length))
+  return formatterDate.replace(DAYJS_ESCAPED_LITERAL_PATTERN, literal => ' '.repeat(literal.length))
 }
 
 function getFormatterTokenMatch(formatterDate: string): FormatterTokenMatch | null {

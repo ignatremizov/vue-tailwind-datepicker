@@ -42,7 +42,7 @@ async function attachPublishedStylesheet() {
 
 describe('published entry smoke test', () => {
   it('imports the built package entry without hanging', async () => {
-    const mod = await import('../../dist/vue-tailwind-datepicker.js')
+    const mod = await import('@ignatremizov/vue-tailwind-datepicker')
 
     expect(mod).toBeTruthy()
     expect(mod.default).toBeTruthy()
@@ -80,7 +80,7 @@ describe('published entry smoke test', () => {
     const { builtCss, styleElement } = await attachPublishedStylesheet()
 
     try {
-      const mod = await import('../../dist/vue-tailwind-datepicker.js')
+      const mod = await import('@ignatremizov/vue-tailwind-datepicker')
       const VueTailwindDatePicker = mod.default
 
       const wrapper = mount(VueTailwindDatePicker, {
@@ -106,7 +106,7 @@ describe('published entry smoke test', () => {
         expect(monthSelector.attributes('role')).toBe('listbox')
         expect(monthSelector.attributes('tabindex')).toBe('0')
 
-        const monthButton = wrapper.get(
+        const monthButton = wrapper.get<HTMLButtonElement>(
           '[aria-label="Month selector"] button[aria-selected="false"]',
         )
         expect(monthButton.attributes('role')).toBe('option')

@@ -156,7 +156,7 @@ async (page) => {
   async function ensureTimeView(scenarioPage, picker) {
     const switchToTime = picker
       .locator('button.away-cancel-picker:visible')
-      .filter({ hasText: /^Time$/ })
+      .and(picker.getByRole('button', { name: 'Time', exact: true }))
       .last()
     if (await switchToTime.count()) {
       await switchToTime.click({ force: true })
@@ -166,8 +166,7 @@ async (page) => {
 
   async function ensureStartEndpointActive(scenarioPage, picker) {
     const startButton = picker
-      .locator('button')
-      .filter({ hasText: /^Start$/ })
+      .getByRole('button', { name: 'Start', exact: true })
       .first()
     if (!(await startButton.count()))
       return

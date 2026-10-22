@@ -1,13 +1,13 @@
 import type { Dayjs } from 'dayjs'
 import type { DatePickerDay } from '~/types'
 
-type DayjsWithLocaleData = {
+interface DayjsWithLocaleData {
   localeData: () => {
     firstDayOfWeek: () => number
   }
 }
 
-type DayjsWithIsBetween = {
+interface DayjsWithIsBetween {
   isBetween: (
     previous: Dayjs,
     next: Dayjs,

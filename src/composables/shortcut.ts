@@ -10,6 +10,9 @@ import type {
   TypedShortcutDefinition,
 } from '~/types'
 
+const LEGACY_SHORTCUT_SEPARATOR_PATTERN = /[^a-z0-9]+/g
+const LEGACY_SHORTCUT_EDGE_SEPARATOR_PATTERN = /^-+|-+$/g
+
 export interface ShortcutActivationResultSuccess {
   ok: true
   id: string
@@ -111,8 +114,8 @@ export function legacyShortcutFallbackId(label: string, index = 0) {
   const normalizedLabel = label
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    .replace(LEGACY_SHORTCUT_SEPARATOR_PATTERN, '-')
+    .replace(LEGACY_SHORTCUT_EDGE_SEPARATOR_PATTERN, '')
   return `legacy-${index}-${normalizedLabel || 'shortcut'}`
 }
 
