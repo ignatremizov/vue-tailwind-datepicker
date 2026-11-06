@@ -6,7 +6,7 @@ Maintainer: **Ignat Remizov** (<ignat@ignatremizov.com>)
 
 ## Development
 
-Use Node 24.22.1 and the npm 12.2.1 pin declared in `packageManager`. Review the
+Use Node 24.22.1 and the npm 12.2.2 pin declared in `packageManager`. Review the
 [install-script policy](./README.md#install-script-policy) before changing dependencies.
 
 ```bash

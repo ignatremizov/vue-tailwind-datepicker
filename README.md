@@ -444,10 +444,10 @@ Behavior summary:
 
 ## Dependency Pins (Dev)
 
-- Maintainer builds and CI workflows use Node 24.22.1 and the npm version declared in root/docs `packageManager` (12.2.1). Workflows bootstrap that exact npm version with `--ignore-scripts` before installing dependencies under the reviewed policy, including when the runner initially has npm 11. Pull requests validate install policy, lint, library declarations, types, unit tests, packaged-entry tests, and documentation builds without running release steps. This tooling pin does not narrow the library's consumer peer dependencies.
+- Maintainer builds and CI workflows use Node 24.22.1 and the npm version declared in root/docs `packageManager` (12.2.2). Workflows bootstrap that exact npm version with `--ignore-scripts` before installing dependencies under the reviewed policy, including when the runner initially has npm 11. Pull requests validate install policy, lint, library declarations, types, unit tests, packaged-entry tests, and documentation builds without running release steps. This tooling pin does not narrow the library's consumer peer dependencies.
 - `@headlessui/vue` is pinned to the fork's GitHub release tarball `1.7.24-iremizov.3`, retaining the Vue fixes not yet available in the upstream npm line used by this repo. Headless UI is bundled into the published datepicker, so consumers receive this update with the next datepicker release.
 - `js-beautify` now resolves to registry 2.0.3 through `@vue/test-utils`' declared `^2.0.0` dependency. Its upstream dependency modernization makes the old Git security override unnecessary. Test-utils bundles its HTML formatter, and this repo has no direct Angular `@let` or escaped Unicode formatter configuration requiring the fork's additional fixes. Exact HTML, raw output, and diagnostic formatting tests passed unchanged before and after removing the override.
-- The npm CLI used by `@semantic-release/npm` is pinned to 12.2.1 as well. The plugin's version/pack preparation path is tested against that CLI in an isolated fixture without publishing.
+- The npm CLI used by `@semantic-release/npm` is pinned to 12.2.2 as well. The plugin's version/pack preparation path is tested against that CLI in an isolated fixture without publishing.
 - The separate docs package overrides only VitePress's Vite dependency to `^6.4.5`. Stable VitePress 1.6.4 still requests Vite 5, while its Vue plugin supports Vite 6. This keeps the existing documentation setup on a patched Vite line without adopting VitePress 2 prereleases. Recheck `npm run docs:build` and the interactive `/demo.html` page when changing this override.
 - When updating the Headless UI fork pin, prefer a tagged release or commit SHA URL and run:
   - `npm install`
@@ -457,7 +457,7 @@ Behavior summary:
 
 ### Install-script policy
 
-Root and docs each have their own `.npmrc` and `allowScripts` policy. `strict-allow-scripts=true` rejects unreviewed dependency lifecycle scripts, and `strict-npmrc=true` rejects unknown configuration keys instead of silently ignoring a typo. Use npm 12.2.1 for maintainer installs; npm 11 does not enforce the same strict policy.
+Root and docs each have their own `.npmrc` and `allowScripts` policy. `strict-allow-scripts=true` rejects unreviewed dependency lifecycle scripts, and `strict-npmrc=true` rejects unknown configuration keys instead of silently ignoring a typo. Use npm 12.2.2 for maintainer installs; npm 11 does not enforce the same strict policy.
 
 - Root approves only `esbuild@0.28.2` and `vue-demi@0.14.10`; docs approves only `esbuild@0.25.12` and `vue-demi@0.14.10`. Their scripts select/validate the platform binary and install the Vue compatibility shim, respectively.
 - Both explicitly deny `fsevents@2.3.3` install scripts. Its distributed archive includes a prebuilt native module and no build inputs or install hook, although registry metadata advertises a native rebuild. No native rebuild is needed or approved.
