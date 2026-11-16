@@ -249,6 +249,13 @@
   "overrides": {
     "@semantic-release/npm": {
       "npm": "12.2.2"
+    },
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "11.0.8"
+    },
+    "js-beautify": {
+      "editorconfig": "4.0.1",
+      "glob": "14.0.6"
     }
   }
 }
