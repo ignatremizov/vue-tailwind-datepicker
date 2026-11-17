@@ -1,39 +1,103 @@
-@import 'tailwindcss';
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme) prefix(vtd);
+@import 'tailwindcss/utilities.css' layer(utilities) prefix(vtd) source(none);
 @import './index.css';
+
+@source './VueTailwindDatePicker.vue';
+@source './components';
+
+/* The library owns these defaults only within its rendered roots. */
+@layer base {
+  .vtd-root,
+  .vtd-root *,
+  .vtd-root ::before,
+  .vtd-root ::after {
+    box-sizing: border-box;
+    border-width: 0;
+    border-style: solid;
+    border-color: currentColor;
+  }
+
+  .vtd-root {
+    font-family: inherit;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+  }
+
+  .vtd-root :where(p, h1, h2, h3, h4, h5, h6) {
+    margin: 0;
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  .vtd-root button,
+  .vtd-root input,
+  .vtd-root select,
+  .vtd-root textarea {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+    background-color: transparent;
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    opacity: 1;
+  }
+
+  .vtd-root :where(button, [role='button']) {
+    cursor: pointer;
+  }
+
+  .vtd-root :disabled {
+    cursor: default;
+  }
+
+  .vtd-root :where(svg, img) {
+    display: block;
+    vertical-align: middle;
+  }
+
+  .vtd-root input::placeholder {
+    color: currentColor;
+    opacity: 0.5;
+  }
+}
 
 @layer components {
   .vtd-time-panel-fill {
-    @apply h-full;
+    @apply vtd:h-full;
   }
 
   .vtd-time-panel-fill .vtd-time-endpoint {
-    @apply min-h-0;
+    @apply vtd:min-h-0;
   }
 
   .vtd-time-panel-fill .vtd-time-endpoint-dual {
-    @apply flex-1 h-full min-h-0;
+    @apply vtd:flex-1 vtd:h-full vtd:min-h-0;
   }
 
   .vtd-time-panel-fill .vtd-time-endpoint-single {
-    @apply flex-1 h-full min-h-0 w-full;
+    @apply vtd:flex-1 vtd:h-full vtd:min-h-0 vtd:w-full;
   }
 
   .vtd-time-panel-fill .vtd-time-wheel-grid-dual {
-    @apply flex-1 h-full min-h-0;
+    @apply vtd:flex-1 vtd:h-full vtd:min-h-0;
   }
 
   .vtd-time-panel-fill .vtd-time-wheel-grid-single {
-    @apply flex-1 min-h-0 w-full;
+    @apply vtd:flex-1 vtd:min-h-0 vtd:w-full;
   }
 
   .vtd-datepicker-overlay.open::before {
-    @apply block opacity-50;
+    @apply vtd:block vtd:opacity-50;
   }
 
-  .vtd-datepicker::before {
+  .vtd-datepicker:is(.place-left, .place-right)::before {
     --vtd-datepicker: 0px;
     content: '';
-    @apply absolute top-0 w-4 h-4 bg-white shadow border border-black/[.1] dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700;
+    @apply vtd:absolute vtd:top-0 vtd:w-4 vtd:h-4 vtd:bg-white vtd:shadow vtd:border vtd:border-black/[.1] vtd:dark:bg-vtd-secondary-800 vtd:dark:border-vtd-secondary-700;
     transform: translate(50%, -50%) rotate(-45deg);
     clip-path: polygon(
       calc(var(--vtd-datepicker) * -1) calc(var(--vtd-datepicker) * -1),
@@ -43,11 +107,11 @@
   }
 
   .vtd-datepicker.place-left::before {
-    @apply left-1 dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700;
+    @apply vtd:left-1 vtd:dark:bg-vtd-secondary-800 vtd:dark:border-vtd-secondary-700;
   }
 
   .vtd-datepicker.place-right::before {
-    @apply right-5 dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700;
+    @apply vtd:right-5 vtd:dark:bg-vtd-secondary-800 vtd:dark:border-vtd-secondary-700;
   }
 
   .vtd-datepicker .vtd-time-wheel-option-selected {
@@ -92,7 +156,7 @@
   }
 
   .vtd-datepicker .vtd-month-selector-btn-default {
-    color: var(--vtd-selector-month-text, var(--color-vtd-secondary-600));
+    color: var(--vtd-selector-month-text, var(--vtd-color-vtd-secondary-600));
   }
 
   .vtd-datepicker .vtd-month-selector-btn[aria-selected='false']:hover,

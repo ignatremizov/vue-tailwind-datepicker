@@ -1,0 +1,4 @@
+/* Page styling for the development playground; never part of the library CSS. */
+@import 'tailwindcss' source(none);
+@plugin '@tailwindcss/forms';
+@source './App.vue';

@@ -7,11 +7,11 @@ defineProps<{
 </script>
 
 <template>
-  <div class="grid grid-cols-7 py-2 mt-0.5">
+  <div class="vtd:grid vtd:grid-cols-7 vtd:py-2 vtd:mt-0.5">
     <div
       v-for="(day, keyDay) in weeks"
       :key="keyDay"
-      class="text-vtd-secondary-500 text-xs 2xl:text-sm tracking-wide font-medium text-center cursor-default dark:text-vtd-secondary-400"
+      class="vtd:text-vtd-secondary-500 vtd:text-xs vtd:2xl:text-sm vtd:tracking-wide vtd:font-medium vtd:text-center vtd:cursor-default vtd:dark:text-vtd-secondary-400"
     >
       <span v-text="day" />
     </div>

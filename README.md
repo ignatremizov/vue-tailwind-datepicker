@@ -33,8 +33,9 @@ Project guidelines:
 
 ## Installation
 
-⚠️ Vue Tailwind Datepicker uses Tailwind CSS (with the @tailwindcss/forms plugin) & Day.js under the hood, **you must install those packages** before.
-See the repository docs for complete setup guides.
+Vue Tailwind Datepicker requires Vue 3 and Day.js. Import the published stylesheet
+once; consumers do not need Tailwind CSS, the forms plugin, or package-source
+scanning. Tailwind is used only to build the library's isolated styles.
 
 ### Install via npm
 
@@ -73,6 +74,13 @@ const formatter = ref({
 ```
 
 The published package now exposes its stylesheet explicitly. Import `@ignatremizov/vue-tailwind-datepicker/style.css` once in your app entry or alongside the first component usage.
+
+The stylesheet uses package-prefixed utilities, theme variables, and internal
+properties, with control defaults scoped to the datepicker. It does not install a
+global reset or style unrelated buttons, inputs, or layouts. It can load before or
+after your application stylesheet. Existing `--vtd-*` component theme tokens and
+semantic hooks such as `.vtd-datepicker` remain available; internal utility
+classes are implementation details. See [theming options](./docs/theming-options.md).
 
 ## Time Picker Modes
 

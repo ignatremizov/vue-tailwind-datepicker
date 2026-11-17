@@ -37,8 +37,8 @@ describe('calendar today styling in range preview', () => {
     const classNames = todayButton.attributes('class')
 
     // Today should keep a distinct marker while inside the in-range preview.
-    expect(classNames).toContain('text-vtd-primary-500')
-    expect(classNames).toContain('rounded-full')
+    expect(classNames).toContain('vtd:text-vtd-primary-500')
+    expect(classNames).toContain('vtd:rounded-full')
     expect(classNames).not.toContain('vtd-datepicker-date-selected')
   })
 

@@ -1262,12 +1262,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div :class="props.selectorMode ? 'w-full min-w-0' : 'mx-auto flex max-w-[20.5rem] flex-wrap'">
+  <div :class="props.selectorMode ? 'vtd:w-full vtd:min-w-0' : 'vtd:mx-auto vtd:flex vtd:max-w-[20.5rem] vtd:flex-wrap'">
     <template v-if="props.selectorMode">
-      <div class="w-full min-w-0">
-        <div class="relative h-64 w-full min-w-0">
+      <div class="vtd:w-full vtd:min-w-0">
+        <div class="vtd:relative vtd:h-64 vtd:w-full vtd:min-w-0">
           <VtdSelectorWheelStepButton
-            z-class="z-30"
+            z-class="vtd:z-30"
             direction="up"
             label="Select previous year"
             @click="onSelectorStepClick(-1)"
@@ -1275,7 +1275,7 @@ onBeforeUnmount(() => {
           <div
             :id="`vtd-selector-year-wheel-${props.panelName}`"
             ref="selectorContainerRef"
-            class="h-full w-full min-w-0 overflow-y-scroll px-0.5 py-1 focus:outline-none focus-visible:outline-none"
+            class="vtd:h-full vtd:w-full vtd:min-w-0 vtd:overflow-y-scroll vtd:px-0.5 vtd:py-1 vtd:focus:outline-none vtd:focus-visible:outline-none"
             :class="isUserScrolling ? 'vtd-year-scrolling' : ''"
             role="spinbutton"
             aria-label="Year selector"
@@ -1296,26 +1296,26 @@ onBeforeUnmount(() => {
           </div>
           <canvas
             ref="selectorCanvasRef"
-            class="pointer-events-none absolute inset-0 z-10 block"
+            class="vtd:pointer-events-none vtd:absolute vtd:inset-0 vtd:z-10 vtd:block"
             aria-hidden="true"
           />
           <VtdSelectorWheelStepButton
-            z-class="z-30"
+            z-class="vtd:z-30"
             direction="down"
             label="Select next year"
             @click="onSelectorStepClick(1)"
           />
-          <span class="sr-only" aria-live="polite">{{ yearAriaAnnouncement }}</span>
+          <span class="vtd:sr-only" aria-live="polite">{{ yearAriaAnnouncement }}</span>
         </div>
       </div>
     </template>
 
     <template v-else>
-      <div v-for="(year, key) in years" :key="key" class="w-1/2 px-0.5">
-        <span class="flex rounded-md mt-1.5">
+      <div v-for="(year, key) in years" :key="key" class="vtd:w-1/2 vtd:px-0.5">
+        <span class="vtd:flex vtd:rounded-md vtd:mt-1.5">
           <button
             type="button"
-            class="px-3 py-2 block w-full leading-6 rounded-md bg-white text-xs 2xl:text-sm tracking-wide tabular-nums text-vtd-secondary-600 font-medium transition-colors border border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring-3 focus:ring-vtd-primary-500/10 focus:outline-hidden uppercase dark:bg-vtd-secondary-800 dark:hover:bg-vtd-secondary-700 dark:text-vtd-secondary-300 dark:hover:text-vtd-secondary-100 dark:focus:bg-vtd-secondary-700"
+            class="vtd:px-3 vtd:py-2 vtd:block vtd:w-full vtd:leading-6 vtd:rounded-md vtd:bg-white vtd:text-xs vtd:2xl:text-sm vtd:tracking-wide vtd:tabular-nums vtd:text-vtd-secondary-600 vtd:font-medium vtd:transition-colors vtd:border vtd:border-transparent vtd:hover:bg-vtd-secondary-100 vtd:hover:text-vtd-secondary-900 vtd:focus:bg-vtd-primary-50 vtd:focus:text-vtd-secondary-900 vtd:focus:border-vtd-primary-300 vtd:focus:ring-3 vtd:focus:ring-vtd-primary-500/10 vtd:focus:outline-hidden vtd:uppercase vtd:dark:bg-vtd-secondary-800 vtd:dark:hover:bg-vtd-secondary-700 vtd:dark:text-vtd-secondary-300 vtd:dark:hover:text-vtd-secondary-100 vtd:dark:focus:bg-vtd-secondary-700"
             @click="emit('updateYear', year)"
             v-text="year"
           />

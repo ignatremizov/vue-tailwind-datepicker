@@ -677,7 +677,7 @@ const shouldUseFillTimePanelLayout = computed(() => {
 const timePanelFillClass = computed(() => {
   if (!shouldUseFillTimePanelLayout.value)
     return ''
-  return 'vtd-time-panel-fill sm:mt-0 sm:h-full'
+  return 'vtd-time-panel-fill vtd:sm:mt-0 vtd:sm:h-full'
 })
 
 const hasMountedPageTimePanel = ref(false)
@@ -726,11 +726,11 @@ const timeWheelColumnCount = computed(() => {
 const timeWheelGridColumnClass = computed(() => {
   switch (timeWheelColumnCount.value) {
     case 2:
-      return 'grid-cols-2 sm:grid-cols-2'
+      return 'vtd:grid-cols-2 vtd:sm:grid-cols-2'
     case 3:
-      return 'grid-cols-3 sm:grid-cols-3'
+      return 'vtd:grid-cols-3 vtd:sm:grid-cols-3'
     default:
-      return 'grid-cols-2 sm:grid-cols-4'
+      return 'vtd:grid-cols-2 vtd:sm:grid-cols-4'
   }
 })
 
@@ -893,17 +893,17 @@ const timePanelEndpointLayoutClass = computed(() => {
 
   if (showDualRangeTimePanelsUi.value) {
     if (useCompactWheelLayout)
-      return 'grid min-h-0 w-full gap-2 sm:grid-cols-2'
-    return 'grid auto-rows-fr flex-1 min-h-0 w-full gap-2 sm:grid-cols-2'
+      return 'vtd:grid vtd:min-h-0 vtd:w-full vtd:gap-2 vtd:sm:grid-cols-2'
+    return 'vtd:grid vtd:auto-rows-fr vtd:flex-1 vtd:min-h-0 vtd:w-full vtd:gap-2 vtd:sm:grid-cols-2'
   }
 
   if (isTimePickerWheelStyle.value) {
     if (useCompactWheelLayout)
-      return 'flex min-h-0 w-full py-2 items-stretch justify-center'
-    return 'flex flex-1 min-h-0 w-full py-2 items-stretch justify-center'
+      return 'vtd:flex vtd:min-h-0 vtd:w-full vtd:py-2 vtd:items-stretch vtd:justify-center'
+    return 'vtd:flex vtd:flex-1 vtd:min-h-0 vtd:w-full vtd:py-2 vtd:items-stretch vtd:justify-center'
   }
 
-  return 'flex flex-1 min-h-0 w-full items-stretch justify-center'
+  return 'vtd:flex vtd:flex-1 vtd:min-h-0 vtd:w-full vtd:items-stretch vtd:justify-center'
 })
 
 const timePanelEndpointLayoutStyle = computed(() => {
@@ -934,8 +934,8 @@ const timePanelSingleEndpointTitle = computed(() => {
 
 const timePanelHeaderActionsClass = computed(() => {
   return [
-    'ml-auto flex items-center justify-end gap-2',
-    collapseDualRangeInlineRightTimePanel.value ? 'flex-nowrap min-w-0' : 'flex-wrap',
+    'vtd:ml-auto vtd:flex vtd:items-center vtd:justify-end vtd:gap-2',
+    collapseDualRangeInlineRightTimePanel.value ? 'vtd:flex-nowrap vtd:min-w-0' : 'vtd:flex-wrap',
   ]
 })
 
@@ -967,12 +967,12 @@ const shouldOverlayTimeFormatLabel = computed(() => {
 
 const timePanelHeaderRowClass = computed(() => {
   return [
-    'flex items-center gap-2',
+    'vtd:flex vtd:items-center vtd:gap-2',
     showDualRangeTimePanelsUi.value
     || shouldCenterTimePanelEndpointToggle.value
     || shouldOverlayTimeFormatLabel.value
-      ? 'relative'
-      : 'justify-between',
+      ? 'vtd:relative'
+      : 'vtd:justify-between',
   ]
 })
 
@@ -980,21 +980,21 @@ const shouldShowInlineTimeFormatLabel = computed(() => {
   return !shouldOverlayTimeFormatLabel.value
 })
 
-const timePanelCenteredToggleWrapperClass = 'pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 justify-center px-2'
+const timePanelCenteredToggleWrapperClass = 'vtd:pointer-events-none vtd:absolute vtd:inset-x-0 vtd:top-1/2 vtd:flex vtd:-translate-y-1/2 vtd:justify-center vtd:px-2'
 const timePanelDualEndpointLabelsClass = computed(() => {
-  return ['grid min-w-0 flex-1 grid-cols-2 gap-2']
+  return ['vtd:grid vtd:min-w-0 vtd:flex-1 vtd:grid-cols-2 vtd:gap-2']
 })
-const timePanelDualEndpointLabelTextClass = 'truncate pl-1 text-xs font-medium text-vtd-secondary-700 dark:text-vtd-secondary-200'
+const timePanelDualEndpointLabelTextClass = 'vtd:truncate vtd:pl-1 vtd:text-xs vtd:font-medium vtd:text-vtd-secondary-700 vtd:dark:text-vtd-secondary-200'
 
-const timePanelEndpointToggleGroupClass = 'pointer-events-auto inline-flex shrink-0 items-center gap-1 rounded-md border border-black/[.1] p-0.5 dark:border-vtd-secondary-700/[1]'
-const timePanelEndpointToggleButtonClass = 'rounded px-2 py-1 text-[11px] font-medium transition'
-const timePanelHeaderSwitchButtonClass = 'rounded-md border border-vtd-secondary-300 px-2 py-1 text-[11px] font-medium text-vtd-secondary-700 transition hover:bg-vtd-secondary-100 dark:border-vtd-secondary-700 dark:text-vtd-secondary-200 dark:hover:bg-vtd-secondary-700'
-const timePanelFormatLabelClass = 'text-[11px] whitespace-nowrap text-vtd-secondary-500 dark:text-vtd-secondary-400'
+const timePanelEndpointToggleGroupClass = 'vtd:pointer-events-auto vtd:inline-flex vtd:shrink-0 vtd:items-center vtd:gap-1 vtd:rounded-md vtd:border vtd:border-black/[.1] vtd:p-0.5 vtd:dark:border-vtd-secondary-700/[1]'
+const timePanelEndpointToggleButtonClass = 'vtd:rounded vtd:px-2 vtd:py-1 vtd:text-[11px] vtd:font-medium vtd:transition'
+const timePanelHeaderSwitchButtonClass = 'vtd:rounded-md vtd:border vtd:border-vtd-secondary-300 vtd:px-2 vtd:py-1 vtd:text-[11px] vtd:font-medium vtd:text-vtd-secondary-700 vtd:transition vtd:hover:bg-vtd-secondary-100 vtd:dark:border-vtd-secondary-700 vtd:dark:text-vtd-secondary-200 vtd:dark:hover:bg-vtd-secondary-700'
+const timePanelFormatLabelClass = 'vtd:text-[11px] vtd:whitespace-nowrap vtd:text-vtd-secondary-500 vtd:dark:text-vtd-secondary-400'
 
 function timePanelEndpointToggleButtonStateClass(endpoint: DateTimeEndpointSelection) {
   return activeDateTimeEndpoint.value === endpoint
-    ? 'bg-vtd-primary-600 text-white'
-    : 'bg-white text-vtd-secondary-700 hover:bg-vtd-secondary-100 dark:bg-vtd-secondary-800 dark:text-vtd-secondary-200 dark:hover:bg-vtd-secondary-700'
+    ? 'vtd:bg-vtd-primary-600 vtd:text-white'
+    : 'vtd:bg-white vtd:text-vtd-secondary-700 vtd:hover:bg-vtd-secondary-100 vtd:dark:bg-vtd-secondary-800 vtd:dark:text-vtd-secondary-200 vtd:dark:hover:bg-vtd-secondary-700'
 }
 
 const visibleTimeEndpoints = computed<DateTimeEndpointSelection[]>(() => {
@@ -3147,13 +3147,13 @@ function getSelectorColumnClass(focus: SelectorFocus) {
   const isFocusActive = !suppressSelectorColumnFocus.value && selectorFocus.value === focus
   if (!props.selectorFocusTint) {
     return isFocusActive
-      ? 'border-vtd-primary-300 dark:border-vtd-primary-500'
-      : 'border-black/[.08] dark:border-vtd-secondary-700/[1]'
+      ? 'vtd:border-vtd-primary-300 vtd:dark:border-vtd-primary-500'
+      : 'vtd:border-black/[.08] vtd:dark:border-vtd-secondary-700/[1]'
   }
 
   return isFocusActive
-    ? 'border-vtd-primary-300 bg-vtd-primary-50/40 ring-2 ring-vtd-primary-400/35 ring-offset-1 ring-offset-transparent dark:border-vtd-primary-500 dark:bg-vtd-secondary-700/50 dark:ring-vtd-primary-500/35'
-    : 'border-black/[.08] dark:border-vtd-secondary-700/[1]'
+    ? 'vtd:border-vtd-primary-300 vtd:bg-vtd-primary-50/40 vtd:ring-2 vtd:ring-vtd-primary-400/35 vtd:ring-offset-1 vtd:ring-offset-transparent vtd:dark:border-vtd-primary-500 vtd:dark:bg-vtd-secondary-700/50 vtd:dark:ring-vtd-primary-500/35'
+    : 'vtd:border-black/[.08] vtd:dark:border-vtd-secondary-700/[1]'
 }
 
 function clearSelectorColumnFocusSuppression() {
@@ -4781,39 +4781,39 @@ function datepickerClasses(date: DatePickerDay) {
   }
   if (active) {
     classes = today
-      ? 'text-vtd-primary-500 font-semibold dark:text-vtd-primary-400 rounded-full focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring focus:ring-vtd-primary-500/10 focus:outline-none dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600/50 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/25'
+      ? 'vtd:text-vtd-primary-500 vtd:font-semibold vtd:dark:text-vtd-primary-400 vtd:rounded-full vtd:focus:bg-vtd-primary-50 vtd:focus:text-vtd-secondary-900 vtd:focus:border-vtd-primary-300 vtd:focus:ring vtd:focus:ring-vtd-primary-500/10 vtd:focus:outline-none vtd:dark:bg-vtd-secondary-800 vtd:dark:text-vtd-secondary-300 vtd:dark:hover:bg-vtd-secondary-700 vtd:dark:hover:text-vtd-secondary-300 vtd:dark:focus:bg-vtd-secondary-600/50 vtd:dark:focus:text-vtd-secondary-100 vtd:dark:focus:border-vtd-primary-500 vtd:dark:focus:ring-vtd-primary-500/25'
       : disabled
-        ? 'text-vtd-secondary-600 font-normal disabled:text-vtd-secondary-500 disabled:cursor-not-allowed rounded-full'
+        ? 'vtd:text-vtd-secondary-600 vtd:font-normal vtd:disabled:text-vtd-secondary-500 vtd:disabled:cursor-not-allowed vtd:rounded-full'
         : s && e && date.isBetween(s, e, 'date', '()')
-          ? 'text-vtd-secondary-700 font-medium dark:text-vtd-secondary-100'
-          : 'text-vtd-secondary-600 font-medium dark:text-vtd-secondary-200 rounded-full'
+          ? 'vtd:text-vtd-secondary-700 vtd:font-medium vtd:dark:text-vtd-secondary-100'
+          : 'vtd:text-vtd-secondary-600 vtd:font-medium vtd:dark:text-vtd-secondary-200 vtd:rounded-full'
   }
   if (off)
-    classes = 'text-vtd-secondary-400 font-light disabled:cursor-not-allowed'
+    classes = 'vtd:text-vtd-secondary-400 vtd:font-light vtd:disabled:cursor-not-allowed'
 
   if (s && e && !off) {
     if (date.isSame(s, 'date')) {
       classes = e.isAfter(s, 'date')
-        ? 'vtd-datepicker-date-selected vtd-datepicker-date-selected-start disabled:cursor-not-allowed'
-        : 'vtd-datepicker-date-selected vtd-datepicker-date-selected-end disabled:cursor-not-allowed'
+        ? 'vtd-datepicker-date-selected vtd-datepicker-date-selected-start vtd:disabled:cursor-not-allowed'
+        : 'vtd-datepicker-date-selected vtd-datepicker-date-selected-end vtd:disabled:cursor-not-allowed'
       if (s.isSame(e, 'date')) {
         classes
-          = 'vtd-datepicker-date-selected vtd-datepicker-date-selected-single disabled:cursor-not-allowed'
+          = 'vtd-datepicker-date-selected vtd-datepicker-date-selected-single vtd:disabled:cursor-not-allowed'
       }
     }
     if (date.isSame(e, 'date')) {
       classes = e.isAfter(s, 'date')
-        ? 'vtd-datepicker-date-selected vtd-datepicker-date-selected-end disabled:cursor-not-allowed'
-        : 'vtd-datepicker-date-selected vtd-datepicker-date-selected-start disabled:cursor-not-allowed'
+        ? 'vtd-datepicker-date-selected vtd-datepicker-date-selected-end vtd:disabled:cursor-not-allowed'
+        : 'vtd-datepicker-date-selected vtd-datepicker-date-selected-start vtd:disabled:cursor-not-allowed'
       if (s.isSame(e, 'date')) {
         classes
-          = 'vtd-datepicker-date-selected vtd-datepicker-date-selected-single disabled:cursor-not-allowed'
+          = 'vtd-datepicker-date-selected vtd-datepicker-date-selected-single vtd:disabled:cursor-not-allowed'
       }
     }
   } else if (s) {
     if (date.isSame(s, 'date') && !off) {
       classes
-        = 'vtd-datepicker-date-selected vtd-datepicker-date-selected-single disabled:cursor-not-allowed'
+        = 'vtd-datepicker-date-selected vtd-datepicker-date-selected-single vtd:disabled:cursor-not-allowed'
     }
   }
 
@@ -4849,24 +4849,24 @@ function betweenRangeClasses(date: Dayjs) {
 
     if (date.isSame(startDate, 'date')) {
       if (endDate.isBefore(startDate))
-        classes += ' rounded-r-full inset-0 vtd-datepicker-range-preview-edge'
+        classes += ' vtd:rounded-r-full vtd:inset-0 vtd-datepicker-range-preview-edge'
 
       if (startDate.isBefore(endDate))
-        classes += ' rounded-l-full inset-0 vtd-datepicker-range-preview-edge'
+        classes += ' vtd:rounded-l-full vtd:inset-0 vtd-datepicker-range-preview-edge'
 
       if (startDate.isSame(endDate, 'date'))
-        classes += ' rounded-full inset-0 vtd-datepicker-range-preview-edge'
+        classes += ' vtd:rounded-full vtd:inset-0 vtd-datepicker-range-preview-edge'
     } else if (date.isSame(endDate, 'date')) {
       if (endDate.isBefore(startDate))
-        classes += ' rounded-l-full inset-0 vtd-datepicker-range-preview-edge'
+        classes += ' vtd:rounded-l-full vtd:inset-0 vtd-datepicker-range-preview-edge'
 
       if (startDate.isBefore(endDate))
-        classes += ' rounded-r-full inset-0 vtd-datepicker-range-preview-edge'
+        classes += ' vtd:rounded-r-full vtd:inset-0 vtd-datepicker-range-preview-edge'
 
       if (startDate.isSame(endDate, 'date'))
-        classes += ' rounded-full inset-0 vtd-datepicker-range-preview-edge'
+        classes += ' vtd:rounded-full vtd:inset-0 vtd-datepicker-range-preview-edge'
     } else {
-      classes += ' inset-0'
+      classes += ' vtd:inset-0'
     }
   }
   return classes
@@ -5452,9 +5452,9 @@ function getAbsoluteParentClass(open: boolean) {
     placement.value = useVisibleViewport(VtdRef.value)
 
   if (placement.value)
-    return 'left-auto right-0'
+    return 'vtd:left-auto vtd:right-0'
 
-  return 'left-0 right-auto'
+  return 'vtd:left-0 vtd:right-auto'
 }
 
 watchEffect(() => {
@@ -5477,19 +5477,19 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
     id="vtd"
     v-slot="{ open }: { open: boolean }"
     as="div"
-    class="relative w-full"
+    class="vtd-root vtd:relative vtd:w-full"
     :restore-focus="props.popoverRestoreFocus"
   >
     <PopoverOverlay
       v-if="props.overlay && !props.disabled"
-      class="fixed inset-0 bg-black opacity-30"
+      class="vtd:fixed vtd:inset-0 vtd:bg-black vtd:opacity-30"
     />
 
     <PopoverButton
       ref="VtdPopoverButtonRef"
       as="label"
       data-vtd-popover-button="true"
-      class="relative block"
+      class="vtd:relative vtd:block"
       @click.capture="onPopoverButtonCaptureClick(open, $event)"
       @click="onPopoverButtonClick(open, $event)"
       @keydown.capture="onInputKeydown"
@@ -5500,12 +5500,12 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
           v-bind="$attrs"
           v-model="pickerValue"
           type="text"
-          class="relative block w-full"
+          class="vtd:relative vtd:block vtd:w-full"
           :disabled="props.disabled"
           :class="[
-            props.disabled ? 'cursor-default opacity-50' : 'opacity-100',
+            props.disabled ? 'vtd:cursor-default vtd:opacity-50' : 'vtd:opacity-100',
             inputClasses
-              || 'pl-3 pr-12 py-2.5 rounded-lg overflow-hidden border-solid text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 transition-colors bg-white border border-vtd-secondary-300 focus:border-vtd-primary-300 focus:ring focus:ring-vtd-primary-500/10 focus:outline-none dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/20',
+              || 'vtd:pl-3 vtd:pr-12 vtd:py-2.5 vtd:rounded-lg vtd:overflow-hidden vtd:border-solid vtd:text-sm vtd:text-vtd-secondary-700 vtd:placeholder:text-vtd-secondary-400 vtd:transition-colors vtd:bg-white vtd:border vtd:border-vtd-secondary-300 vtd:focus:border-vtd-primary-300 vtd:focus:ring vtd:focus:ring-vtd-primary-500/10 vtd:focus:outline-none vtd:dark:bg-vtd-secondary-800 vtd:dark:border-vtd-secondary-700 vtd:dark:text-vtd-secondary-100 vtd:dark:placeholder:text-vtd-secondary-500 vtd:dark:focus:border-vtd-primary-500 vtd:dark:focus:ring-vtd-primary-500/20',
           ]"
           autocomplete="off"
           data-lpignore="true"
@@ -5517,19 +5517,19 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
           @keyup.stop="keyUp"
           @keydown.stop="onInputKeydown"
         >
-        <div class="absolute inset-y-0 right-0 inline-flex items-center rounded-md overflow-hidden">
+        <div class="vtd:absolute vtd:inset-y-0 vtd:right-0 vtd:inline-flex vtd:items-center vtd:rounded-md vtd:overflow-hidden">
           <button
             type="button"
             :disabled="props.disabled"
-            :class="props.disabled ? 'cursor-default opacity-50' : 'opacity-100'"
-            class="px-2 py-1 mr-1 focus:outline-none text-vtd-secondary-400 dark:text-vtd-secondary-400/70 rounded-md"
+            :class="props.disabled ? 'vtd:cursor-default vtd:opacity-50' : 'vtd:opacity-100'"
+            class="vtd:px-2 vtd:py-1 vtd:mr-1 vtd:focus:outline-none vtd:text-vtd-secondary-400 vtd:dark:text-vtd-secondary-400/70 vtd:rounded-md"
             @click.stop="
               props.disabled ? false : pickerValue ? clearPicker() : VtdInputRef?.focus()
             "
           >
             <slot name="inputIcon" :value="pickerValue">
               <svg
-                class="w-5 h-5"
+                class="vtd:w-5 vtd:h-5"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -5558,12 +5558,12 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
 
     <transition
       :css="props.popoverTransition"
-      enter-from-class="opacity-0 translate-y-3"
-      enter-to-class="opacity-100 translate-y-0"
-      enter-active-class="transform transition ease-out duration-200"
-      leave-active-class="transform transition ease-in duration-150"
-      leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 translate-y-3"
+      enter-from-class="vtd:opacity-0 vtd:translate-y-3"
+      enter-to-class="vtd:opacity-100 vtd:translate-y-0"
+      enter-active-class="vtd:transform vtd:transition vtd:ease-out vtd:duration-200"
+      leave-active-class="vtd:transform vtd:transition vtd:ease-in vtd:duration-150"
+      leave-from-class="vtd:opacity-100 vtd:translate-y-0"
+      leave-to-class="vtd:opacity-0 vtd:translate-y-3"
       @after-enter="onPopoverAfterEnter"
       @after-leave="onPopoverAfterLeave"
     >
@@ -5571,20 +5571,20 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
         v-if="!props.disabled"
         v-slot="{ close }: { close: (ref?: Ref | HTMLElement) => void }"
         as="div"
-        class="relative z-50"
+        class="vtd:relative vtd:z-50"
       >
-        <div class="absolute z-50 top-full sm:mt-2.5" :class="getAbsoluteParentClass(open)">
+        <div class="vtd:absolute vtd:z-50 vtd:top-full vtd:sm:mt-2.5" :class="getAbsoluteParentClass(open)">
           <div
             ref="VtdRef"
-            class="fixed inset-0 z-50 overflow-y-auto sm:overflow-visible sm:static sm:z-auto bg-white dark:bg-vtd-secondary-800 sm:rounded-lg shadow-sm"
+            class="vtd:fixed vtd:inset-0 vtd:z-50 vtd:overflow-y-auto vtd:sm:overflow-visible vtd:sm:static vtd:sm:z-auto vtd:bg-white vtd:dark:bg-vtd-secondary-800 vtd:sm:rounded-lg vtd:shadow-sm"
           >
             <div
-              class="vtd-datepicker static sm:relative w-full sm:w-fit bg-white sm:rounded-lg sm:shadow-sm border-0 sm:border border-black/[.1] px-3 py-3 sm:px-4 sm:py-4 dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700/[1]"
+              class="vtd-datepicker vtd:static vtd:sm:relative vtd:w-full vtd:sm:w-fit vtd:bg-white vtd:sm:rounded-lg vtd:sm:shadow-sm vtd:border-0 vtd:sm:border vtd:border-black/[.1] vtd:px-3 vtd:py-3 vtd:sm:px-4 vtd:sm:py-4 vtd:dark:bg-vtd-secondary-800 vtd:dark:border-vtd-secondary-700/[1]"
               :class="[
                 getAbsoluteClass(open),
-                props.selectorMode && props.asSingle ? 'sm:w-[28.5rem]' : '',
-                useLegacyNoTimeSelectorHeightClamp ? 'sm:h-[23.5rem]' : '',
-                collapseDualRangeInlineRightTimePanel ? 'sm:min-w-[78rem]' : '',
+                props.selectorMode && props.asSingle ? 'vtd:sm:w-[28.5rem]' : '',
+                useLegacyNoTimeSelectorHeightClamp ? 'vtd:sm:h-[23.5rem]' : '',
+                collapseDualRangeInlineRightTimePanel ? 'vtd:sm:min-w-[78rem]' : '',
               ]"
               :style="datepickerShellLockStyle"
               @keydown.capture="event => onPickerPanelKeydown(event, close)"
@@ -5592,8 +5592,8 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
               @pointerdown.capture="onTimeWheelInteraction"
             >
               <div
-                class="flex flex-wrap lg:flex-nowrap"
-                :class="useLegacyNoTimeSelectorHeightClamp ? 'sm:h-full' : ''"
+                class="vtd:flex vtd:flex-wrap vtd:lg:flex-nowrap"
+                :class="useLegacyNoTimeSelectorHeightClamp ? 'vtd:sm:h-full' : ''"
               >
                 <VtdShortcut
                   v-if="props.shortcuts"
@@ -5609,36 +5609,36 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                 </VtdShortcut>
                 <div
                   ref="VtdPanelContentRef"
-                  class="relative flex flex-wrap sm:flex-nowrap p-1 w-full"
+                  class="vtd:relative vtd:flex vtd:flex-wrap vtd:sm:flex-nowrap vtd:p-1 vtd:w-full"
                   :class="[
-                    useLegacyNoTimeSelectorHeightClamp ? 'sm:h-full' : '',
-                    showAnyInlineTimePanel ? 'sm:flex-1 sm:min-w-0' : 'sm:w-auto',
+                    useLegacyNoTimeSelectorHeightClamp ? 'vtd:sm:h-full' : '',
+                    showAnyInlineTimePanel ? 'vtd:sm:flex-1 vtd:sm:min-w-0' : 'vtd:sm:w-auto',
                   ]"
                   :style="panelContentLockStyle"
                 >
                   <template v-if="shouldShowDatePanels">
                     <div
                       v-if="asRange() && !props.asSingle && !collapseDualRangeInlineRightTimePanel"
-                      class="hidden h-full absolute inset-0 sm:flex justify-center items-center"
+                      class="vtd:hidden vtd:h-full vtd:absolute vtd:inset-0 vtd:sm:flex vtd:justify-center vtd:items-center"
                     >
                       <div
-                        class="h-full border-r border-black/[.1] dark:border-vtd-secondary-700/[1]"
+                        class="vtd:h-full vtd:border-r vtd:border-black/[.1] vtd:dark:border-vtd-secondary-700/[1]"
                       />
                     </div>
                     <div
-                      class="relative w-full"
+                      class="vtd:relative vtd:w-full"
                       data-vtd-selector-panel="previous"
                       :class="{
-                        'mb-3 sm:mb-0 sm:mr-2 md:w-1/2 lg:w-80':
+                        'vtd:mb-3 vtd:sm:mb-0 vtd:sm:mr-2 vtd:md:w-1/2 vtd:lg:w-80':
                           asRange() && !props.asSingle && !showInlineTimePanelInline,
-                        'mb-3 sm:mb-0 sm:mr-2 md:flex-1 md:min-w-0 lg:w-auto':
+                        'vtd:mb-3 vtd:sm:mb-0 vtd:sm:mr-2 vtd:md:flex-1 vtd:md:min-w-0 vtd:lg:w-auto':
                           asRange() && !props.asSingle && showInlineTimePanelInline,
-                        'lg:w-80': props.asSingle && !!props.shortcuts,
-                        'sm:min-h-[21.75rem]':
+                        'vtd:lg:w-80': props.asSingle && !!props.shortcuts,
+                        'vtd:sm:min-h-[21.75rem]':
                           props.asSingle && !props.selectorMode && !showInlineTimePanelInline,
-                        'overflow-visible': isSelectorPanel('previous'),
-                        'overflow-hidden': !isSelectorPanel('previous'),
-                        'sm:h-full': useLegacyNoTimeSelectorHeightClamp,
+                        'vtd:overflow-visible': isSelectorPanel('previous'),
+                        'vtd:overflow-hidden': !isSelectorPanel('previous'),
+                        'vtd:sm:h-full': useLegacyNoTimeSelectorHeightClamp,
                       }"
                     >
                       <VtdHeader
@@ -5658,17 +5658,17 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                         "
                       />
                       <div
-                        class="px-0.5 sm:px-2"
+                        class="vtd:px-0.5 vtd:sm:px-2"
                         :class="{
-                          'sm:min-h-[17.75rem]': props.selectorMode,
+                          'vtd:sm:min-h-[17.75rem]': props.selectorMode,
                         }"
                       >
                         <template v-if="isSelectorPanel('previous')">
                           <div
-                            class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center"
+                            class="vtd:mt-2.5 vtd:grid vtd:grid-cols-1 vtd:gap-2 vtd:sm:grid-cols-2 vtd:sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] vtd:sm:justify-center"
                           >
                             <div
-                              class="rounded-md border p-1 min-w-0"
+                              class="vtd:rounded-md vtd:border vtd:p-1 vtd:min-w-0"
                               :class="getSelectorColumnClass('month')"
                             >
                               <VtdMonth
@@ -5686,7 +5686,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                               />
                             </div>
                             <div
-                              class="rounded-md border p-1 min-w-0"
+                              class="vtd:rounded-md vtd:border vtd:p-1 vtd:min-w-0"
                               :class="getSelectorColumnClass('year')"
                             >
                               <VtdYear
@@ -5747,14 +5747,14 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                     <div
                       v-if="asRange() && !props.asSingle"
                       data-vtd-selector-panel="next"
-                      class="relative w-full mt-3 sm:mt-0 sm:ml-2"
+                      class="vtd:relative vtd:w-full vtd:mt-3 vtd:sm:mt-0 vtd:sm:ml-2"
                       :class="{
-                        'md:w-1/2 lg:w-80':
+                        'vtd:md:w-1/2 vtd:lg:w-80':
                           asRange() && !props.asSingle && !showInlineTimePanelInline,
-                        'md:flex-1 md:min-w-0 lg:w-auto':
+                        'vtd:md:flex-1 vtd:md:min-w-0 vtd:lg:w-auto':
                           asRange() && !props.asSingle && showInlineTimePanelInline,
-                        'overflow-visible': isSelectorPanel('next'),
-                        'overflow-hidden': !isSelectorPanel('next'),
+                        'vtd:overflow-visible': isSelectorPanel('next'),
+                        'vtd:overflow-hidden': !isSelectorPanel('next'),
                       }"
                     >
                       <VtdHeader
@@ -5775,17 +5775,17 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                         "
                       />
                       <div
-                        class="px-0.5 sm:px-2"
+                        class="vtd:px-0.5 vtd:sm:px-2"
                         :class="{
-                          'sm:min-h-[17.75rem]': props.selectorMode,
+                          'vtd:sm:min-h-[17.75rem]': props.selectorMode,
                         }"
                       >
                         <template v-if="isSelectorPanel('next')">
                           <div
-                            class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center"
+                            class="vtd:mt-2.5 vtd:grid vtd:grid-cols-1 vtd:gap-2 vtd:sm:grid-cols-2 vtd:sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] vtd:sm:justify-center"
                           >
                             <div
-                              class="rounded-md border p-1 min-w-0"
+                              class="vtd:rounded-md vtd:border vtd:p-1 vtd:min-w-0"
                               :class="getSelectorColumnClass('month')"
                             >
                               <VtdMonth
@@ -5803,7 +5803,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                               />
                             </div>
                             <div
-                              class="rounded-md border p-1 min-w-0"
+                              class="vtd:rounded-md vtd:border vtd:p-1 vtd:min-w-0"
                               :class="getSelectorColumnClass('year')"
                             >
                               <VtdYear
@@ -5863,22 +5863,22 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                   <template v-if="shouldRenderInlineTimePanels">
                     <div
                       v-show="showPageTimePanelInline || showInlineTimePanelInline"
-                      class="w-full min-w-0 sm:flex-1 px-0.5 sm:px-2 flex flex-col sm:h-full"
+                      class="vtd:w-full vtd:min-w-0 vtd:sm:flex-1 vtd:px-0.5 vtd:sm:px-2 vtd:flex vtd:flex-col vtd:sm:h-full"
                       @focusin.capture="onTimeWheelInteraction"
                       @pointerdown.capture="onTimeWheelInteraction"
                     >
                       <div
-                        class="mt-2 w-full min-w-0 rounded-md border border-black/[.08] p-2 dark:border-vtd-secondary-700/[1]"
+                        class="vtd:mt-2 vtd:w-full vtd:min-w-0 vtd:rounded-md vtd:border vtd:border-black/[.08] vtd:p-2 vtd:dark:border-vtd-secondary-700/[1]"
                         :class="timePanelFillClass"
                       >
                         <div
-                          class="flex flex-col gap-2"
-                          :class="shouldUseFillTimePanelLayout ? 'h-full' : ''"
+                          class="vtd:flex vtd:flex-col vtd:gap-2"
+                          :class="shouldUseFillTimePanelLayout ? 'vtd:h-full' : ''"
                         >
                           <div :class="timePanelHeaderRowClass">
                             <p
                               v-if="!showDualRangeTimePanelsUi"
-                              class="shrink-0 whitespace-nowrap text-xs font-medium text-vtd-secondary-700 dark:text-vtd-secondary-200"
+                              class="vtd:shrink-0 vtd:whitespace-nowrap vtd:text-xs vtd:font-medium vtd:text-vtd-secondary-700 vtd:dark:text-vtd-secondary-200"
                             >
                               {{ timePanelSingleEndpointTitle }}
                             </p>
@@ -5923,7 +5923,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                             </div>
                             <p
                               v-if="shouldOverlayTimeFormatLabel"
-                              class="absolute right-0 top-0"
+                              class="vtd:absolute vtd:right-0 vtd:top-0"
                               :class="[timePanelFormatLabelClass]"
                             >
                               {{ dateTimeFormatDescription }}
@@ -5971,28 +5971,28 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                             </div>
                           </div>
                           <div
-                            class="w-full min-w-0"
+                            class="vtd:w-full vtd:min-w-0"
                             :class="timePanelEndpointLayoutClass"
                             :style="timePanelEndpointLayoutStyle"
                           >
                             <div
                               v-for="endpoint in visibleTimeEndpoints"
                               :key="endpoint"
-                              class="vtd-time-endpoint min-w-0 flex flex-col gap-2"
+                              class="vtd-time-endpoint vtd:min-w-0 vtd:flex vtd:flex-col vtd:gap-2"
                               :class="
                                 showDualRangeTimePanelsUi
-                                  ? 'vtd-time-endpoint-dual h-full min-h-0 w-full overflow-hidden rounded-md border border-black/[.1] px-2 py-4 dark:border-vtd-secondary-700/[1]'
-                                  : 'vtd-time-endpoint-single w-full'
+                                  ? 'vtd-time-endpoint-dual vtd:h-full vtd:min-h-0 vtd:w-full vtd:overflow-hidden vtd:rounded-md vtd:border vtd:border-black/[.1] vtd:px-2 vtd:py-4 vtd:dark:border-vtd-secondary-700/[1]'
+                                  : 'vtd-time-endpoint-single vtd:w-full'
                               "
                             >
                               <template v-if="isTimePickerWheelStyle">
                                 <div
-                                  class="vtd-time-wheel-grid mt-1.5 mb-1 grid min-h-0 auto-rows-[minmax(0,1fr)] items-stretch gap-2"
+                                  class="vtd-time-wheel-grid vtd:mt-1.5 vtd:mb-1 vtd:grid vtd:min-h-0 vtd:auto-rows-[minmax(0,1fr)] vtd:items-stretch vtd:gap-2"
                                   :class="[
                                     timeWheelGridColumnClass,
                                     showDualRangeTimePanelsUi
                                       ? 'vtd-time-wheel-grid-dual'
-                                      : 'vtd-time-wheel-grid-single w-full',
+                                      : 'vtd-time-wheel-grid-single vtd:w-full',
                                   ]"
                                 >
                                   <VtdTimeWheel
@@ -6051,14 +6051,14 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                                   :value="getDateTimeInputValue(endpoint)"
                                   :placeholder="dateTimeInputPlaceholder"
                                   type="text"
-                                  class="block w-full rounded-md border border-vtd-secondary-300 px-3 py-2 text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 focus:border-vtd-primary-300 focus:outline-none focus:ring focus:ring-vtd-primary-500 focus:ring-opacity-10 dark:border-vtd-secondary-700 dark:bg-vtd-secondary-800 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-20"
+                                  class="vtd:block vtd:w-full vtd:rounded-md vtd:border vtd:border-vtd-secondary-300 vtd:px-3 vtd:py-2 vtd:text-sm vtd:text-vtd-secondary-700 vtd:placeholder:text-vtd-secondary-400 vtd:focus:border-vtd-primary-300 vtd:focus:outline-none vtd:focus:ring vtd:focus:ring-vtd-primary-500/10 vtd:dark:border-vtd-secondary-700 vtd:dark:bg-vtd-secondary-800 vtd:dark:text-vtd-secondary-100 vtd:dark:placeholder:text-vtd-secondary-500 vtd:dark:focus:border-vtd-primary-500 vtd:dark:focus:ring-vtd-primary-500/20"
                                   :disabled="!isDateTimeDraftReady(endpoint)"
                                   @input="event => onDateTimeInput(event, endpoint)"
                                 >
                               </template>
                               <p
                                 v-if="getDateTimeValidationMessage(endpoint)"
-                                class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                                class="vtd:w-full vtd:min-w-0 vtd:break-words vtd:whitespace-normal vtd:[overflow-wrap:anywhere] vtd:mt-2 vtd:text-xs vtd:text-red-600 vtd:dark:text-red-400"
                               >
                                 {{ getDateTimeValidationMessage(endpoint) }}
                               </p>
@@ -6066,13 +6066,13 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                           </div>
                           <p
                             v-if="formatterTimeTokenErrorMessage"
-                            class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                            class="vtd:w-full vtd:min-w-0 vtd:break-words vtd:whitespace-normal vtd:[overflow-wrap:anywhere] vtd:mt-2 vtd:text-xs vtd:text-red-600 vtd:dark:text-red-400"
                           >
                             {{ formatterTimeTokenErrorMessage }}
                           </p>
                           <p
                             v-else-if="panelLevelDateTimeErrorMessage"
-                            class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                            class="vtd:w-full vtd:min-w-0 vtd:break-words vtd:whitespace-normal vtd:[overflow-wrap:anywhere] vtd:mt-2 vtd:text-xs vtd:text-red-600 vtd:dark:text-red-400"
                           >
                             {{ panelLevelDateTimeErrorMessage }}
                           </p>
@@ -6084,13 +6084,13 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
               </div>
               <div
                 v-if="showStackedDateTimeControls"
-                class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]"
+                class="vtd:mt-2 vtd:mx-2 vtd:py-1.5 vtd:border-t vtd:border-black/[.1] vtd:dark:border-vtd-secondary-700/[1]"
               >
-                <div class="mt-1.5 w-full min-w-0 flex flex-col gap-2">
+                <div class="vtd:mt-1.5 vtd:w-full vtd:min-w-0 vtd:flex vtd:flex-col vtd:gap-2">
                   <div :class="timePanelHeaderRowClass">
                     <p
                       v-if="!showDualRangeTimePanelsUi"
-                      class="shrink-0 whitespace-nowrap text-xs font-medium text-vtd-secondary-700 dark:text-vtd-secondary-200"
+                      class="vtd:shrink-0 vtd:whitespace-nowrap vtd:text-xs vtd:font-medium vtd:text-vtd-secondary-700 vtd:dark:text-vtd-secondary-200"
                     >
                       {{ timePanelSingleEndpointTitle }}
                     </p>
@@ -6132,7 +6132,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                     </div>
                     <p
                       v-if="shouldOverlayTimeFormatLabel"
-                      class="absolute right-0 top-0"
+                      class="vtd:absolute vtd:right-0 vtd:top-0"
                       :class="[timePanelFormatLabelClass]"
                     >
                       {{ dateTimeFormatDescription }}
@@ -6177,28 +6177,28 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                     </div>
                   </div>
                   <div
-                    class="w-full min-w-0"
+                    class="vtd:w-full vtd:min-w-0"
                     :class="timePanelEndpointLayoutClass"
                     :style="timePanelEndpointLayoutStyle"
                   >
                     <div
                       v-for="endpoint in visibleTimeEndpoints"
                       :key="`stacked-${endpoint}`"
-                      class="vtd-time-endpoint min-w-0 flex flex-col gap-2"
+                      class="vtd-time-endpoint vtd:min-w-0 vtd:flex vtd:flex-col vtd:gap-2"
                       :class="
                         showDualRangeTimePanelsUi
-                          ? 'vtd-time-endpoint-dual h-full min-h-0 w-full overflow-hidden rounded-md border border-black/[.1] px-2 py-4 dark:border-vtd-secondary-700/[1]'
-                          : 'vtd-time-endpoint-single w-full'
+                          ? 'vtd-time-endpoint-dual vtd:h-full vtd:min-h-0 vtd:w-full vtd:overflow-hidden vtd:rounded-md vtd:border vtd:border-black/[.1] vtd:px-2 vtd:py-4 vtd:dark:border-vtd-secondary-700/[1]'
+                          : 'vtd-time-endpoint-single vtd:w-full'
                       "
                     >
                       <template v-if="isTimePickerWheelStyle">
                         <div
-                          class="vtd-time-wheel-grid mt-1.5 mb-1 grid min-h-0 auto-rows-[minmax(0,1fr)] items-stretch gap-2"
+                          class="vtd-time-wheel-grid vtd:mt-1.5 vtd:mb-1 vtd:grid vtd:min-h-0 vtd:auto-rows-[minmax(0,1fr)] vtd:items-stretch vtd:gap-2"
                           :class="[
                             timeWheelGridColumnClass,
                             showDualRangeTimePanelsUi
                               ? 'vtd-time-wheel-grid-dual'
-                              : 'vtd-time-wheel-grid-single w-full',
+                              : 'vtd-time-wheel-grid-single vtd:w-full',
                           ]"
                         >
                           <VtdTimeWheel
@@ -6257,14 +6257,14 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                           :value="getDateTimeInputValue(endpoint)"
                           :placeholder="dateTimeInputPlaceholder"
                           type="text"
-                          class="block w-full rounded-md border border-vtd-secondary-300 px-3 py-2 text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 focus:border-vtd-primary-300 focus:outline-none focus:ring focus:ring-vtd-primary-500 focus:ring-opacity-10 dark:border-vtd-secondary-700 dark:bg-vtd-secondary-800 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-20"
+                          class="vtd:block vtd:w-full vtd:rounded-md vtd:border vtd:border-vtd-secondary-300 vtd:px-3 vtd:py-2 vtd:text-sm vtd:text-vtd-secondary-700 vtd:placeholder:text-vtd-secondary-400 vtd:focus:border-vtd-primary-300 vtd:focus:outline-none vtd:focus:ring vtd:focus:ring-vtd-primary-500/10 vtd:dark:border-vtd-secondary-700 vtd:dark:bg-vtd-secondary-800 vtd:dark:text-vtd-secondary-100 vtd:dark:placeholder:text-vtd-secondary-500 vtd:dark:focus:border-vtd-primary-500 vtd:dark:focus:ring-vtd-primary-500/20"
                           :disabled="!isDateTimeDraftReady(endpoint)"
                           @input="event => onDateTimeInput(event, endpoint)"
                         >
                       </template>
                       <p
                         v-if="getDateTimeValidationMessage(endpoint)"
-                        class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                        class="vtd:w-full vtd:min-w-0 vtd:break-words vtd:whitespace-normal vtd:[overflow-wrap:anywhere] vtd:mt-2 vtd:text-xs vtd:text-red-600 vtd:dark:text-red-400"
                       >
                         {{ getDateTimeValidationMessage(endpoint) }}
                       </p>
@@ -6272,13 +6272,13 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                   </div>
                   <p
                     v-if="formatterTimeTokenErrorMessage"
-                    class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                    class="vtd:w-full vtd:min-w-0 vtd:break-words vtd:whitespace-normal vtd:[overflow-wrap:anywhere] vtd:mt-2 vtd:text-xs vtd:text-red-600 vtd:dark:text-red-400"
                   >
                     {{ formatterTimeTokenErrorMessage }}
                   </p>
                   <p
                     v-else-if="panelLevelDateTimeErrorMessage"
-                    class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                    class="vtd:w-full vtd:min-w-0 vtd:break-words vtd:whitespace-normal vtd:[overflow-wrap:anywhere] vtd:mt-2 vtd:text-xs vtd:text-red-600 vtd:dark:text-red-400"
                   >
                     {{ panelLevelDateTimeErrorMessage }}
                   </p>
@@ -6286,12 +6286,12 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
               </div>
               <div v-if="showApplyFooter">
                 <div
-                  class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]"
+                  class="vtd:mt-2 vtd:mx-2 vtd:py-1.5 vtd:border-t vtd:border-black/[.1] vtd:dark:border-vtd-secondary-700/[1]"
                 >
-                  <div class="mt-1.5 sm:flex sm:flex-row-reverse">
+                  <div class="vtd:mt-1.5 vtd:sm:flex vtd:sm:flex-row-reverse">
                     <button
                       type="button"
-                      class="away-apply-picker w-full transition ease-out duration-300 inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-vtd-primary-600 text-base font-medium text-white hover:bg-vtd-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vtd-primary-500 sm:ml-3 sm:w-auto sm:text-sm dark:ring-offset-vtd-secondary-800 disabled:cursor-not-allowed"
+                      class="away-apply-picker vtd:w-full vtd:transition vtd:ease-out vtd:duration-300 vtd:inline-flex vtd:justify-center vtd:rounded-md vtd:border vtd:border-transparent vtd:shadow-sm vtd:px-4 vtd:py-2 vtd:bg-vtd-primary-600 vtd:text-base vtd:font-medium vtd:text-white vtd:hover:bg-vtd-primary-700 vtd:focus:outline-none vtd:focus:ring-2 vtd:focus:ring-offset-2 vtd:focus:ring-vtd-primary-500 vtd:sm:ml-3 vtd:sm:w-auto vtd:sm:text-sm vtd:dark:ring-offset-vtd-secondary-800 vtd:disabled:cursor-not-allowed"
                       :disabled="isApplyButtonDisabled()"
                       @click="applyDate(close)"
                       v-text="props.options.footer.apply"
@@ -6299,28 +6299,28 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                     <button
                       v-if="canToggleTimePanel || shouldShowTimePanelSwitchButton"
                       type="button"
-                      class="mt-3 away-cancel-picker w-full transition ease-out duration-300 inline-flex justify-center rounded-md border border-vtd-secondary-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-vtd-secondary-700 hover:bg-vtd-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vtd-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm dark:ring-offset-vtd-secondary-800"
+                      class="vtd:mt-3 away-cancel-picker vtd:w-full vtd:transition vtd:ease-out vtd:duration-300 vtd:inline-flex vtd:justify-center vtd:rounded-md vtd:border vtd:border-vtd-secondary-300 vtd:shadow-sm vtd:px-4 vtd:py-2 vtd:bg-white vtd:text-base vtd:font-medium vtd:text-vtd-secondary-700 vtd:hover:bg-vtd-secondary-50 vtd:focus:outline-none vtd:focus:ring-2 vtd:focus:ring-offset-2 vtd:focus:ring-vtd-primary-500 vtd:sm:mt-0 vtd:sm:ml-3 vtd:sm:w-auto vtd:sm:text-sm vtd:dark:ring-offset-vtd-secondary-800"
                       @click="toggleTimePanel()"
                     >
                       {{ timePanelSwitchLabel }}
                     </button>
                     <button
                       type="button"
-                      class="mt-3 away-cancel-picker w-full transition ease-out duration-300 inline-flex justify-center rounded-md border border-vtd-secondary-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-vtd-secondary-700 hover:bg-vtd-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vtd-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm dark:ring-offset-vtd-secondary-800"
+                      class="vtd:mt-3 away-cancel-picker vtd:w-full vtd:transition vtd:ease-out vtd:duration-300 vtd:inline-flex vtd:justify-center vtd:rounded-md vtd:border vtd:border-vtd-secondary-300 vtd:shadow-sm vtd:px-4 vtd:py-2 vtd:bg-white vtd:text-base vtd:font-medium vtd:text-vtd-secondary-700 vtd:hover:bg-vtd-secondary-50 vtd:focus:outline-none vtd:focus:ring-2 vtd:focus:ring-offset-2 vtd:focus:ring-vtd-primary-500 vtd:sm:mt-0 vtd:sm:ml-3 vtd:sm:w-auto vtd:sm:text-sm vtd:dark:ring-offset-vtd-secondary-800"
                       @click="closePopover(close)"
                       v-text="props.options.footer.cancel"
                     />
                   </div>
                 </div>
               </div>
-              <div v-else-if="showMobileCancelFooter" class="sm:hidden">
+              <div v-else-if="showMobileCancelFooter" class="vtd:sm:hidden">
                 <div
-                  class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]"
+                  class="vtd:mt-2 vtd:mx-2 vtd:py-1.5 vtd:border-t vtd:border-black/[.1] vtd:dark:border-vtd-secondary-700/[1]"
                 >
-                  <div class="mt-1.5 sm:flex sm:flex-row-reverse">
+                  <div class="vtd:mt-1.5 vtd:sm:flex vtd:sm:flex-row-reverse">
                     <button
                       type="button"
-                      class="away-cancel-picker w-full transition ease-out duration-300 inline-flex justify-center rounded-md border border-vtd-secondary-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-vtd-secondary-700 hover:bg-vtd-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vtd-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm dark:ring-offset-vtd-secondary-800"
+                      class="away-cancel-picker vtd:w-full vtd:transition vtd:ease-out vtd:duration-300 vtd:inline-flex vtd:justify-center vtd:rounded-md vtd:border vtd:border-vtd-secondary-300 vtd:shadow-sm vtd:px-4 vtd:py-2 vtd:bg-white vtd:text-base vtd:font-medium vtd:text-vtd-secondary-700 vtd:hover:bg-vtd-secondary-50 vtd:focus:outline-none vtd:focus:ring-2 vtd:focus:ring-offset-2 vtd:focus:ring-vtd-primary-500 vtd:sm:mt-0 vtd:sm:ml-3 vtd:sm:w-auto vtd:sm:text-sm vtd:dark:ring-offset-vtd-secondary-800"
                       @click="closePopover(close)"
                       v-text="props.options.footer.cancel"
                     />
@@ -6333,22 +6333,22 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
       </PopoverPanel>
     </transition>
   </Popover>
-  <div v-else-if="displayDatepicker" class="flex">
+  <div v-else-if="displayDatepicker" class="vtd-root vtd:flex">
     <div
       ref="VtdStaticRef"
-      class="bg-white rounded-lg shadow-sm border border-black/[.1] px-3 py-3 sm:px-4 sm:py-4 dark:bg-vtd-secondary-800 dark:border-vtd-secondary-700/[1]"
+      class="vtd-datepicker vtd:bg-white vtd:rounded-lg vtd:shadow-sm vtd:border vtd:border-black/[.1] vtd:px-3 vtd:py-3 vtd:sm:px-4 vtd:sm:py-4 vtd:dark:bg-vtd-secondary-800 vtd:dark:border-vtd-secondary-700/[1]"
       :class="[
-        props.selectorMode && props.asSingle ? 'sm:w-[28.5rem]' : '',
-        useLegacyNoTimeSelectorHeightClamp ? 'sm:h-[23.5rem]' : '',
-        collapseDualRangeInlineRightTimePanel ? 'sm:min-w-[78rem]' : '',
+        props.selectorMode && props.asSingle ? 'vtd:sm:w-[28.5rem]' : '',
+        useLegacyNoTimeSelectorHeightClamp ? 'vtd:sm:h-[23.5rem]' : '',
+        collapseDualRangeInlineRightTimePanel ? 'vtd:sm:min-w-[78rem]' : '',
       ]"
       @keydown.capture="onPickerPanelKeydown"
       @focusin.capture="onTimeWheelInteraction"
       @pointerdown.capture="onTimeWheelInteraction"
     >
       <div
-        class="flex flex-wrap lg:flex-nowrap"
-        :class="useLegacyNoTimeSelectorHeightClamp ? 'sm:h-full' : ''"
+        class="vtd:flex vtd:flex-wrap vtd:lg:flex-nowrap"
+        :class="useLegacyNoTimeSelectorHeightClamp ? 'vtd:sm:h-full' : ''"
       >
         <VtdShortcut
           v-if="props.shortcuts"
@@ -6363,34 +6363,34 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
         </VtdShortcut>
         <div
           ref="VtdPanelContentRef"
-          class="relative flex flex-wrap sm:flex-nowrap p-1 w-full"
+          class="vtd:relative vtd:flex vtd:flex-wrap vtd:sm:flex-nowrap vtd:p-1 vtd:w-full"
           :class="[
-            useLegacyNoTimeSelectorHeightClamp ? 'sm:h-full' : '',
-            showAnyInlineTimePanel ? 'sm:flex-1 sm:min-w-0' : 'sm:w-auto',
+            useLegacyNoTimeSelectorHeightClamp ? 'vtd:sm:h-full' : '',
+            showAnyInlineTimePanel ? 'vtd:sm:flex-1 vtd:sm:min-w-0' : 'vtd:sm:w-auto',
           ]"
           :style="panelContentLockStyle"
         >
           <template v-if="shouldShowDatePanels">
             <div
               v-if="asRange() && !props.asSingle && !collapseDualRangeInlineRightTimePanel"
-              class="hidden h-full absolute inset-0 sm:flex justify-center items-center"
+              class="vtd:hidden vtd:h-full vtd:absolute vtd:inset-0 vtd:sm:flex vtd:justify-center vtd:items-center"
             >
-              <div class="h-full border-r border-black/[.1] dark:border-vtd-secondary-700/[1]" />
+              <div class="vtd:h-full vtd:border-r vtd:border-black/[.1] vtd:dark:border-vtd-secondary-700/[1]" />
             </div>
             <div
-              class="relative w-full"
+              class="vtd:relative vtd:w-full"
               data-vtd-selector-panel="previous"
               :class="{
-                'mb-3 sm:mb-0 sm:mr-2 md:w-1/2 lg:w-80':
+                'vtd:mb-3 vtd:sm:mb-0 vtd:sm:mr-2 vtd:md:w-1/2 vtd:lg:w-80':
                   asRange() && !props.asSingle && !showInlineTimePanelInline,
-                'mb-3 sm:mb-0 sm:mr-2 md:flex-1 md:min-w-0 lg:w-auto':
+                'vtd:mb-3 vtd:sm:mb-0 vtd:sm:mr-2 vtd:md:flex-1 vtd:md:min-w-0 vtd:lg:w-auto':
                   asRange() && !props.asSingle && showInlineTimePanelInline,
-                'lg:w-80': props.asSingle && !!props.shortcuts,
-                'sm:min-h-[21.75rem]':
+                'vtd:lg:w-80': props.asSingle && !!props.shortcuts,
+                'vtd:sm:min-h-[21.75rem]':
                   props.asSingle && !props.selectorMode && !showInlineTimePanelInline,
-                'sm:h-full': useLegacyNoTimeSelectorHeightClamp,
-                'overflow-visible': isSelectorPanel('previous'),
-                'overflow-hidden': !isSelectorPanel('previous'),
+                'vtd:sm:h-full': useLegacyNoTimeSelectorHeightClamp,
+                'vtd:overflow-visible': isSelectorPanel('previous'),
+                'vtd:overflow-hidden': !isSelectorPanel('previous'),
               }"
             >
               <VtdHeader
@@ -6410,17 +6410,17 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                 "
               />
               <div
-                class="px-0.5 sm:px-2"
+                class="vtd:px-0.5 vtd:sm:px-2"
                 :class="{
-                  'sm:min-h-[17.75rem]': props.selectorMode,
+                  'vtd:sm:min-h-[17.75rem]': props.selectorMode,
                 }"
               >
                 <template v-if="isSelectorPanel('previous')">
                   <div
-                    class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center"
+                    class="vtd:mt-2.5 vtd:grid vtd:grid-cols-1 vtd:gap-2 vtd:sm:grid-cols-2 vtd:sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] vtd:sm:justify-center"
                   >
                     <div
-                      class="rounded-md border p-1 min-w-0"
+                      class="vtd:rounded-md vtd:border vtd:p-1 vtd:min-w-0"
                       :class="getSelectorColumnClass('month')"
                     >
                       <VtdMonth
@@ -6438,7 +6438,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                       />
                     </div>
                     <div
-                      class="rounded-md border p-1 min-w-0"
+                      class="vtd:rounded-md vtd:border vtd:p-1 vtd:min-w-0"
                       :class="getSelectorColumnClass('year')"
                     >
                       <VtdYear
@@ -6495,13 +6495,13 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
             <div
               v-if="asRange() && !props.asSingle"
               data-vtd-selector-panel="next"
-              class="relative w-full mt-3 sm:mt-0 sm:ml-2"
+              class="vtd:relative vtd:w-full vtd:mt-3 vtd:sm:mt-0 vtd:sm:ml-2"
               :class="{
-                'md:w-1/2 lg:w-80': asRange() && !props.asSingle && !showInlineTimePanelInline,
-                'md:flex-1 md:min-w-0 lg:w-auto':
+                'vtd:md:w-1/2 vtd:lg:w-80': asRange() && !props.asSingle && !showInlineTimePanelInline,
+                'vtd:md:flex-1 vtd:md:min-w-0 vtd:lg:w-auto':
                   asRange() && !props.asSingle && showInlineTimePanelInline,
-                'overflow-visible': isSelectorPanel('next'),
-                'overflow-hidden': !isSelectorPanel('next'),
+                'vtd:overflow-visible': isSelectorPanel('next'),
+                'vtd:overflow-hidden': !isSelectorPanel('next'),
               }"
             >
               <VtdHeader
@@ -6522,17 +6522,17 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                 "
               />
               <div
-                class="px-0.5 sm:px-2"
+                class="vtd:px-0.5 vtd:sm:px-2"
                 :class="{
-                  'sm:min-h-[17.75rem]': props.selectorMode,
+                  'vtd:sm:min-h-[17.75rem]': props.selectorMode,
                 }"
               >
                 <template v-if="isSelectorPanel('next')">
                   <div
-                    class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] sm:justify-center"
+                    class="vtd:mt-2.5 vtd:grid vtd:grid-cols-1 vtd:gap-2 vtd:sm:grid-cols-2 vtd:sm:[grid-template-columns:minmax(0,7.25rem)_minmax(0,7.25rem)] vtd:sm:justify-center"
                   >
                     <div
-                      class="rounded-md border p-1 min-w-0"
+                      class="vtd:rounded-md vtd:border vtd:p-1 vtd:min-w-0"
                       :class="getSelectorColumnClass('month')"
                     >
                       <VtdMonth
@@ -6550,7 +6550,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                       />
                     </div>
                     <div
-                      class="rounded-md border p-1 min-w-0"
+                      class="vtd:rounded-md vtd:border vtd:p-1 vtd:min-w-0"
                       :class="getSelectorColumnClass('year')"
                     >
                       <VtdYear
@@ -6610,22 +6610,22 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
           <template v-if="shouldRenderInlineTimePanels">
             <div
               v-show="showPageTimePanelInline || showInlineTimePanelInline"
-              class="w-full min-w-0 sm:flex-1 px-0.5 sm:px-2 flex flex-col sm:h-full"
+              class="vtd:w-full vtd:min-w-0 vtd:sm:flex-1 vtd:px-0.5 vtd:sm:px-2 vtd:flex vtd:flex-col vtd:sm:h-full"
               @focusin.capture="onTimeWheelInteraction"
               @pointerdown.capture="onTimeWheelInteraction"
             >
               <div
-                class="mt-2 w-full min-w-0 rounded-md border border-black/[.08] p-2 dark:border-vtd-secondary-700/[1]"
+                class="vtd:mt-2 vtd:w-full vtd:min-w-0 vtd:rounded-md vtd:border vtd:border-black/[.08] vtd:p-2 vtd:dark:border-vtd-secondary-700/[1]"
                 :class="timePanelFillClass"
               >
                 <div
-                  class="flex flex-col gap-2"
-                  :class="shouldUseFillTimePanelLayout ? 'h-full' : ''"
+                  class="vtd:flex vtd:flex-col vtd:gap-2"
+                  :class="shouldUseFillTimePanelLayout ? 'vtd:h-full' : ''"
                 >
                   <div :class="timePanelHeaderRowClass">
                     <p
                       v-if="!showDualRangeTimePanelsUi"
-                      class="shrink-0 whitespace-nowrap text-xs font-medium text-vtd-secondary-700 dark:text-vtd-secondary-200"
+                      class="vtd:shrink-0 vtd:whitespace-nowrap vtd:text-xs vtd:font-medium vtd:text-vtd-secondary-700 vtd:dark:text-vtd-secondary-200"
                     >
                       {{ timePanelSingleEndpointTitle }}
                     </p>
@@ -6667,7 +6667,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                     </div>
                     <p
                       v-if="shouldOverlayTimeFormatLabel"
-                      class="absolute right-0 top-0"
+                      class="vtd:absolute vtd:right-0 vtd:top-0"
                       :class="[timePanelFormatLabelClass]"
                     >
                       {{ dateTimeFormatDescription }}
@@ -6712,28 +6712,28 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                     </div>
                   </div>
                   <div
-                    class="w-full min-w-0"
+                    class="vtd:w-full vtd:min-w-0"
                     :class="timePanelEndpointLayoutClass"
                     :style="timePanelEndpointLayoutStyle"
                   >
                     <div
                       v-for="endpoint in visibleTimeEndpoints"
                       :key="`static-inline-${endpoint}`"
-                      class="vtd-time-endpoint min-w-0 flex flex-col gap-2"
+                      class="vtd-time-endpoint vtd:min-w-0 vtd:flex vtd:flex-col vtd:gap-2"
                       :class="
                         showDualRangeTimePanelsUi
-                          ? 'vtd-time-endpoint-dual h-full min-h-0 w-full overflow-hidden rounded-md border border-black/[.1] px-2 py-4 dark:border-vtd-secondary-700/[1]'
-                          : 'vtd-time-endpoint-single w-full'
+                          ? 'vtd-time-endpoint-dual vtd:h-full vtd:min-h-0 vtd:w-full vtd:overflow-hidden vtd:rounded-md vtd:border vtd:border-black/[.1] vtd:px-2 vtd:py-4 vtd:dark:border-vtd-secondary-700/[1]'
+                          : 'vtd-time-endpoint-single vtd:w-full'
                       "
                     >
                       <template v-if="isTimePickerWheelStyle">
                         <div
-                          class="vtd-time-wheel-grid mt-1.5 mb-1 grid min-h-0 auto-rows-[minmax(0,1fr)] items-stretch gap-2"
+                          class="vtd-time-wheel-grid vtd:mt-1.5 vtd:mb-1 vtd:grid vtd:min-h-0 vtd:auto-rows-[minmax(0,1fr)] vtd:items-stretch vtd:gap-2"
                           :class="[
                             timeWheelGridColumnClass,
                             showDualRangeTimePanelsUi
                               ? 'vtd-time-wheel-grid-dual'
-                              : 'vtd-time-wheel-grid-single w-full',
+                              : 'vtd-time-wheel-grid-single vtd:w-full',
                           ]"
                         >
                           <VtdTimeWheel
@@ -6792,14 +6792,14 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                           :value="getDateTimeInputValue(endpoint)"
                           :placeholder="dateTimeInputPlaceholder"
                           type="text"
-                          class="block w-full rounded-md border border-vtd-secondary-300 px-3 py-2 text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 focus:border-vtd-primary-300 focus:outline-none focus:ring focus:ring-vtd-primary-500 focus:ring-opacity-10 dark:border-vtd-secondary-700 dark:bg-vtd-secondary-800 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-20"
+                          class="vtd:block vtd:w-full vtd:rounded-md vtd:border vtd:border-vtd-secondary-300 vtd:px-3 vtd:py-2 vtd:text-sm vtd:text-vtd-secondary-700 vtd:placeholder:text-vtd-secondary-400 vtd:focus:border-vtd-primary-300 vtd:focus:outline-none vtd:focus:ring vtd:focus:ring-vtd-primary-500/10 vtd:dark:border-vtd-secondary-700 vtd:dark:bg-vtd-secondary-800 vtd:dark:text-vtd-secondary-100 vtd:dark:placeholder:text-vtd-secondary-500 vtd:dark:focus:border-vtd-primary-500 vtd:dark:focus:ring-vtd-primary-500/20"
                           :disabled="!isDateTimeDraftReady(endpoint)"
                           @input="event => onDateTimeInput(event, endpoint)"
                         >
                       </template>
                       <p
                         v-if="getDateTimeValidationMessage(endpoint)"
-                        class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                        class="vtd:w-full vtd:min-w-0 vtd:break-words vtd:whitespace-normal vtd:[overflow-wrap:anywhere] vtd:mt-2 vtd:text-xs vtd:text-red-600 vtd:dark:text-red-400"
                       >
                         {{ getDateTimeValidationMessage(endpoint) }}
                       </p>
@@ -6807,13 +6807,13 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                   </div>
                   <p
                     v-if="formatterTimeTokenErrorMessage"
-                    class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                    class="vtd:w-full vtd:min-w-0 vtd:break-words vtd:whitespace-normal vtd:[overflow-wrap:anywhere] vtd:mt-2 vtd:text-xs vtd:text-red-600 vtd:dark:text-red-400"
                   >
                     {{ formatterTimeTokenErrorMessage }}
                   </p>
                   <p
                     v-else-if="panelLevelDateTimeErrorMessage"
-                    class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                    class="vtd:w-full vtd:min-w-0 vtd:break-words vtd:whitespace-normal vtd:[overflow-wrap:anywhere] vtd:mt-2 vtd:text-xs vtd:text-red-600 vtd:dark:text-red-400"
                   >
                     {{ panelLevelDateTimeErrorMessage }}
                   </p>
@@ -6825,13 +6825,13 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
       </div>
       <div
         v-if="showStackedDateTimeControls"
-        class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]"
+        class="vtd:mt-2 vtd:mx-2 vtd:py-1.5 vtd:border-t vtd:border-black/[.1] vtd:dark:border-vtd-secondary-700/[1]"
       >
-        <div class="mt-1.5 w-full min-w-0 flex flex-col gap-2">
+        <div class="vtd:mt-1.5 vtd:w-full vtd:min-w-0 vtd:flex vtd:flex-col vtd:gap-2">
           <div :class="timePanelHeaderRowClass">
             <p
               v-if="!showDualRangeTimePanelsUi"
-              class="shrink-0 whitespace-nowrap text-xs font-medium text-vtd-secondary-700 dark:text-vtd-secondary-200"
+              class="vtd:shrink-0 vtd:whitespace-nowrap vtd:text-xs vtd:font-medium vtd:text-vtd-secondary-700 vtd:dark:text-vtd-secondary-200"
             >
               {{ timePanelSingleEndpointTitle }}
             </p>
@@ -6873,7 +6873,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
             </div>
             <p
               v-if="shouldOverlayTimeFormatLabel"
-              class="absolute right-0 top-0"
+              class="vtd:absolute vtd:right-0 vtd:top-0"
               :class="[timePanelFormatLabelClass]"
             >
               {{ dateTimeFormatDescription }}
@@ -6918,28 +6918,28 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
             </div>
           </div>
           <div
-            class="w-full min-w-0"
+            class="vtd:w-full vtd:min-w-0"
             :class="timePanelEndpointLayoutClass"
             :style="timePanelEndpointLayoutStyle"
           >
             <div
               v-for="endpoint in visibleTimeEndpoints"
               :key="`static-stacked-${endpoint}`"
-              class="vtd-time-endpoint min-w-0 flex flex-col gap-2"
+              class="vtd-time-endpoint vtd:min-w-0 vtd:flex vtd:flex-col vtd:gap-2"
               :class="
                 showDualRangeTimePanelsUi
-                  ? 'vtd-time-endpoint-dual h-full min-h-0 w-full overflow-hidden rounded-md border border-black/[.1] px-2 py-4 dark:border-vtd-secondary-700/[1]'
-                  : 'vtd-time-endpoint-single w-full'
+                  ? 'vtd-time-endpoint-dual vtd:h-full vtd:min-h-0 vtd:w-full vtd:overflow-hidden vtd:rounded-md vtd:border vtd:border-black/[.1] vtd:px-2 vtd:py-4 vtd:dark:border-vtd-secondary-700/[1]'
+                  : 'vtd-time-endpoint-single vtd:w-full'
               "
             >
               <template v-if="isTimePickerWheelStyle">
                 <div
-                  class="vtd-time-wheel-grid mt-1.5 mb-1 grid min-h-0 auto-rows-[minmax(0,1fr)] items-stretch gap-2"
+                  class="vtd-time-wheel-grid vtd:mt-1.5 vtd:mb-1 vtd:grid vtd:min-h-0 vtd:auto-rows-[minmax(0,1fr)] vtd:items-stretch vtd:gap-2"
                   :class="[
                     timeWheelGridColumnClass,
                     showDualRangeTimePanelsUi
                       ? 'vtd-time-wheel-grid-dual'
-                      : 'vtd-time-wheel-grid-single w-full',
+                      : 'vtd-time-wheel-grid-single vtd:w-full',
                   ]"
                 >
                   <VtdTimeWheel
@@ -6990,14 +6990,14 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
                   :value="getDateTimeInputValue(endpoint)"
                   :placeholder="dateTimeInputPlaceholder"
                   type="text"
-                  class="block w-full rounded-md border border-vtd-secondary-300 px-3 py-2 text-sm text-vtd-secondary-700 placeholder-vtd-secondary-400 focus:border-vtd-primary-300 focus:outline-none focus:ring focus:ring-vtd-primary-500 focus:ring-opacity-10 dark:border-vtd-secondary-700 dark:bg-vtd-secondary-800 dark:text-vtd-secondary-100 dark:placeholder-vtd-secondary-500 dark:focus:border-vtd-primary-500 dark:focus:ring-opacity-20"
+                  class="vtd:block vtd:w-full vtd:rounded-md vtd:border vtd:border-vtd-secondary-300 vtd:px-3 vtd:py-2 vtd:text-sm vtd:text-vtd-secondary-700 vtd:placeholder:text-vtd-secondary-400 vtd:focus:border-vtd-primary-300 vtd:focus:outline-none vtd:focus:ring vtd:focus:ring-vtd-primary-500/10 vtd:dark:border-vtd-secondary-700 vtd:dark:bg-vtd-secondary-800 vtd:dark:text-vtd-secondary-100 vtd:dark:placeholder:text-vtd-secondary-500 vtd:dark:focus:border-vtd-primary-500 vtd:dark:focus:ring-vtd-primary-500/20"
                   :disabled="!isDateTimeDraftReady(endpoint)"
                   @input="event => onDateTimeInput(event, endpoint)"
                 >
               </template>
               <p
                 v-if="getDateTimeValidationMessage(endpoint)"
-                class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+                class="vtd:w-full vtd:min-w-0 vtd:break-words vtd:whitespace-normal vtd:[overflow-wrap:anywhere] vtd:mt-2 vtd:text-xs vtd:text-red-600 vtd:dark:text-red-400"
               >
                 {{ getDateTimeValidationMessage(endpoint) }}
               </p>
@@ -7005,24 +7005,24 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
           </div>
           <p
             v-if="formatterTimeTokenErrorMessage"
-            class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+            class="vtd:w-full vtd:min-w-0 vtd:break-words vtd:whitespace-normal vtd:[overflow-wrap:anywhere] vtd:mt-2 vtd:text-xs vtd:text-red-600 vtd:dark:text-red-400"
           >
             {{ formatterTimeTokenErrorMessage }}
           </p>
           <p
             v-else-if="panelLevelDateTimeErrorMessage"
-            class="w-full min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] mt-2 text-xs text-red-600 dark:text-red-400"
+            class="vtd:w-full vtd:min-w-0 vtd:break-words vtd:whitespace-normal vtd:[overflow-wrap:anywhere] vtd:mt-2 vtd:text-xs vtd:text-red-600 vtd:dark:text-red-400"
           >
             {{ panelLevelDateTimeErrorMessage }}
           </p>
         </div>
       </div>
       <div v-if="showApplyFooter">
-        <div class="mt-2 mx-2 py-1.5 border-t border-black/[.1] dark:border-vtd-secondary-700/[1]">
-          <div class="mt-1.5 sm:flex sm:flex-row-reverse">
+        <div class="vtd:mt-2 vtd:mx-2 vtd:py-1.5 vtd:border-t vtd:border-black/[.1] vtd:dark:border-vtd-secondary-700/[1]">
+          <div class="vtd:mt-1.5 vtd:sm:flex vtd:sm:flex-row-reverse">
             <button
               type="button"
-              class="away-apply-picker w-full transition ease-out duration-300 inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-vtd-primary-600 text-base font-medium text-white hover:bg-vtd-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vtd-primary-500 sm:ml-3 sm:w-auto sm:text-sm dark:ring-offset-vtd-secondary-800 disabled:cursor-not-allowed"
+              class="away-apply-picker vtd:w-full vtd:transition vtd:ease-out vtd:duration-300 vtd:inline-flex vtd:justify-center vtd:rounded-md vtd:border vtd:border-transparent vtd:shadow-sm vtd:px-4 vtd:py-2 vtd:bg-vtd-primary-600 vtd:text-base vtd:font-medium vtd:text-white vtd:hover:bg-vtd-primary-700 vtd:focus:outline-none vtd:focus:ring-2 vtd:focus:ring-offset-2 vtd:focus:ring-vtd-primary-500 vtd:sm:ml-3 vtd:sm:w-auto vtd:sm:text-sm vtd:dark:ring-offset-vtd-secondary-800 vtd:disabled:cursor-not-allowed"
               :disabled="isApplyButtonDisabled()"
               @click="applyDate()"
               v-text="props.options.footer.apply"
@@ -7030,7 +7030,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
             <button
               v-if="canToggleTimePanel || shouldShowTimePanelSwitchButton"
               type="button"
-              class="mt-3 away-cancel-picker w-full transition ease-out duration-300 inline-flex justify-center rounded-md border border-vtd-secondary-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-vtd-secondary-700 hover:bg-vtd-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vtd-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm dark:ring-offset-vtd-secondary-800"
+              class="vtd:mt-3 away-cancel-picker vtd:w-full vtd:transition vtd:ease-out vtd:duration-300 vtd:inline-flex vtd:justify-center vtd:rounded-md vtd:border vtd:border-vtd-secondary-300 vtd:shadow-sm vtd:px-4 vtd:py-2 vtd:bg-white vtd:text-base vtd:font-medium vtd:text-vtd-secondary-700 vtd:hover:bg-vtd-secondary-50 vtd:focus:outline-none vtd:focus:ring-2 vtd:focus:ring-offset-2 vtd:focus:ring-vtd-primary-500 vtd:sm:mt-0 vtd:sm:ml-3 vtd:sm:w-auto vtd:sm:text-sm vtd:dark:ring-offset-vtd-secondary-800"
               @click="toggleTimePanel()"
             >
               {{ timePanelSwitchLabel }}
@@ -7040,7 +7040,7 @@ provide(getShortcutDisabledStateKey, getShortcutDisabledState)
       </div>
     </div>
   </div>
-  <p aria-live="polite" aria-atomic="true" class="sr-only">
+  <p aria-live="polite" aria-atomic="true" class="vtd:sr-only">
     {{ liveAnnouncement }}
   </p>
 </template>

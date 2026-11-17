@@ -111,7 +111,7 @@ describe.sequential('time panel layout behavior', () => {
     await openTimePage(wrapper)
 
     const headerTitle = () =>
-      wrapper.get('.vtd-time-panel-fill p.text-xs.font-medium').text().trim()
+      wrapper.get('.vtd-time-panel-fill p.vtd\\:text-xs.vtd\\:font-medium').text().trim()
     const startButton = wrapper.findAll('button').find(button => button.text().trim() === 'Start')
     expect(startButton).toBeTruthy()
     if (headerTitle() !== 'Start time') {
@@ -145,7 +145,7 @@ describe.sequential('time panel layout behavior', () => {
     await openTimePage(wrapper)
 
     const headerTitle = () =>
-      wrapper.get('.vtd-time-panel-fill p.text-xs.font-medium').text().trim()
+      wrapper.get('.vtd-time-panel-fill p.vtd\\:text-xs.vtd\\:font-medium').text().trim()
     const startButton = findButtonByText(wrapper, 'Start')
     const endButton = findButtonByText(wrapper, 'End')
     expect(startButton).toBeTruthy()
@@ -180,7 +180,7 @@ describe.sequential('time panel layout behavior', () => {
 
     await openPopover(wrapper)
 
-    const contentRow = wrapper.find('div.relative.flex.flex-wrap.sm\\:flex-nowrap.p-1.w-full')
+    const contentRow = wrapper.find('div.vtd\\:relative.vtd\\:flex.vtd\\:flex-wrap.vtd\\:sm\\:flex-nowrap.vtd\\:p-1.vtd\\:w-full')
     expect(contentRow.exists()).toBe(true)
     expect(contentRow.text()).toContain('Start time')
     expect(contentRow.text()).toContain('Start')
@@ -241,7 +241,7 @@ describe.sequential('time panel layout behavior', () => {
 
     const endButtonAfterRight = findButtonByText(wrapper, 'End')
     expect(endButtonAfterRight).toBeTruthy()
-    expect(endButtonAfterRight!.classes()).toContain('bg-vtd-primary-600')
+    expect(endButtonAfterRight!.classes()).toContain('vtd:bg-vtd-primary-600')
     expect(document.activeElement).toBe(endButtonAfterRight!.element)
 
     dispatchKey(endButtonAfterRight!.element as HTMLElement, { key: 'ArrowLeft' })
@@ -249,7 +249,7 @@ describe.sequential('time panel layout behavior', () => {
 
     const startButtonAfterLeft = findButtonByText(wrapper, 'Start')
     expect(startButtonAfterLeft).toBeTruthy()
-    expect(startButtonAfterLeft!.classes()).toContain('bg-vtd-primary-600')
+    expect(startButtonAfterLeft!.classes()).toContain('vtd:bg-vtd-primary-600')
     expect(document.activeElement).toBe(startButtonAfterLeft!.element)
 
     wrapper.unmount()
@@ -263,7 +263,7 @@ describe.sequential('time panel layout behavior', () => {
 
     await openPopover(wrapper)
 
-    const contentRow = wrapper.find('div.relative.flex.flex-wrap.sm\\:flex-nowrap.p-1.w-full')
+    const contentRow = wrapper.find('div.vtd\\:relative.vtd\\:flex.vtd\\:flex-wrap.vtd\\:sm\\:flex-nowrap.vtd\\:p-1.vtd\\:w-full')
     expect(contentRow.exists()).toBe(true)
     expect(contentRow.text()).not.toContain('Start time')
     expect(contentRow.text()).not.toContain('End time')
@@ -351,7 +351,7 @@ describe.sequential('time panel layout behavior', () => {
     await openPopover(wrapper)
 
     const pickerShell = wrapper.get('.vtd-datepicker')
-    expect(pickerShell.classes()).not.toContain('sm:h-[23.5rem]')
+    expect(pickerShell.classes()).not.toContain('vtd:sm:h-[23.5rem]')
 
     const footerApply = pickerShell.find('.away-apply-picker')
     const footerCancel = pickerShell.find('.away-cancel-picker')
@@ -862,7 +862,7 @@ describe.sequential('time panel layout behavior', () => {
       .element as HTMLElement
     const wheelNodes = wrapper.findAll('.vtd-time-panel-fill .vtd-time-wheel-grid .vtd-time-wheel')
     const lastWheel = wheelNodes.at(-1)!.element as HTMLElement
-    const activeToggleButton = startButton!.classes().includes('bg-vtd-primary-600')
+    const activeToggleButton = startButton!.classes().includes('vtd:bg-vtd-primary-600')
       ? startButton!
       : endButton!
 
@@ -1120,7 +1120,7 @@ describe.sequential('time panel layout behavior', () => {
     await settleUi(320)
 
     const startButton = findButtonByText(wrapper, 'Start')
-    if (startButton && !startButton.classes().includes('bg-vtd-primary-600')) {
+    if (startButton && !startButton.classes().includes('vtd:bg-vtd-primary-600')) {
       await startButton.trigger('click')
       await nextTick()
     }
@@ -1184,7 +1184,7 @@ describe.sequential('time panel layout behavior', () => {
     await openTimePage(wrapper)
 
     const startButton = findButtonByText(wrapper, 'Start')
-    if (startButton && !startButton.classes().includes('bg-vtd-primary-600')) {
+    if (startButton && !startButton.classes().includes('vtd:bg-vtd-primary-600')) {
       await startButton.trigger('click')
       await nextTick()
     }
@@ -1238,7 +1238,7 @@ describe.sequential('time panel layout behavior', () => {
     await openTimePage(wrapper)
 
     const startButton = findButtonByText(wrapper, 'Start')
-    if (startButton && !startButton.classes().includes('bg-vtd-primary-600')) {
+    if (startButton && !startButton.classes().includes('vtd:bg-vtd-primary-600')) {
       await startButton.trigger('click')
       await nextTick()
     }
@@ -1295,7 +1295,7 @@ describe.sequential('time panel layout behavior', () => {
     await openTimePage(wrapper)
 
     const startButton = findButtonByText(wrapper, 'Start')
-    if (startButton && !startButton.classes().includes('bg-vtd-primary-600')) {
+    if (startButton && !startButton.classes().includes('vtd:bg-vtd-primary-600')) {
       await startButton.trigger('click')
       await nextTick()
     }
@@ -1366,7 +1366,7 @@ describe.sequential('time panel layout behavior', () => {
     const day12 = wrapper
       .findAll('button.vtd-datepicker-date')
       .filter(button => !button.attributes('disabled'))
-      .filter(button => !button.classes().includes('text-vtd-secondary-400'))
+      .filter(button => !button.classes().includes('vtd:text-vtd-secondary-400'))
       .find(button => button.text().trim() === '12')
     expect(day12).toBeTruthy()
     await day12!.trigger('click')
@@ -1380,7 +1380,7 @@ describe.sequential('time panel layout behavior', () => {
     const day18 = wrapper
       .findAll('button.vtd-datepicker-date')
       .filter(button => !button.attributes('disabled'))
-      .filter(button => !button.classes().includes('text-vtd-secondary-400'))
+      .filter(button => !button.classes().includes('vtd:text-vtd-secondary-400'))
       .find(button => button.text().trim() === '18')
     expect(day18).toBeTruthy()
     await day18!.trigger('click')
@@ -1467,7 +1467,7 @@ describe.sequential('time panel layout behavior', () => {
       return wrapper
         .findAll('button.vtd-datepicker-date')
         .filter(button => !button.attributes('disabled'))
-        .filter(button => !button.classes().includes('text-vtd-secondary-400'))
+        .filter(button => !button.classes().includes('vtd:text-vtd-secondary-400'))
         .find(button => button.text().trim() === String(day))
     }
 
@@ -1550,7 +1550,7 @@ describe.sequential('time panel layout behavior', () => {
     await nextTick()
     expect(rangeErrorCount()).toBe(1)
 
-    const isEndActive = () => endButton!.classes().includes('bg-vtd-primary-600')
+    const isEndActive = () => endButton!.classes().includes('vtd:bg-vtd-primary-600')
     if (!isEndActive()) {
       await endButton!.trigger('click')
       await nextTick()
@@ -1656,7 +1656,7 @@ describe.sequential('time panel layout behavior', () => {
     })
 
     const headerTitle = () =>
-      wrapper.get('.vtd-time-panel-fill p.text-xs.font-medium').text().trim()
+      wrapper.get('.vtd-time-panel-fill p.vtd\\:text-xs.vtd\\:font-medium').text().trim()
 
     await openPopover(wrapper)
     await openTimePage(wrapper)

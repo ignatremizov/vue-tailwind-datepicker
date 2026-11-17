@@ -7,7 +7,7 @@ const props = withDefaults(
     disabled?: boolean
   }>(),
   {
-    zClass: 'z-20',
+    zClass: 'vtd:z-20',
     disabled: false,
   },
 )
@@ -22,19 +22,19 @@ const emit = defineEmits<{
     type="button"
     :aria-label="props.label"
     :disabled="props.disabled"
-    class="absolute left-1/2 -translate-x-1/2 inline-flex h-10 w-10 items-center justify-center rounded-full border border-vtd-secondary-300/80 bg-white/90 text-vtd-secondary-500 transition-colors focus:outline-hidden focus:ring-2 focus:ring-vtd-primary-400/40 touch-manipulation dark:border-vtd-secondary-600 dark:bg-vtd-secondary-800/90 dark:text-vtd-secondary-300"
+    class="vtd:absolute vtd:left-1/2 vtd:-translate-x-1/2 vtd:inline-flex vtd:h-10 vtd:w-10 vtd:items-center vtd:justify-center vtd:rounded-full vtd:border vtd:border-vtd-secondary-300/80 vtd:bg-white/90 vtd:text-vtd-secondary-500 vtd:transition-colors vtd:focus:outline-hidden vtd:focus:ring-2 vtd:focus:ring-vtd-primary-400/40 vtd:touch-manipulation vtd:dark:border-vtd-secondary-600 vtd:dark:bg-vtd-secondary-800/90 vtd:dark:text-vtd-secondary-300"
     :class="[
       props.disabled
-        ? 'cursor-not-allowed opacity-50'
-        : 'hover:bg-vtd-secondary-100 hover:text-vtd-secondary-700 dark:hover:bg-vtd-secondary-700',
-      props.direction === 'up' ? 'top-0 -translate-y-1/2' : 'bottom-0 translate-y-1/2',
+        ? 'vtd:cursor-not-allowed vtd:opacity-50'
+        : 'vtd:hover:bg-vtd-secondary-100 vtd:hover:text-vtd-secondary-700 vtd:dark:hover:bg-vtd-secondary-700',
+      props.direction === 'up' ? 'vtd:top-0 vtd:-translate-y-1/2' : 'vtd:bottom-0 vtd:translate-y-1/2',
       props.zClass,
     ]"
     @click="emit('click')"
   >
     <svg
-      class="h-3.5 w-3.5"
-      :class="props.direction === 'up' ? 'rotate-180' : ''"
+      class="vtd:h-3.5 vtd:w-3.5"
+      :class="props.direction === 'up' ? 'vtd:rotate-180' : ''"
       viewBox="0 0 20 20"
       fill="currentColor"
       aria-hidden="true"

@@ -805,10 +805,10 @@ onMounted(() => {
 
 <template>
   <div
-    class="vtd-time-wheel-shell relative flex h-full w-full min-w-0 flex-col overflow-visible rounded-md border border-black/[.08] p-1 transition-colors focus-within:border-vtd-primary-300 dark:border-vtd-secondary-700/[1] dark:focus-within:border-vtd-primary-500"
+    class="vtd-time-wheel-shell vtd:relative vtd:flex vtd:h-full vtd:w-full vtd:min-w-0 vtd:flex-col vtd:overflow-visible vtd:rounded-md vtd:border vtd:border-black/[.08] vtd:p-1 vtd:transition-colors vtd:focus-within:border-vtd-primary-300 vtd:dark:border-vtd-secondary-700/[1] vtd:dark:focus-within:border-vtd-primary-500"
   >
     <VtdSelectorWheelStepButton
-      z-class="z-30"
+      z-class="vtd:z-30"
       direction="up"
       :label="`Select previous ${normalizedAriaLabel.toLowerCase()}`"
       :disabled="props.disabled"
@@ -816,7 +816,7 @@ onMounted(() => {
     />
     <div
       ref="containerRef"
-      class="vtd-time-wheel h-full min-h-0 flex-1 overflow-y-auto rounded-md px-0.5 py-1 focus:outline-none focus-visible:outline-none"
+      class="vtd-time-wheel vtd:h-full vtd:min-h-0 vtd:flex-1 vtd:overflow-y-auto vtd:rounded-md vtd:px-0.5 vtd:py-1 vtd:focus:outline-none vtd:focus-visible:outline-none"
       role="listbox"
       :aria-label="normalizedAriaLabel"
       :aria-disabled="props.disabled ? 'true' : 'false'"
@@ -828,18 +828,18 @@ onMounted(() => {
         v-for="item in wheelItems"
         :key="item.key"
         :data-time-index="item.index"
-        class="h-11 flex items-center"
+        class="vtd:h-11 vtd:flex vtd:items-center"
       >
         <button
           type="button"
           role="option"
           :aria-selected="item.absoluteIndex === activeAbsoluteIndex"
-          class="w-full rounded-[8px] border px-2 py-1 text-sm font-medium tabular-nums transition-colors focus:outline-none focus-visible:outline-none"
+          class="vtd:w-full vtd:rounded-[8px] vtd:border vtd:px-2 vtd:py-1 vtd:text-sm vtd:font-medium vtd:tabular-nums vtd:transition-colors vtd:focus:outline-none vtd:focus-visible:outline-none"
           :class="[
             item.absoluteIndex === activeAbsoluteIndex
-              ? 'vtd-time-wheel-option-selected border-vtd-primary-400 bg-vtd-primary-100 dark:border-vtd-primary-500 dark:bg-vtd-primary-500/20'
-              : 'vtd-time-wheel-option-default border-transparent hover:bg-vtd-secondary-100 dark:hover:bg-vtd-secondary-700',
-            props.disabled ? 'opacity-50 cursor-not-allowed' : '',
+              ? 'vtd-time-wheel-option-selected vtd:border-vtd-primary-400 vtd:bg-vtd-primary-100 vtd:dark:border-vtd-primary-500 vtd:dark:bg-vtd-primary-500/20'
+              : 'vtd-time-wheel-option-default vtd:border-transparent vtd:hover:bg-vtd-secondary-100 vtd:dark:hover:bg-vtd-secondary-700',
+            props.disabled ? 'vtd:opacity-50 vtd:cursor-not-allowed' : '',
           ]"
           :disabled="props.disabled"
           @click="onOptionClick(item)"
@@ -849,7 +849,7 @@ onMounted(() => {
       </div>
     </div>
     <VtdSelectorWheelStepButton
-      z-class="z-30"
+      z-class="vtd:z-30"
       direction="down"
       :label="`Select next ${normalizedAriaLabel.toLowerCase()}`"
       :disabled="props.disabled"

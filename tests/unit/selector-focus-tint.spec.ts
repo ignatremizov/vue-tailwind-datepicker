@@ -33,7 +33,7 @@ async function mountSelectorPicker(selectorFocusTint: boolean) {
 }
 
 function getSelectorColumns(wrapper: ReturnType<typeof mount>) {
-  const columns = wrapper.findAll('div.rounded-md.border.p-1.min-w-0')
+  const columns = wrapper.findAll('div.vtd\\:rounded-md.vtd\\:border.vtd\\:p-1.vtd\\:min-w-0')
     .filter((column) => {
       return column.find('[aria-label="Month selector"]').exists()
         || column.find('[aria-label="Year selector"]').exists()
@@ -47,17 +47,17 @@ describe('selectorFocusTint behavior', () => {
     const wrapper = await mountSelectorPicker(true)
 
     let [monthColumn, yearColumn] = getSelectorColumns(wrapper)
-    expect(monthColumn.classes()).toContain('bg-vtd-primary-50/40')
-    expect(monthColumn.classes()).toContain('ring-2')
-    expect(yearColumn.classes()).not.toContain('bg-vtd-primary-50/40')
-    expect(yearColumn.classes()).not.toContain('ring-2')
+    expect(monthColumn.classes()).toContain('vtd:bg-vtd-primary-50/40')
+    expect(monthColumn.classes()).toContain('vtd:ring-2')
+    expect(yearColumn.classes()).not.toContain('vtd:bg-vtd-primary-50/40')
+    expect(yearColumn.classes()).not.toContain('vtd:ring-2')
 
     await wrapper.get('[aria-label="Year selector"]').trigger('focus')
     await nextTick()
     ;[monthColumn, yearColumn] = getSelectorColumns(wrapper)
-    expect(yearColumn.classes()).toContain('bg-vtd-primary-50/40')
-    expect(yearColumn.classes()).toContain('ring-2')
-    expect(monthColumn.classes()).not.toContain('bg-vtd-primary-50/40')
+    expect(yearColumn.classes()).toContain('vtd:bg-vtd-primary-50/40')
+    expect(yearColumn.classes()).toContain('vtd:ring-2')
+    expect(monthColumn.classes()).not.toContain('vtd:bg-vtd-primary-50/40')
 
     wrapper.unmount()
   })
@@ -66,16 +66,16 @@ describe('selectorFocusTint behavior', () => {
     const wrapper = await mountSelectorPicker(false)
 
     let [monthColumn, yearColumn] = getSelectorColumns(wrapper)
-    expect(monthColumn.classes()).toContain('border-vtd-primary-300')
-    expect(monthColumn.classes()).not.toContain('bg-vtd-primary-50/40')
-    expect(monthColumn.classes()).not.toContain('ring-2')
+    expect(monthColumn.classes()).toContain('vtd:border-vtd-primary-300')
+    expect(monthColumn.classes()).not.toContain('vtd:bg-vtd-primary-50/40')
+    expect(monthColumn.classes()).not.toContain('vtd:ring-2')
 
     await wrapper.get('[aria-label="Year selector"]').trigger('focus')
     await nextTick()
     ;[monthColumn, yearColumn] = getSelectorColumns(wrapper)
-    expect(yearColumn.classes()).toContain('border-vtd-primary-300')
-    expect(yearColumn.classes()).not.toContain('bg-vtd-primary-50/40')
-    expect(yearColumn.classes()).not.toContain('ring-2')
+    expect(yearColumn.classes()).toContain('vtd:border-vtd-primary-300')
+    expect(yearColumn.classes()).not.toContain('vtd:bg-vtd-primary-50/40')
+    expect(yearColumn.classes()).not.toContain('vtd:ring-2')
 
     wrapper.unmount()
   })
@@ -91,9 +91,9 @@ describe('selectorFocusTint behavior', () => {
     await nextTick()
 
     const [monthColumn, yearColumn] = getSelectorColumns(wrapper)
-    expect(yearColumn.classes()).toContain('bg-vtd-primary-50/40')
-    expect(yearColumn.classes()).toContain('ring-2')
-    expect(monthColumn.classes()).not.toContain('bg-vtd-primary-50/40')
+    expect(yearColumn.classes()).toContain('vtd:bg-vtd-primary-50/40')
+    expect(yearColumn.classes()).toContain('vtd:ring-2')
+    expect(monthColumn.classes()).not.toContain('vtd:bg-vtd-primary-50/40')
 
     wrapper.unmount()
   })
@@ -128,21 +128,21 @@ describe('selectorFocusTint behavior', () => {
     await nextTick()
 
     let [monthColumn, yearColumn] = getSelectorColumns(wrapper)
-    expect(yearColumn.classes()).toContain('ring-2')
-    expect(monthColumn.classes()).not.toContain('ring-2')
+    expect(yearColumn.classes()).toContain('vtd:ring-2')
+    expect(monthColumn.classes()).not.toContain('vtd:ring-2')
 
     const hourWheel = wrapper.get('.vtd-time-wheel[aria-label="Hour wheel"]')
     await hourWheel.trigger('pointerdown')
     await nextTick()
     ;[monthColumn, yearColumn] = getSelectorColumns(wrapper)
-    expect(monthColumn.classes()).not.toContain('ring-2')
-    expect(yearColumn.classes()).not.toContain('ring-2')
+    expect(monthColumn.classes()).not.toContain('vtd:ring-2')
+    expect(yearColumn.classes()).not.toContain('vtd:ring-2')
 
     await wrapper.get('[aria-label="Month selector"]').trigger('focus')
     await nextTick()
     ;[monthColumn, yearColumn] = getSelectorColumns(wrapper)
-    expect(monthColumn.classes()).toContain('ring-2')
-    expect(yearColumn.classes()).not.toContain('ring-2')
+    expect(monthColumn.classes()).toContain('vtd:ring-2')
+    expect(yearColumn.classes()).not.toContain('vtd:ring-2')
 
     wrapper.unmount()
   })
