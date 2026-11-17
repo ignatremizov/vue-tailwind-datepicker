@@ -142,11 +142,11 @@ function onShortcutKeydown(event: KeyboardEvent) {
 <template>
   <div
     v-if="hasShortcutItems"
-    class="relative w-full border-t border-b-0 sm:border-t-0 sm:border-b lg:border-b-0 lg:border-r border-black/10 order-last sm:order-0 dark:border-vtd-secondary-700 sm:mt-1 lg:mr-1 sm:mb-1 lg:mb-0 sm:mx-1 lg:mx-0 sm:w-auto"
+    class="vtd:relative vtd:w-full vtd:border-t vtd:border-b-0 vtd:sm:border-t-0 vtd:sm:border-b vtd:lg:border-b-0 vtd:lg:border-r vtd:border-black/10 vtd:order-last vtd:sm:order-0 vtd:dark:border-vtd-secondary-700 vtd:sm:mt-1 vtd:lg:mr-1 vtd:sm:mb-1 vtd:lg:mb-0 vtd:sm:mx-1 vtd:lg:mx-0 vtd:sm:w-auto"
   >
     <ol
       v-if="hasCustomShortcutSource"
-      class="grid grid-cols-2 sm:grid-cols-3 gap-1 lg:block w-full lg:w-auto pr-5 sm:pr-6 mt-1.5 sm:mt-0 sm:mb-1.5 lg:mb-0"
+      class="vtd:grid vtd:grid-cols-2 vtd:sm:grid-cols-3 vtd:gap-1 vtd:lg:block vtd:w-full vtd:lg:w-auto vtd:pr-5 vtd:sm:pr-6 vtd:mt-1.5 vtd:sm:mt-0 vtd:sm:mb-1.5 vtd:lg:mb-0"
     >
       <li v-for="item in customShortcutItems" :key="item.id">
         <slot name="shortcut-item" v-bind="item">
@@ -154,7 +154,7 @@ function onShortcutKeydown(event: KeyboardEvent) {
             type="button"
             :disabled="item.isDisabled"
             :aria-label="item.label"
-            class="vtd-shortcuts block text-sm lg:text-xs px-2 py-2 sm:leading-4 whitespace-nowrap font-medium rounded-sm text-vtd-primary-600 hover:text-vtd-primary-700 transition-colors hover:bg-vtd-secondary-100 focus:bg-vtd-secondary-100 focus:text-vtd-primary-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-vtd-primary-600 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-primary-300 dark:text-vtd-primary-400 dark:focus:bg-vtd-secondary-700 dark:focus:text-vtd-primary-300 dark:disabled:hover:bg-transparent dark:disabled:hover:text-vtd-primary-400"
+            class="vtd-shortcuts vtd:block vtd:text-sm vtd:lg:text-xs vtd:px-2 vtd:py-2 vtd:sm:leading-4 vtd:whitespace-nowrap vtd:font-medium vtd:rounded-sm vtd:text-vtd-primary-600 vtd:hover:text-vtd-primary-700 vtd:transition-colors vtd:hover:bg-vtd-secondary-100 vtd:focus:bg-vtd-secondary-100 vtd:focus:text-vtd-primary-600 vtd:disabled:cursor-not-allowed vtd:disabled:opacity-50 vtd:disabled:hover:bg-transparent vtd:disabled:hover:text-vtd-primary-600 vtd:dark:hover:bg-vtd-secondary-700 vtd:dark:hover:text-vtd-primary-300 vtd:dark:text-vtd-primary-400 vtd:dark:focus:bg-vtd-secondary-700 vtd:dark:focus:text-vtd-primary-300 vtd:dark:disabled:hover:bg-transparent vtd:dark:disabled:hover:text-vtd-primary-400"
             @click="item.activate"
             @keydown="onShortcutKeydown"
             @keydown.enter.prevent="item.activate"
@@ -166,7 +166,7 @@ function onShortcutKeydown(event: KeyboardEvent) {
     </ol>
     <ol
       v-else
-      class="grid grid-cols-2 sm:grid-cols-3 gap-1 lg:block w-full lg:w-auto pr-5 sm:pr-6 mt-1.5 sm:mt-0 sm:mb-1.5 lg:mb-0"
+      class="vtd:grid vtd:grid-cols-2 vtd:sm:grid-cols-3 vtd:gap-1 vtd:lg:block vtd:w-full vtd:lg:w-auto vtd:pr-5 vtd:sm:pr-6 vtd:mt-1.5 vtd:sm:mt-0 vtd:sm:mb-1.5 vtd:lg:mb-0"
     >
       <li v-for="item in builtInShortcutItems" :key="item.id">
         <slot name="shortcut-item" v-bind="item">
@@ -174,7 +174,7 @@ function onShortcutKeydown(event: KeyboardEvent) {
             type="button"
             :disabled="item.isDisabled"
             :aria-label="item.label"
-            class="vtd-shortcuts block text-sm lg:text-xs px-2 py-2 sm:leading-4 whitespace-nowrap font-medium rounded-sm text-vtd-primary-600 hover:text-vtd-primary-700 transition-colors hover:bg-vtd-secondary-100 focus:bg-vtd-secondary-100 focus:text-vtd-primary-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-vtd-primary-600 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-primary-300 dark:text-vtd-primary-400 dark:focus:bg-vtd-secondary-700 dark:focus:text-vtd-primary-300 dark:disabled:hover:bg-transparent dark:disabled:hover:text-vtd-primary-400"
+            class="vtd-shortcuts vtd:block vtd:text-sm vtd:lg:text-xs vtd:px-2 vtd:py-2 vtd:sm:leading-4 vtd:whitespace-nowrap vtd:font-medium vtd:rounded-sm vtd:text-vtd-primary-600 vtd:hover:text-vtd-primary-700 vtd:transition-colors vtd:hover:bg-vtd-secondary-100 vtd:focus:bg-vtd-secondary-100 vtd:focus:text-vtd-primary-600 vtd:disabled:cursor-not-allowed vtd:disabled:opacity-50 vtd:disabled:hover:bg-transparent vtd:disabled:hover:text-vtd-primary-600 vtd:dark:hover:bg-vtd-secondary-700 vtd:dark:hover:text-vtd-primary-300 vtd:dark:text-vtd-primary-400 vtd:dark:focus:bg-vtd-secondary-700 vtd:dark:focus:text-vtd-primary-300 vtd:dark:disabled:hover:bg-transparent vtd:dark:disabled:hover:text-vtd-primary-400"
             @click="item.activate"
             @keydown="onShortcutKeydown"
             @keydown.enter.prevent="item.activate"

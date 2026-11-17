@@ -59,9 +59,9 @@ describe('published entry smoke test', () => {
   it('keeps month button defaults before focus utilities in the exported built stylesheet', async () => {
     const builtCssPath = await resolvePublishedStylesheetPath()
     const builtCss = await readFile(builtCssPath, 'utf8')
-    const defaultMonthColorRule = '.vtd-datepicker .vtd-month-selector-btn-default{color:var(--vtd-selector-month-text,var(--color-vtd-secondary-600))}'
-    const focusBackgroundUtilityRule = '.focus\\:bg-vtd-primary-50:focus'
-    const focusTextUtilityRule = '.focus\\:text-vtd-secondary-900:focus'
+    const defaultMonthColorRule = '.vtd-datepicker .vtd-month-selector-btn-default{color:var(--vtd-selector-month-text,var(--vtd-color-vtd-secondary-600))}'
+    const focusBackgroundUtilityRule = ".vtd\\:focus\\:bg-vtd-primary-50:focus"
+    const focusTextUtilityRule = ".vtd\\:focus\\:text-vtd-secondary-900:focus"
 
     const defaultMonthColorRuleIndex = builtCss.indexOf(defaultMonthColorRule)
     const focusBackgroundUtilityRuleIndex = builtCss.indexOf(focusBackgroundUtilityRule)
@@ -74,7 +74,18 @@ describe('published entry smoke test', () => {
     expect(defaultMonthColorRuleIndex).toBeLessThan(focusTextUtilityRuleIndex)
   })
 
-  it('keeps visible keyboard focus for packaged month selector buttons when the published stylesheet is applied', async () => {
+  it('exports only package-owned utilities and implementation properties', async () => {
+    const builtCss = await readFile(await resolvePublishedStylesheetPath(), 'utf8')
+    expect(builtCss).toContain('.vtd\\:flex')
+    expect(builtCss).not.toMatch(/(?<![-\w])\.(?:flex|flex-col|border|rounded)\{/)
+    expect(builtCss).not.toContain('--tw-')
+    expect(builtCss).not.toContain('--color-')
+    expect(builtCss).not.toContain('--spacing:')
+    expect(builtCss).not.toContain('html{')
+    expect(builtCss).not.toContain('[type=text]')
+  })
+
+  it("keeps visible keyboard focus for packaged month selector buttons when the published stylesheet is applied", async () => {
     vi.useFakeTimers()
 
     const { builtCss, styleElement } = await attachPublishedStylesheet()
@@ -113,13 +124,13 @@ describe('published entry smoke test', () => {
         expect(monthButton.attributes('tabindex')).toBe('-1')
         expect(monthButton.classes()).toContain('vtd-month-selector-btn')
         expect(monthButton.classes()).toContain('vtd-month-selector-btn-default')
-        expect(monthButton.classes()).toContain('focus:bg-vtd-primary-50')
-        expect(monthButton.classes()).toContain('focus:text-vtd-secondary-900')
-        expect(monthButton.classes()).toContain('focus:border-vtd-primary-300')
+        expect(monthButton.classes()).toContain("vtd:focus:bg-vtd-primary-50")
+        expect(monthButton.classes()).toContain("vtd:focus:text-vtd-secondary-900")
+        expect(monthButton.classes()).toContain("vtd:focus:border-vtd-primary-300")
 
-        expect(builtCss.includes('.focus\\:bg-vtd-primary-50:focus')).toBe(true)
-        expect(builtCss.includes('.focus\\:text-vtd-secondary-900:focus')).toBe(true)
-        expect(builtCss.includes('.focus\\:border-vtd-primary-300:focus')).toBe(true)
+        expect(builtCss.includes(".vtd\\:focus\\:bg-vtd-primary-50:focus")).toBe(true)
+        expect(builtCss.includes(".vtd\\:focus\\:text-vtd-secondary-900:focus")).toBe(true)
+        expect(builtCss.includes(".vtd\\:focus\\:border-vtd-primary-300:focus")).toBe(true)
         expect(
           builtCss.includes('.vtd-datepicker [role=listbox] button[aria-selected]:focus-visible'),
         ).toBe(true)

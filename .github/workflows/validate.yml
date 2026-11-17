@@ -45,5 +45,9 @@ jobs:
         run: npm run test:unit -- --maxWorkers=2
       - name: Packaged entry and stylesheet tests
         run: npm exec -- vitest run --config vitest.dist.config.ts --maxWorkers=2
+      - name: Install browser for stylesheet isolation tests
+        run: npm exec -- playwright install --with-deps chromium
+      - name: Check packaged styles in a browser
+        run: npm run test:browser
       - name: Build documentation
         run: npm run docs:build

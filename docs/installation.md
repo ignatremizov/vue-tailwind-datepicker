@@ -1,9 +1,8 @@
 # Installation
 
-::: warning
-⚠️ Vue Tailwind Datepicker uses Tailwind CSS (with the @tailwindcss/forms plugin) & Day.js under the hood, **you must install those packages** before.
-See this repository's docs for integration examples and configuration guidance.
-:::
+Vue 3 and Day.js are required. The published stylesheet contains all datepicker
+styles; Tailwind CSS and the forms plugin are build-time tools for maintainers,
+not consumer requirements.
 
 ## Install via npm
 
@@ -54,33 +53,24 @@ const dateValue = ref([])
 
 Import `@ignatremizov/vue-tailwind-datepicker/style.css` once in your app entry or alongside the first component usage so the published stylesheet is applied.
 
-## Add Tailwind CSS configuration
+## Stylesheet isolation
 
-```js
-// tailwind.config.js
-const colors = require('tailwindcss/colors')
+No Tailwind configuration or scanning of the package is needed. You can import
+the datepicker stylesheet before or after your application's CSS: its utility
+classes and variables have a package namespace, and its control defaults apply
+only inside datepicker roots. It does not export a global Preflight or form reset.
 
-module.exports = {
-  content: [
-    './index.html',
-    './src/**/*.{vue,js,ts,jsx,tsx}',
-    './node_modules/@ignatremizov/vue-tailwind-datepicker/**/*.js',
-  ],
-  theme: {
-    extend: {
-      colors: {
-        'vtd-primary': colors.sky, // Light mode Datepicker color
-        'vtd-secondary': colors.gray, // Dark mode Datepicker color
-      },
-    },
-  },
-  plugins: [require('@tailwindcss/forms')],
-}
-```
+Remove package entries from your application's Tailwind content/source list when
+upgrading from a source-scanning integration. Configure colors through CSS custom
+properties instead of rebuilding internal utilities; see [theming options](./theming-options.md).
+
+Custom `inputClasses` and slot content still accept your application's classes.
+Overrides that target internal utility classes need to move to semantic hooks or
+the supported theme tokens.
 
 ## Setup in Nuxt3
 
-1. Install Vue Tailwind Datepicker along with Tailwind CSS and Day.js.
+1. Install Vue Tailwind Datepicker and Day.js.
 
 2. Create a plugin for Vue Tailwind Datepicker in the plugins directory of your Nuxt project. For example, vue-tailwind-datepicker.js:
 

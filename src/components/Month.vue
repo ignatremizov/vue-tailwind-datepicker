@@ -608,12 +608,12 @@ defineExpose({
 </script>
 
 <template>
-  <div v-if="!props.selectorMode" class="mx-auto mt-1.5 flex max-w-[20.5rem] flex-wrap">
-    <div v-for="(month, key) in props.months" :key="key" class="w-1/2 px-0.5">
-      <span class="flex rounded-md mt-1.5">
+  <div v-if="!props.selectorMode" class="vtd:mx-auto vtd:mt-1.5 vtd:flex vtd:max-w-[20.5rem] vtd:flex-wrap">
+    <div v-for="(month, key) in props.months" :key="key" class="vtd:w-1/2 vtd:px-0.5">
+      <span class="vtd:flex vtd:rounded-md vtd:mt-1.5">
         <button
           type="button"
-          class="px-3 py-2 block w-full leading-6 rounded-md bg-white text-xs 2xl:text-sm tracking-wide text-vtd-secondary-600 font-medium transition-colors border border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring-3 focus:ring-vtd-primary-500/10 focus:outline-hidden uppercase dark:bg-vtd-secondary-800 dark:hover:bg-vtd-secondary-700 dark:text-vtd-secondary-300 dark:hover:text-vtd-secondary-100 dark:focus:bg-vtd-secondary-700"
+          class="vtd:px-3 vtd:py-2 vtd:block vtd:w-full vtd:leading-6 vtd:rounded-md vtd:bg-white vtd:text-xs vtd:2xl:text-sm vtd:tracking-wide vtd:text-vtd-secondary-600 vtd:font-medium vtd:transition-colors vtd:border vtd:border-transparent vtd:hover:bg-vtd-secondary-100 vtd:hover:text-vtd-secondary-900 vtd:focus:bg-vtd-primary-50 vtd:focus:text-vtd-secondary-900 vtd:focus:border-vtd-primary-300 vtd:focus:ring-3 vtd:focus:ring-vtd-primary-500/10 vtd:focus:outline-hidden vtd:uppercase vtd:dark:bg-vtd-secondary-800 vtd:dark:hover:bg-vtd-secondary-700 vtd:dark:text-vtd-secondary-300 vtd:dark:hover:text-vtd-secondary-100 vtd:dark:focus:bg-vtd-secondary-700"
           @click="emit('updateMonth', Number(key))"
           v-text="month"
         />
@@ -621,8 +621,8 @@ defineExpose({
     </div>
   </div>
 
-  <div v-else class="h-64 w-full min-w-0">
-    <div class="relative h-full w-full min-w-0 overflow-visible rounded-md">
+  <div v-else class="vtd:h-64 vtd:w-full vtd:min-w-0">
+    <div class="vtd:relative vtd:h-full vtd:w-full vtd:min-w-0 vtd:overflow-visible vtd:rounded-md">
       <VtdSelectorWheelStepButton
         direction="up"
         label="Select previous month"
@@ -630,7 +630,7 @@ defineExpose({
       />
       <div
         ref="selectorContainerRef"
-        class="h-full w-full min-w-0 overflow-y-auto px-0.5 py-1 select-none focus:outline-none focus-visible:outline-none"
+        class="vtd:h-full vtd:w-full vtd:min-w-0 vtd:overflow-y-auto vtd:px-0.5 vtd:py-1 vtd:select-none vtd:focus:outline-none vtd:focus-visible:outline-none"
         role="listbox"
         aria-label="Month selector"
         :aria-activedescendant="activeMonthOptionId"
@@ -644,7 +644,7 @@ defineExpose({
           v-for="item in selectorMonthItems"
           :key="item.key"
           :data-month-index="item.index"
-          class="flex items-center"
+          class="vtd:flex vtd:items-center"
           :style="{ height: 'var(--vtd-selector-wheel-cell-height, 40px)' }"
         >
           <button
@@ -652,11 +652,11 @@ defineExpose({
             type="button"
             role="option"
             :aria-selected="props.selectedMonth === item.month && props.selectedYear === item.year"
-            class="vtd-month-selector-btn px-3 py-2 block w-full rounded-[8px] tracking-wide transition-colors border focus:outline-hidden uppercase"
+            class="vtd-month-selector-btn vtd:px-3 vtd:py-2 vtd:block vtd:w-full vtd:rounded-[8px] vtd:tracking-wide vtd:transition-colors vtd:border vtd:focus:outline-hidden vtd:uppercase"
             :class="[
               props.selectedMonth === item.month && props.selectedYear === item.year
                 ? 'vtd-month-selector-btn-selected'
-                : 'vtd-month-selector-btn-default bg-transparent border-transparent focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 dark:focus:bg-vtd-secondary-700 dark:focus:text-vtd-secondary-100',
+                : 'vtd-month-selector-btn-default vtd:bg-transparent vtd:border-transparent vtd:focus:bg-vtd-primary-50 vtd:focus:text-vtd-secondary-900 vtd:focus:border-vtd-primary-300 vtd:dark:focus:bg-vtd-secondary-700 vtd:dark:focus:text-vtd-secondary-100',
             ]"
             tabindex="-1"
             @click="onMonthClick(item)"

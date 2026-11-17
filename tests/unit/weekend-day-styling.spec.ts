@@ -87,7 +87,7 @@ describe('weekend day styling hooks', () => {
       for (const button of buttons) {
         const date = dayjs(getDateKeyFromButton(button))
         const classes = button.classes()
-        if ((date.day() === 0 || date.day() === 6) && classes.includes('text-vtd-secondary-400'))
+        if ((date.day() === 0 || date.day() === 6) && classes.includes('vtd:text-vtd-secondary-400'))
           offMonthWeekendCount += 1
       }
 

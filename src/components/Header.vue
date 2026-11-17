@@ -49,7 +49,7 @@ const emit = defineEmits<{
 }>()
 
 const SIDE_NAV_BUTTON_CLASS
-  = 'p-1.5 rounded-full bg-white text-vtd-secondary-600 transition-colors border border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring-3 focus:ring-vtd-primary-500/10 focus:outline-hidden dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600/50 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/25'
+  = 'vtd:p-1.5 vtd:rounded-full vtd:bg-white vtd:text-vtd-secondary-600 vtd:transition-colors vtd:border vtd:border-transparent vtd:hover:bg-vtd-secondary-100 vtd:hover:text-vtd-secondary-900 vtd:focus:bg-vtd-primary-50 vtd:focus:text-vtd-secondary-900 vtd:focus:border-vtd-primary-300 vtd:focus:ring-3 vtd:focus:ring-vtd-primary-500/10 vtd:focus:outline-hidden vtd:dark:bg-vtd-secondary-800 vtd:dark:text-vtd-secondary-300 vtd:dark:hover:bg-vtd-secondary-700 vtd:dark:hover:text-vtd-secondary-300 vtd:dark:focus:bg-vtd-secondary-600/50 vtd:dark:focus:text-vtd-secondary-100 vtd:dark:focus:border-vtd-primary-500 vtd:dark:focus:ring-vtd-primary-500/25'
 
 const isSelectorWheelView = computed(() => {
   return props.selectorMode && props.pickerViewMode === 'selector'
@@ -265,11 +265,11 @@ function onSideNextClick() {
 </script>
 
 <template>
-  <div class="flex min-h-[3.25rem] justify-between items-center px-2 py-1.5">
-    <div class="shrink-0">
+  <div class="vtd:flex vtd:min-h-[3.25rem] vtd:justify-between vtd:items-center vtd:px-2 vtd:py-1.5">
+    <div class="vtd:shrink-0">
       <span
         v-show="panel.calendar || panel.year"
-        class="inline-flex rounded-full"
+        class="vtd:inline-flex vtd:rounded-full"
       >
         <button
           type="button"
@@ -277,13 +277,13 @@ function onSideNextClick() {
           :class="[
             SIDE_NAV_BUTTON_CLASS,
             isSelectorWheelView
-              ? 'opacity-65 hover:opacity-90'
+              ? 'vtd:opacity-65 vtd:hover:opacity-90'
               : '',
           ]"
           @click="onSidePreviousClick"
         >
           <svg
-            class="w-5 h-5"
+            class="vtd:w-5 vtd:h-5"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -299,31 +299,31 @@ function onSideNextClick() {
         </button>
       </span>
     </div>
-    <div class="px-1.5 flex flex-1 min-w-0 items-center justify-center gap-1.5">
+    <div class="vtd:px-1.5 vtd:flex vtd:flex-1 vtd:min-w-0 vtd:items-center vtd:justify-center vtd:gap-1.5">
       <template v-if="props.selectorMode">
-        <span class="flex rounded-md w-[10.5rem] shrink-0">
+        <span class="vtd:flex vtd:rounded-md vtd:w-[10.5rem] vtd:shrink-0">
           <button
             :id="`vtd-header-${props.panelName}-month`"
             type="button"
             :aria-expanded="props.pickerViewMode === 'selector'"
             aria-label="Toggle month and year selector"
-            class="group relative px-3 pl-8 pr-8 py-1.5 inline-flex items-center justify-center w-full leading-relaxed rounded-md text-xs 2xl:text-sm tracking-wide text-vtd-secondary-700 font-semibold sm:font-medium transition-colors border border-vtd-primary-300/65 bg-vtd-primary-50/45 hover:bg-vtd-primary-100/70 hover:text-vtd-secondary-900 focus:bg-vtd-primary-100/80 focus:text-vtd-secondary-900 focus:border-vtd-primary-400 focus:ring-3 focus:ring-vtd-primary-500/15 focus:outline-hidden uppercase truncate dark:bg-vtd-secondary-700/45 dark:text-vtd-secondary-100 dark:border-vtd-primary-500/35 dark:hover:bg-vtd-secondary-700/70 dark:focus:bg-vtd-secondary-700/75 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/25"
+            class="group vtd:relative vtd:px-3 vtd:pl-8 vtd:pr-8 vtd:py-1.5 vtd:inline-flex vtd:items-center vtd:justify-center vtd:w-full vtd:leading-relaxed vtd:rounded-md vtd:text-xs vtd:2xl:text-sm vtd:tracking-wide vtd:text-vtd-secondary-700 vtd:font-semibold vtd:sm:font-medium vtd:transition-colors vtd:border vtd:border-vtd-primary-300/65 vtd:bg-vtd-primary-50/45 vtd:hover:bg-vtd-primary-100/70 vtd:hover:text-vtd-secondary-900 vtd:focus:bg-vtd-primary-100/80 vtd:focus:text-vtd-secondary-900 vtd:focus:border-vtd-primary-400 vtd:focus:ring-3 vtd:focus:ring-vtd-primary-500/15 vtd:focus:outline-hidden vtd:uppercase vtd:truncate vtd:dark:bg-vtd-secondary-700/45 vtd:dark:text-vtd-secondary-100 vtd:dark:border-vtd-primary-500/35 vtd:dark:hover:bg-vtd-secondary-700/70 vtd:dark:focus:bg-vtd-secondary-700/75 vtd:dark:focus:border-vtd-primary-500 vtd:dark:focus:ring-vtd-primary-500/25"
             @click="onSelectorHeaderClickWithHeuristic"
             @keydown="onMonthHeaderKeydown"
           >
-            <span class="inline-flex items-center gap-1.5 text-center">
+            <span class="vtd:inline-flex vtd:items-center vtd:gap-1.5 vtd:text-center">
               <span ref="selectorMonthTextRef" @click.stop="onSelectorHeaderClick('month')">
                 {{ calendar.month }}
               </span>
               <span
                 ref="selectorYearTextRef"
-                class="tabular-nums"
+                class="vtd:tabular-nums"
                 @click.stop="onSelectorHeaderClick('year')"
               >{{ calendar.year }}</span>
             </span>
             <svg
-              class="pointer-events-none h-3.5 w-3.5 absolute right-3 top-1/2 -translate-y-1/2 transition-transform duration-150"
-              :class="props.pickerViewMode === 'selector' ? 'rotate-180' : ''"
+              class="vtd:pointer-events-none vtd:h-3.5 vtd:w-3.5 vtd:absolute vtd:right-3 vtd:top-1/2 vtd:-translate-y-1/2 vtd:transition-transform vtd:duration-150"
+              :class="props.pickerViewMode === 'selector' ? 'vtd:rotate-180' : ''"
               viewBox="0 0 20 20"
               fill="currentColor"
               aria-hidden="true"
@@ -338,21 +338,21 @@ function onSideNextClick() {
         </span>
       </template>
       <template v-else>
-        <span class="flex rounded-md w-[4.75rem] shrink-0">
+        <span class="vtd:flex vtd:rounded-md vtd:w-[4.75rem] vtd:shrink-0">
           <button
             :id="`vtd-header-${props.panelName}-month`"
             type="button"
-            class="px-3 py-1.5 block w-full leading-relaxed rounded-md bg-white text-xs 2xl:text-sm tracking-wide text-vtd-secondary-600 font-semibold sm:font-medium transition-colors border border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring-3 focus:ring-vtd-primary-500/10 focus:outline-hidden uppercase truncate dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600/50 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/25"
+            class="vtd:px-3 vtd:py-1.5 vtd:block vtd:w-full vtd:leading-relaxed vtd:rounded-md vtd:bg-white vtd:text-xs vtd:2xl:text-sm vtd:tracking-wide vtd:text-vtd-secondary-600 vtd:font-semibold vtd:sm:font-medium vtd:transition-colors vtd:border vtd:border-transparent vtd:hover:bg-vtd-secondary-100 vtd:hover:text-vtd-secondary-900 vtd:focus:bg-vtd-primary-50 vtd:focus:text-vtd-secondary-900 vtd:focus:border-vtd-primary-300 vtd:focus:ring-3 vtd:focus:ring-vtd-primary-500/10 vtd:focus:outline-hidden vtd:uppercase vtd:truncate vtd:dark:bg-vtd-secondary-800 vtd:dark:text-vtd-secondary-300 vtd:dark:hover:bg-vtd-secondary-700 vtd:dark:hover:text-vtd-secondary-300 vtd:dark:focus:bg-vtd-secondary-600/50 vtd:dark:focus:text-vtd-secondary-100 vtd:dark:focus:border-vtd-primary-500 vtd:dark:focus:ring-vtd-primary-500/25"
             @click="onHeaderValueClick('month')"
             @keydown="onMonthHeaderKeydown"
             v-text="calendar.month"
           />
         </span>
-        <span class="flex rounded-md w-[4.75rem] shrink-0">
+        <span class="vtd:flex vtd:rounded-md vtd:w-[4.75rem] vtd:shrink-0">
           <button
             :id="`vtd-header-${props.panelName}-year`"
             type="button"
-            class="px-3 py-1.5 block w-full leading-relaxed rounded-md bg-white text-xs 2xl:text-sm tracking-wide text-vtd-secondary-600 font-semibold sm:font-medium transition-colors border border-transparent hover:bg-vtd-secondary-100 hover:text-vtd-secondary-900 focus:bg-vtd-primary-50 focus:text-vtd-secondary-900 focus:border-vtd-primary-300 focus:ring-3 focus:ring-vtd-primary-500/10 focus:outline-hidden uppercase truncate dark:bg-vtd-secondary-800 dark:text-vtd-secondary-300 dark:hover:bg-vtd-secondary-700 dark:hover:text-vtd-secondary-300 dark:focus:bg-vtd-secondary-600/50 dark:focus:text-vtd-secondary-100 dark:focus:border-vtd-primary-500 dark:focus:ring-vtd-primary-500/25"
+            class="vtd:px-3 vtd:py-1.5 vtd:block vtd:w-full vtd:leading-relaxed vtd:rounded-md vtd:bg-white vtd:text-xs vtd:2xl:text-sm vtd:tracking-wide vtd:text-vtd-secondary-600 vtd:font-semibold vtd:sm:font-medium vtd:transition-colors vtd:border vtd:border-transparent vtd:hover:bg-vtd-secondary-100 vtd:hover:text-vtd-secondary-900 vtd:focus:bg-vtd-primary-50 vtd:focus:text-vtd-secondary-900 vtd:focus:border-vtd-primary-300 vtd:focus:ring-3 vtd:focus:ring-vtd-primary-500/10 vtd:focus:outline-hidden vtd:uppercase vtd:truncate vtd:dark:bg-vtd-secondary-800 vtd:dark:text-vtd-secondary-300 vtd:dark:hover:bg-vtd-secondary-700 vtd:dark:hover:text-vtd-secondary-300 vtd:dark:focus:bg-vtd-secondary-600/50 vtd:dark:focus:text-vtd-secondary-100 vtd:dark:focus:border-vtd-primary-500 vtd:dark:focus:ring-vtd-primary-500/25"
             @click="onHeaderValueClick('year')"
             @keydown="onYearHeaderKeydown"
             v-text="calendar.year"
@@ -360,16 +360,16 @@ function onSideNextClick() {
         </span>
       </template>
     </div>
-    <div class="shrink-0">
-      <span v-show="panel.calendar || panel.year" class="inline-flex rounded-full">
+    <div class="vtd:shrink-0">
+      <span v-show="panel.calendar || panel.year" class="vtd:inline-flex vtd:rounded-full">
         <button
           type="button"
           :aria-label="sideButtonAriaLabel('next')"
-          :class="[SIDE_NAV_BUTTON_CLASS, isSelectorWheelView ? 'opacity-65 hover:opacity-90' : '']"
+          :class="[SIDE_NAV_BUTTON_CLASS, isSelectorWheelView ? 'vtd:opacity-65 vtd:hover:opacity-90' : '']"
           @click="onSideNextClick"
         >
           <svg
-            class="w-5 h-5"
+            class="vtd:w-5 vtd:h-5"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"

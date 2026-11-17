@@ -68,8 +68,8 @@ describe('header calendar quick navigation in selector mode', () => {
 
     expect((previousButton.element.closest('span') as HTMLElement | null)?.style.display).not.toBe('none')
     expect((nextButton.element.closest('span') as HTMLElement | null)?.style.display).not.toBe('none')
-    expect(previousButton.classes()).toContain('opacity-65')
-    expect(nextButton.classes()).toContain('opacity-65')
+    expect(previousButton.classes()).toContain('vtd:opacity-65')
+    expect(nextButton.classes()).toContain('vtd:opacity-65')
 
     await previousButton.trigger('click')
     await nextButton.trigger('click')

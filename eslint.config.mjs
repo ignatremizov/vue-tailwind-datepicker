@@ -72,4 +72,10 @@ export default antfu(
       'no-unused-expressions': 'off',
     },
   },
+  {
+    files: ['tests/browser/**/*.test.mjs'],
+    rules: {
+      'test/no-import-node-test': 'off',
+    },
+  },
 )

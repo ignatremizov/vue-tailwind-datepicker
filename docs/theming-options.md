@@ -1,43 +1,39 @@
 # Theming options
 
-Theme of Vue Tailwind Datepicker is customizable, so you can customize your theme with any color you want, via Tailwind CSS configuration. And all will work well.
+Customize the published stylesheet with CSS variables. Consumers do not need to
+configure Tailwind or install the forms plugin. The package's internal utilities
+and variables are independent of the application's Tailwind build.
 
-Just modify your `main.css` to includes the plugin directive for `@tailwindcss/forms` and your `tailwind.config.js` file
+Existing component tokens such as `--vtd-calendar-day-selected-bg` and
+`--vtd-selector-month-selected-text` keep their names. Apply component tokens to
+`.vtd-datepicker` to theme both inline and popover calendars.
+
+The built palette also exposes `--vtd-color-vtd-primary-50` through
+`--vtd-color-vtd-primary-950` and the corresponding `secondary` shades used by the
+component. Override shades on `.vtd-root` (including its input) or `:root`
+(application-wide). For example:
 
 ```css
-@plugin "@tailwindcss/forms";
+.vtd-root {
+  --vtd-color-vtd-primary-500: #009d64;
+  --vtd-color-vtd-primary-600: #007d50;
+  --vtd-color-vtd-primary-700: #005f3d;
+}
 
-/* Your tailwindconfig file */
-@config "../../tailwind.config.js";
-```
-
-```js
-const colors = require('tailwindcss/colors')
-
-module.exports = {
-  content: [
-    './index.html',
-    './src/**/*.{vue,js,ts,jsx,tsx}',
-    './node_modules/@ignatremizov/vue-tailwind-datepicker/**/*.js',
-  ],
-  theme: {
-    extend: {
-      colors: {
-        'vtd-primary': colors.sky,
-        'vtd-secondary': colors.gray,
-      },
-    },
-  },
+.vtd-datepicker {
+  --vtd-calendar-day-selected-bg: #009d64;
+  --vtd-selector-month-selected-text: #005f3d;
 }
 ```
 
 ## Light mode
 
-Light mode color system using custom color `vtd-primary`.
+Light mode uses the package's primary palette and component tokens.
 
 ## Dark mode
 
-Dark mode color system using color palette `vtd-secondary`. Vue Tailwind Datepicker work it well with Tailwind CSS `dark` mode configuration.
+Add `.dark` to an ancestor to enable dark mode. Dark surfaces use the package's
+secondary palette and the dark component tokens below.
 
 ## Selector Wheel Tokens
 

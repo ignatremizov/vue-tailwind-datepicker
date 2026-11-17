@@ -210,10 +210,10 @@ function getRangePreviewClass(date: DatePickerDay) {
   const isActiveRangePreview = isBetweenRange(date) || resolveDateFlag(date, 'hovered')
   const hasEdgeClass = classes.includes('vtd-datepicker-range-preview-edge')
   if (classes.length > 0 && !hasEdgeClass)
-    return 'inset-0 opacity-100'
+    return 'vtd:inset-0 vtd:opacity-100'
   if (isActiveRangePreview && !hasEdgeClass)
-    return 'inset-0 opacity-100'
-  return 'opacity-0 pointer-events-none'
+    return 'vtd:inset-0 vtd:opacity-100'
+  return 'vtd:opacity-0 vtd:pointer-events-none'
 }
 
 function getRangePreviewEdgeClass(date: DatePickerDay) {
@@ -356,52 +356,52 @@ defineExpose<VtdCalendarRef>({
 </script>
 
 <template>
-  <div ref="calendarRootRef" class="grid grid-cols-7 gap-y-0.5 my-1">
+  <div ref="calendarRootRef" class="vtd:grid vtd:grid-cols-7 vtd:gap-y-0.5 vtd:my-1">
     <transition-group
-      enter-from-class="opacity-0"
-      enter-to-class="opacity-100"
-      enter-active-class="transition-opacity ease-out duration-300"
-      leave-active-class="transition-opacity ease-in duration-200"
-      leave-from-class="opacity-100"
-      leave-to-class="opacity-0"
+      enter-from-class="vtd:opacity-0"
+      enter-to-class="vtd:opacity-100"
+      enter-active-class="vtd:transition-opacity vtd:ease-out vtd:duration-300"
+      leave-active-class="vtd:transition-opacity vtd:ease-in vtd:duration-200"
+      leave-from-class="vtd:opacity-100"
+      leave-to-class="vtd:opacity-0"
     >
       <template v-for="(date, keyDate) in calendarDates" :key="keyDate">
         <div
           v-if="keyDate % 7 === 0 && weekNumber"
-          class="col-span-7 border-b relative dark:border-vtd-secondary-600"
+          class="vtd:col-span-7 vtd:border-b vtd:relative vtd:dark:border-vtd-secondary-600"
         >
           <span
-            class="absolute -left-2 top-1/2 -translate-y-2/4 bg-white dark:bg-vtd-secondary-800 text-[8px] pr-2 text-vtd-secondary-400"
+            class="vtd:absolute vtd:-left-2 vtd:top-1/2 vtd:-translate-y-2/4 vtd:bg-white vtd:dark:bg-vtd-secondary-800 vtd:text-[8px] vtd:pr-2 vtd:text-vtd-secondary-400"
           >{{ date.week() }}</span>
         </div>
         <div
-          class="relative"
+          class="vtd:relative"
           :class="{ 'vtd-tooltip': asRange && hasDateDuration(date) }"
           :data-tooltip="getDateDurationLabel(date)"
         >
-          <span class="vtd-datepicker-range-preview absolute" :class="getRangePreviewClass(date)" />
+          <span class="vtd-datepicker-range-preview vtd:absolute" :class="getRangePreviewClass(date)" />
           <transition
-            enter-from-class="opacity-0"
-            enter-to-class="opacity-100"
-            enter-active-class="transition-opacity ease-out duration-[140ms]"
-            leave-from-class="opacity-100"
-            leave-to-class="opacity-0"
-            leave-active-class="transition-opacity ease-out duration-[140ms]"
+            enter-from-class="vtd:opacity-0"
+            enter-to-class="vtd:opacity-100"
+            enter-active-class="vtd:transition-opacity vtd:ease-out vtd:duration-[140ms]"
+            leave-from-class="vtd:opacity-100"
+            leave-to-class="vtd:opacity-0"
+            leave-active-class="vtd:transition-opacity vtd:ease-out vtd:duration-[140ms]"
           >
             <span
               v-if="getRangePreviewEdgeClass(date)"
-              class="vtd-datepicker-range-preview absolute"
+              class="vtd-datepicker-range-preview vtd:absolute"
               :class="getRangePreviewEdgeClass(date)"
             />
           </transition>
           <button
             type="button"
-            class="vtd-datepicker-date relative w-[2.7rem] h-[2.7rem] lg:w-10 lg:h-10 flex justify-center items-center text-xs 2xl:text-sm focus:outline-none focus-visible:outline-none"
+            class="vtd-datepicker-date vtd:relative vtd:w-[2.7rem] vtd:h-[2.7rem] vtd:lg:w-10 vtd:lg:h-10 vtd:flex vtd:justify-center vtd:items-center vtd:text-xs vtd:2xl:text-sm vtd:focus:outline-none vtd:focus-visible:outline-none"
             :class="[
               datepickerClasses(date),
               weekendHookClasses(date),
               highlightHookClasses(date),
-              asRange ? 'transition-[color] duration-120 ease-out' : 'transition-colors',
+              asRange ? 'vtd:transition-[color] vtd:duration-120 vtd:ease-out' : 'vtd:transition-colors',
               isCalendarFocusTarget(date) ? 'vtd-calendar-focus-target' : '',
             ]"
             :disabled="isDateDisabled(date) || isDateInRange(date)"
