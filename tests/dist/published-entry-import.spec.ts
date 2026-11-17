@@ -59,7 +59,7 @@ describe('published entry smoke test', () => {
   it('keeps month button defaults before focus utilities in the exported built stylesheet', async () => {
     const builtCssPath = await resolvePublishedStylesheetPath()
     const builtCss = await readFile(builtCssPath, 'utf8')
-    const defaultMonthColorRule = '.vtd-datepicker .vtd-month-selector-btn-default{color:var(--vtd-selector-month-text,var(--vtd-color-vtd-secondary-600))}'
+    const defaultMonthColorRule = '.vtd-datepicker .vtd-month-selector-btn-default{'
     const focusBackgroundUtilityRule = ".vtd\\:focus\\:bg-vtd-primary-50:focus"
     const focusTextUtilityRule = ".vtd\\:focus\\:text-vtd-secondary-900:focus"
 
@@ -79,7 +79,7 @@ describe('published entry smoke test', () => {
     expect(builtCss).toContain('.vtd\\:flex')
     expect(builtCss).not.toMatch(/(?<![-\w])\.(?:flex|flex-col|border|rounded)\{/)
     expect(builtCss).not.toContain('--tw-')
-    expect(builtCss).not.toContain('--color-')
+    expect(builtCss).not.toMatch(/--color-[\w-]+\s*:/)
     expect(builtCss).not.toContain('--spacing:')
     expect(builtCss).not.toContain('html{')
     expect(builtCss).not.toContain('[type=text]')

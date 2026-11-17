@@ -61,8 +61,9 @@ classes and variables have a package namespace, and its control defaults apply
 only inside datepicker roots. It does not export a global Preflight or form reset.
 
 Remove package entries from your application's Tailwind content/source list when
-upgrading from a source-scanning integration. Configure colors through CSS custom
-properties instead of rebuilding internal utilities; see [theming options](./theming-options.md).
+upgrading from a source-scanning integration. Keep your `vtd-primary` and
+`vtd-secondary` palettes and register the optional theme bridge to expose them
+without rebuilding internal utilities; see [theming options](./theming-options.md).
 
 Custom `inputClasses` and slot content still accept your application's classes.
 Overrides that target internal utility classes need to move to semantic hooks or

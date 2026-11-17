@@ -21,8 +21,14 @@ before(async () => {
   const host = await postcss([tailwind()]).process(`
     @import "tailwindcss" source(none);
     @plugin "@tailwindcss/forms";
+    @plugin "./tailwind-theme.cjs";
+    @theme {
+      --color-vtd-primary-500: #a020c0;
+      --color-vtd-secondary-600: #604020;
+      --color-vtd-secondary-800: #201030;
+    }
     @source inline("flex flex-col sm:flex-row gap-4 p-4 rounded border");
-    :root { --spacing: 0.5rem; --color-vtd-primary-500: magenta; }
+    :root { --spacing: 0.5rem; }
   `, { from: path.join(root, 'host-fixture.css') })
   hostCss = host.css
   server = createServer(async (request, response) => {
@@ -124,6 +130,16 @@ for (const width of [390, 1440]) {
         assert.ok(calendar.every(cell => cell.width > 20 && cell.height > 20))
         assert.ok(calendar.every(cell => Math.abs(cell.y - calendar[0].y) < 1))
         assert.equal(new Set(calendar.map(cell => Math.round(cell.x))).size, 7)
+        if (order !== 'standalone') {
+          const unselected = page.locator('#single [data-date-key="2026-10-17"]')
+          assert.equal(await unselected.evaluate(node => getComputedStyle(node).color), 'rgb(96, 64, 32)')
+          assert.equal(await page.locator('#single .vtd-datepicker-date-selected').evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(160, 32, 192)')
+          await page.addStyleTag({ content: '#single { --color-vtd-primary-500: rgb(0, 100, 80); --color-vtd-secondary-600: rgb(80, 40, 100); }' })
+          await page.waitForFunction(() =>
+            getComputedStyle(document.querySelector('#single [data-date-key="2026-10-17"]')).color === 'rgb(80, 40, 100)'
+            && getComputedStyle(document.querySelector('#single .vtd-datepicker-date-selected')).backgroundColor === 'rgb(0, 100, 80)',
+          )
+        }
         await day.click()
         assert.equal(await page.locator('#single').getAttribute('data-selected'), '2026-10-17')
         assert.ok(await page.locator('#time [aria-label="Hour wheel"]').isVisible())
@@ -147,6 +163,8 @@ for (const width of [390, 1440]) {
           const background = await page.locator('#single .vtd-datepicker').evaluate(node => getComputedStyle(node).backgroundColor)
           assert.notEqual(background, 'rgba(0, 0, 0, 0)')
           if (order !== 'standalone') {
+            if (dark)
+              assert.equal(background, 'rgb(32, 16, 48)')
             const key = `${width}-${dark}`
             const snapshot = await page.locator('#pickers').evaluate(element =>
               ['#single .vtd-datepicker', '#single .vtd-datepicker-date-selected', '#popover input', '#time [aria-label="Hour wheel"]'].map((selector) => {
