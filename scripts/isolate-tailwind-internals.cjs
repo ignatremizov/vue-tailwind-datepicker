@@ -1,4 +1,6 @@
 // Copyright © 2026 Ignat Remizov
+const paletteReference = /var\(--vtd-color-vtd-(primary|secondary)-(\d+)\)/g
+
 module.exports = () => ({
   postcssPlugin: 'vtd-isolate-tailwind-internals',
   OnceExit(root, { result }) {
@@ -9,6 +11,11 @@ module.exports = () => ({
     root.walkDecls((declaration) => {
       declaration.prop = declaration.prop.replaceAll('--tw-', '--vtd-tw-')
       declaration.value = declaration.value.replaceAll('--tw-', '--vtd-tw-')
+      // Consume inherited application palettes without exporting host utilities.
+      declaration.value = declaration.value.replace(
+        paletteReference,
+        (match, palette, shade) => `var(--color-vtd-${palette}-${shade}, ${match})`,
+      )
     })
     root.walkAtRules('property', (rule) => {
       rule.params = rule.params.replaceAll('--tw-', '--vtd-tw-')

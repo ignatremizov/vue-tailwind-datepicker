@@ -1,8 +1,34 @@
 # Theming options
 
 Customize the published stylesheet with CSS variables. Consumers do not need to
-configure Tailwind or install the forms plugin. The package's internal utilities
-and variables are independent of the application's Tailwind build.
+configure Tailwind or install the forms plugin. Internal utilities stay isolated,
+while colors can come from the application's Tailwind theme.
+
+To use existing `vtd-primary` and `vtd-secondary` palettes with Tailwind 3 or 4,
+register the theme bridge in the application's Tailwind configuration:
+
+```js
+import datepickerTheme from '@ignatremizov/vue-tailwind-datepicker/tailwind-theme'
+import colors from 'tailwindcss/colors'
+
+export default {
+  theme: {
+    extend: {
+      colors: {
+        'vtd-primary': colors.green,
+        'vtd-secondary': colors.gray,
+      },
+    },
+  },
+  plugins: [datepickerTheme],
+}
+```
+
+The bridge exports only the configured palettes as inherited
+`--color-vtd-primary-*` and `--color-vtd-secondary-*` variables. It does not
+generate datepicker utilities or reset controls. Tailwind 4 applications already
+exporting these variables can omit the bridge. Overrides on a parent element
+also flow into the datepicker; no package source scanning is needed.
 
 Existing component tokens such as `--vtd-calendar-day-selected-bg` and
 `--vtd-selector-month-selected-text` keep their names. Apply component tokens to
@@ -10,14 +36,15 @@ Existing component tokens such as `--vtd-calendar-day-selected-bg` and
 
 The built palette also exposes `--vtd-color-vtd-primary-50` through
 `--vtd-color-vtd-primary-950` and the corresponding `secondary` shades used by the
-component. Override shades on `.vtd-root` (including its input) or `:root`
-(application-wide). For example:
+component as fallbacks when no application palette is present. Override those
+shades for standalone use, or use `--color-vtd-primary-*` and
+`--color-vtd-secondary-*` to override an inherited application palette. For example:
 
 ```css
 .vtd-root {
-  --vtd-color-vtd-primary-500: #009d64;
-  --vtd-color-vtd-primary-600: #007d50;
-  --vtd-color-vtd-primary-700: #005f3d;
+  --color-vtd-primary-500: #009d64;
+  --color-vtd-primary-600: #007d50;
+  --color-vtd-primary-700: #005f3d;
 }
 
 .vtd-datepicker {
@@ -28,12 +55,14 @@ component. Override shades on `.vtd-root` (including its input) or `:root`
 
 ## Light mode
 
-Light mode uses the package's primary palette and component tokens.
+Light mode uses the application's primary palette when present, with package
+defaults and component tokens as fallbacks.
 
 ## Dark mode
 
 Add `.dark` to an ancestor to enable dark mode. Dark surfaces use the package's
-secondary palette and the dark component tokens below.
+secondary palette when no application palette is present, and the dark component
+tokens below.
 
 ## Selector Wheel Tokens
 

@@ -56,13 +56,15 @@
       "import": "./dist/vue-tailwind-datepicker.js",
       "require": "./dist/vue-tailwind-datepicker.umd.cjs"
     },
-    "./style.css": "./dist/vue-tailwind-datepicker.css"
+    "./style.css": "./dist/vue-tailwind-datepicker.css",
+    "./tailwind-theme": "./tailwind-theme.cjs"
   },
   "main": "./dist/vue-tailwind-datepicker.umd.cjs",
   "module": "./dist/vue-tailwind-datepicker.js",
   "types": "./dist/entry.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "tailwind-theme.cjs"
   ],
   "publishConfig": {
     "access": "public",
